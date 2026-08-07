@@ -29,30 +29,7 @@ export default function Step1Account() {
   const { data, updateData } = useWizard();
 
   return (
-    <div style={{ maxWidth: "440px", margin: "0 auto" }}>
-      {/* Title */}
-      <div style={{ marginBottom: "28px" }}>
-        <h1 style={{
-          fontSize: "24px",
-          fontWeight: 600,
-          color: "#f5eaff",
-          fontFamily: "Inter, system-ui, sans-serif",
-          letterSpacing: "-0.01em",
-          marginBottom: "6px",
-        }}>
-          {data.existingAccount ? "Iniciá sesión" : "Creá tu cuenta de equipo"}
-        </h1>
-        <p style={{
-          fontSize: "13px",
-          color: "rgba(255, 180, 220, 0.6)",
-          lineHeight: 1.5,
-        }}>
-          {data.existingAccount
-            ? "Ingresá con tu email y contraseña."
-            : "Esta cuenta representa a tu equipo. Podrás cargar hasta 3 jugadores en el siguiente paso."}
-        </p>
-      </div>
-
+    <div style={{ maxWidth: "440px" }}>
       {/* Toggle Crear / Ya tengo */}
       <div style={{
         display: "flex",
