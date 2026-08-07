@@ -7,7 +7,7 @@
   --input-bg:#130f1b; --input-border:#2a2334; --danger:#fb7185;
   --ease:cubic-bezier(.22,1,.36,1);
   min-height:100vh; background:var(--bg); font-family:Inter,system-ui,sans-serif; color:var(--text);
-  display:flex; align-items:center; justify-content:center; padding:28px; overflow:auto;
+  overflow:hidden;
   background-image:
     radial-gradient(900px 520px at 12% 8%, rgba(88,28,175,.16), transparent 60%),
     radial-gradient(800px 500px at 88% 85%, rgba(124,58,237,.10), transparent 60%),
