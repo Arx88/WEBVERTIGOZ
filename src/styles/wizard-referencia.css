@@ -8,6 +8,13 @@ body:has(.wizard-page) {
     radial-gradient(800px 500px at 88% 85%, rgba(124,58,237,.10), transparent 60%),
     radial-gradient(1400px 900px at 50% 50%, rgba(20,8,40,.5), transparent 75%) !important;
   animation: bgPulse 9s ease-in-out infinite alternate !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 100vh !important;
+  margin: 0 !important;
+  padding: 28px !important;
+  overflow: auto !important;
 }
 
 .wizard-page{
