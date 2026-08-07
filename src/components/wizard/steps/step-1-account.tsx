@@ -29,34 +29,27 @@ export default function Step1Account() {
   const { data, updateData } = useWizard();
 
   return (
-    <div style={{ maxWidth: "380px", margin: "0 auto" }}>
-      {/* Eyebrow + title */}
-      <div style={{ textAlign: "center", marginBottom: "32px" }}>
-        <div style={{
-          fontSize: "10px",
-          color: "rgba(255, 46, 158, 0.7)",
-          letterSpacing: "0.4em",
-          marginBottom: "8px",
-          textTransform: "uppercase",
-        }}>
-          PASO 01
-        </div>
+    <div style={{ maxWidth: "440px", margin: "0 auto" }}>
+      {/* Title */}
+      <div style={{ marginBottom: "28px" }}>
         <h1 style={{
-          fontSize: "28px",
+          fontSize: "24px",
           fontWeight: 600,
           color: "#f5eaff",
           fontFamily: "Inter, system-ui, sans-serif",
           letterSpacing: "-0.01em",
+          marginBottom: "6px",
         }}>
-          Tu cuenta de equipo
+          {data.existingAccount ? "Iniciá sesión" : "Creá tu cuenta de equipo"}
         </h1>
         <p style={{
           fontSize: "13px",
           color: "rgba(255, 180, 220, 0.6)",
-          marginTop: "8px",
           lineHeight: 1.5,
         }}>
-          Esta cuenta será el acceso principal para gestionar tu equipo en el torneo.
+          {data.existingAccount
+            ? "Ingresá con tu email y contraseña."
+            : "Esta cuenta representa a tu equipo. Podrás cargar hasta 3 jugadores en el siguiente paso."}
         </p>
       </div>
 

@@ -7,10 +7,20 @@ import { toast } from "sonner";
 import { signUpOrLogin, submitWizard } from "@/server/actions/wizard";
 
 // ============================================================
-// Wizard Shell — Layout centrado
-// El wizard es una CARD CENTRADA dentro de la página (max-w-2xl),
-// NO ocupa toda la pantalla. Como un modal elegante.
+// Wizard Shell — Layout 2 columnas dentro del card centrado
 // ============================================================
+
+const STEP_INFO = [
+  { num: 1, title: "Tu cuenta", desc: "Empezá creando la cuenta de tu equipo" },
+  { num: 2, title: "Datos del equipo", desc: "Nombre, frase y escudo" },
+  { num: 3, title: "Jugadores", desc: "Cargá los 3 jugadores de tu equipo" },
+  { num: 4, title: "Capitán", desc: "Elegí quién será el capitán" },
+  { num: 5, title: "9 civs base", desc: "Las civilizaciones para el torneo" },
+  { num: 6, title: "3 civs extra", desc: "Civs adicionales para la final" },
+  { num: 7, title: "Handbook", desc: "Descargá el reglamento oficial" },
+  { num: 8, title: "Términos", desc: "Aceptá los términos del torneo" },
+  { num: 9, title: "Confirmación", desc: "Revisá y enviá la inscripción" },
+];
 
 function WizardShell({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -19,6 +29,7 @@ function WizardShell({ children }: { children: ReactNode }) {
   const [authDone, setAuthDone] = useState(false);
 
   const progress = (step / totalSteps) * 100;
+  const currentInfo = STEP_INFO[step - 1];
 
   const canProceed = (): boolean => {
     switch (step) {
@@ -65,159 +76,262 @@ function WizardShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-8">
-      {/* Card central — max-w-2xl */}
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "24px",
+        background: "#0a0011",
+        backgroundImage: "radial-gradient(ellipse at 30% 20%, rgba(255, 46, 158, 0.08), transparent 50%), radial-gradient(ellipse at 70% 80%, rgba(122, 90, 144, 0.05), transparent 50%)",
+      }}
+    >
+      {/* Card centrado — 2 columnas */}
       <div
-        className="w-full max-w-2xl"
         style={{
-          background: "#0a0011",
-          border: "1px solid rgba(255, 46, 158, 0.18)",
+          width: "100%",
+          maxWidth: "920px",
+          display: "grid",
+          gridTemplateColumns: "300px 1fr",
+          background: "#0f0019",
+          border: "1px solid rgba(255, 46, 158, 0.1)",
           borderRadius: "8px",
-          boxShadow: "0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(255, 46, 158, 0.04)",
+          boxShadow: "0 12px 48px rgba(0,0,0,0.6)",
+          overflow: "hidden",
+          minHeight: "560px",
+          maxHeight: "calc(100vh - 48px)",
         }}
       >
-        {/* HEADER */}
-        <header style={{ borderBottom: "1px solid rgba(255, 46, 158, 0.1)" }}>
-          <div className="px-8 pt-7 pb-4">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div
-                  className="font-serif font-bold"
-                  style={{
-                    color: "#ff2e9e",
-                    fontSize: "20px",
-                    letterSpacing: "0.04em",
-                  }}
-                >
-                  VÉRTIGO
-                </div>
-                <span style={{ color: "rgba(255,180,220,0.4)", fontSize: "11px", letterSpacing: "0.3em" }}>
-                  INSCRIPCIÓN
-                </span>
-              </div>
-              <button
-                onClick={() => router.push("/")}
-                style={{
-                  color: "rgba(255,180,220,0.4)",
-                  fontSize: "13px",
-                }}
-                className="hover:text-white transition-colors"
-              >
-                Cancelar
-              </button>
+        {/* LEFT PANEL — brand + info del paso */}
+        <aside
+          style={{
+            background: "linear-gradient(180deg, #14001f 0%, #0a0011 100%)",
+            borderRight: "1px solid rgba(255, 46, 158, 0.08)",
+            padding: "32px 24px",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+          }}
+        >
+          {/* Logo */}
+          <div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
+              <span style={{
+                fontFamily: "Cinzel, serif",
+                fontSize: "26px",
+                fontWeight: 700,
+                color: "#ff2e9e",
+                letterSpacing: "0.04em",
+                textShadow: "0 0 12px rgba(255, 46, 158, 0.4)",
+              }}>
+                VÉRTIGO
+              </span>
             </div>
-            {/* Progress bar */}
-            <div
-              style={{
-                height: "2px",
-                background: "rgba(255, 46, 158, 0.1)",
-                borderRadius: "1px",
-                overflow: "hidden",
-              }}
-            >
-              <div
-                style={{
-                  height: "100%",
-                  width: `${progress}%`,
-                  background: "linear-gradient(90deg, #ff2e9e, #ff6bb5)",
-                  transition: "width 300ms cubic-bezier(0.22, 1, 0.36, 1)",
-                  boxShadow: "0 0 8px rgba(255, 46, 158, 0.6)",
-                }}
-              />
+            <div style={{
+              fontSize: "10px",
+              color: "rgba(255, 180, 220, 0.4)",
+              letterSpacing: "0.3em",
+              textTransform: "uppercase",
+              marginTop: "4px",
+            }}>
+              Inscripción de equipo
             </div>
           </div>
-        </header>
 
-        {/* CONTENT */}
-        <div
-          className="px-8 py-8"
-          style={{ minHeight: "420px", maxHeight: "calc(100vh - 240px)", overflowY: "auto" }}
+          {/* Current step info */}
+          <div>
+            <div style={{
+              fontSize: "11px",
+              color: "rgba(255, 46, 158, 0.7)",
+              letterSpacing: "0.3em",
+              textTransform: "uppercase",
+              marginBottom: "8px",
+            }}>
+              Paso {String(step).padStart(2, "0")} de {String(totalSteps).padStart(2, "0")}
+            </div>
+            <h2 style={{
+              fontSize: "22px",
+              fontWeight: 600,
+              color: "#f5eaff",
+              fontFamily: "Inter, system-ui, sans-serif",
+              letterSpacing: "-0.01em",
+              marginBottom: "8px",
+              lineHeight: 1.2,
+            }}>
+              {currentInfo.title}
+            </h2>
+            <p style={{
+              fontSize: "13px",
+              color: "rgba(255, 180, 220, 0.6)",
+              lineHeight: 1.5,
+            }}>
+              {currentInfo.desc}
+            </p>
+          </div>
+
+          {/* Stepper */}
+          <div>
+            <div style={{
+              height: "2px",
+              background: "rgba(255, 46, 158, 0.08)",
+              borderRadius: "1px",
+              overflow: "hidden",
+              marginBottom: "16px",
+            }}>
+              <div style={{
+                height: "100%",
+                width: `${progress}%`,
+                background: "linear-gradient(90deg, #ff2e9e, #ff6bb5)",
+                transition: "width 300ms cubic-bezier(0.22, 1, 0.36, 1)",
+                boxShadow: "0 0 6px rgba(255, 46, 158, 0.5)",
+              }} />
+            </div>
+            <div style={{ display: "flex", gap: "4px" }}>
+              {WIZARD_STEPS.map((s) => (
+                <div
+                  key={s.num}
+                  style={{
+                    flex: 1,
+                    height: "3px",
+                    borderRadius: "2px",
+                    background: s.num === step
+                      ? "#ff2e9e"
+                      : s.num < step
+                      ? "rgba(255, 46, 158, 0.4)"
+                      : "rgba(255, 46, 158, 0.08)",
+                    transition: "all 300ms ease",
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        </aside>
+
+        {/* RIGHT PANEL — contenido del paso */}
+        <main
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            background: "#0a0011",
+          }}
         >
-          <style>{`
-            /* Scrollbar oculto premium */
-            .vertigo-scroll::-webkit-scrollbar { width: 0; height: 0; }
-            .vertigo-scroll { scrollbar-width: none; -ms-overflow-style: none; }
-          `}</style>
-          <div className="vertigo-scroll" style={{ height: "100%" }}>
+          {/* Header bar */}
+          <div style={{
+            padding: "16px 32px",
+            borderBottom: "1px solid rgba(255, 46, 158, 0.06)",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}>
+            <span style={{
+              fontSize: "11px",
+              color: "rgba(255, 180, 220, 0.4)",
+              letterSpacing: "0.2em",
+              textTransform: "uppercase",
+            }}>
+              Formulario de inscripción
+            </span>
+            <button
+              onClick={() => router.push("/")}
+              style={{
+                color: "rgba(255, 180, 220, 0.4)",
+                fontSize: "12px",
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+              }}
+              className="hover:text-white transition-colors"
+            >
+              Cancelar ✕
+            </button>
+          </div>
+
+          {/* Content */}
+          <div
+            style={{
+              flex: 1,
+              padding: "32px",
+              overflowY: "auto",
+            }}
+            className="vertigo-scroll"
+          >
+            <style>{`
+              .vertigo-scroll::-webkit-scrollbar { width: 0; height: 0; }
+              .vertigo-scroll { scrollbar-width: none; }
+            `}</style>
             {children}
           </div>
-        </div>
 
-        {/* FOOTER */}
-        <footer
-          style={{
-            borderTop: "1px solid rgba(255, 46, 158, 0.1)",
-            padding: "16px 32px",
-          }}
-          className="flex items-center justify-between"
-        >
-          <button
-            onClick={prevStep}
-            disabled={step === 1 || submitting}
+          {/* Footer */}
+          <div
             style={{
-              color: "rgba(255,180,220,0.5)",
-              fontSize: "13px",
-              padding: "8px 16px",
+              padding: "16px 32px",
+              borderTop: "1px solid rgba(255, 46, 158, 0.06)",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
             }}
-            className="hover:text-white transition-colors disabled:opacity-30"
           >
-            ← Atrás
-          </button>
+            <button
+              onClick={prevStep}
+              disabled={step === 1 || submitting}
+              style={{
+                color: "rgba(255, 180, 220, 0.5)",
+                fontSize: "13px",
+                padding: "8px 16px",
+                background: "transparent",
+                border: "none",
+                cursor: step === 1 ? "default" : "pointer",
+                opacity: step === 1 ? 0.3 : 1,
+              }}
+              className="hover:text-white transition-colors"
+            >
+              ← Atrás
+            </button>
 
-          {/* Stepper dots */}
-          <div className="flex items-center gap-1.5">
-            {WIZARD_STEPS.map((s) => (
-              <div
-                key={s.num}
+            {step < totalSteps ? (
+              <button
+                onClick={handleNext}
+                disabled={!canProceed() || submitting}
                 style={{
-                  width: s.num === step ? "20px" : "6px",
-                  height: "6px",
-                  borderRadius: "3px",
-                  background: s.num === step ? "#ff2e9e" : s.num < step ? "rgba(255, 46, 158, 0.4)" : "rgba(255, 46, 158, 0.12)",
-                  transition: "all 300ms cubic-bezier(0.22, 1, 0.36, 1)",
-                  boxShadow: s.num === step ? "0 0 6px rgba(255, 46, 158, 0.6)" : "none",
+                  background: canProceed() && !submitting ? "#ff2e9e" : "rgba(255, 46, 158, 0.15)",
+                  color: canProceed() && !submitting ? "#0a0011" : "rgba(255, 180, 220, 0.4)",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  padding: "10px 24px",
+                  borderRadius: "4px",
+                  border: "none",
+                  cursor: canProceed() && !submitting ? "pointer" : "default",
+                  letterSpacing: "0.08em",
+                  transition: "all 200ms ease",
+                  boxShadow: canProceed() && !submitting ? "0 0 12px rgba(255, 46, 158, 0.3)" : "none",
                 }}
-              />
-            ))}
+              >
+                SIGUIENTE →
+              </button>
+            ) : (
+              <button
+                onClick={handleSubmit}
+                disabled={submitting}
+                style={{
+                  background: "#ff2e9e",
+                  color: "#0a0011",
+                  fontSize: "13px",
+                  fontWeight: 700,
+                  padding: "10px 24px",
+                  borderRadius: "4px",
+                  border: "none",
+                  cursor: "pointer",
+                  letterSpacing: "0.08em",
+                  boxShadow: "0 0 16px rgba(255, 46, 158, 0.4)",
+                }}
+              >
+                {submitting ? "ENVIANDO..." : "CONFIRMAR ✓"}
+              </button>
+            )}
           </div>
-
-          {step < totalSteps ? (
-            <button
-              onClick={handleNext}
-              disabled={!canProceed() || submitting}
-              style={{
-                background: canProceed() && !submitting ? "#ff2e9e" : "rgba(255, 46, 158, 0.2)",
-                color: canProceed() && !submitting ? "#0a0011" : "rgba(255,180,220,0.4)",
-                fontSize: "13px",
-                fontWeight: 600,
-                padding: "8px 20px",
-                borderRadius: "4px",
-                letterSpacing: "0.08em",
-                transition: "all 200ms ease",
-              }}
-              className="disabled:cursor-not-allowed"
-            >
-              SIGUIENTE →
-            </button>
-          ) : (
-            <button
-              onClick={handleSubmit}
-              disabled={submitting}
-              style={{
-                background: "#ff2e9e",
-                color: "#0a0011",
-                fontSize: "13px",
-                fontWeight: 700,
-                padding: "8px 20px",
-                borderRadius: "4px",
-                letterSpacing: "0.08em",
-                boxShadow: "0 0 16px rgba(255, 46, 158, 0.4)",
-              }}
-            >
-              {submitting ? "ENVIANDO..." : "CONFIRMAR ✓"}
-            </button>
-          )}
-        </footer>
+        </main>
       </div>
     </div>
   );
