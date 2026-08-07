@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import { Oswald, Cinzel, Cinzel_Decorative, Inter } from "next/font/google";
+import { Oswald, Cinzel, Anton, Inter } from "next/font/google";
 import { Toaster } from "@/components/ui/toaster";
 import "./globals.css";
 
-// Oswald — UI, sans condensada
 const oswald = Oswald({
   subsets: ["latin"],
   variable: "--font-oswald",
@@ -11,7 +10,6 @@ const oswald = Oswald({
   weight: ["200", "300", "400", "500", "600", "700"],
 });
 
-// Cinzel — serif display para títulos del landing
 const cinzel = Cinzel({
   subsets: ["latin"],
   variable: "--font-cinzel",
@@ -19,15 +17,13 @@ const cinzel = Cinzel({
   weight: ["400", "500", "600", "700", "800", "900"],
 });
 
-// Cinzel Decorative — para títulos display especiales
-const cinzelDec = Cinzel_Decorative({
+const anton = Anton({
   subsets: ["latin"],
-  variable: "--font-cinzel-dec",
+  variable: "--font-anton",
   display: "swap",
-  weight: ["400", "700", "900"],
+  weight: "400",
 });
 
-// Inter — body sans para wizard y UI densa
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
@@ -42,14 +38,7 @@ export const metadata: Metadata = {
   },
   description:
     "Plataforma del torneo VÉRTIGO de Age of Empires II. 32 equipos, 3 jugadores cada uno, partidas sorteadas con ruleta 15 minutos antes.",
-  keywords: [
-    "Age of Empires II",
-    "AoE2",
-    "tournament",
-    "torneo",
-    "VERTIGO",
-    "esports",
-  ],
+  keywords: ["Age of Empires II", "AoE2", "tournament", "torneo", "VERTIGO", "esports"],
   authors: [{ name: "VERTIGO Cup Staff" }],
   openGraph: {
     title: "VÉRTIGO Cup — Age of Empires II Tournament",
@@ -65,7 +54,7 @@ export default function RootLayout({
   return (
     <html
       lang="es"
-      className={`${oswald.variable} ${cinzel.variable} ${cinzelDec.variable} ${inter.variable} dark`}
+      className={`${oswald.variable} ${cinzel.variable} ${anton.variable} ${inter.variable} dark`}
     >
       <body className="bg-bg text-text antialiased min-h-screen">
         {children}

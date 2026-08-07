@@ -1,5 +1,4 @@
 "use client";
-
 import { useWizard } from "@/components/wizard/wizard-context";
 
 const CIV_NAMES: Record<string, string> = {
@@ -17,210 +16,26 @@ const CIV_NAMES: Record<string, string> = {
 
 export default function Step9Confirm() {
   const { data } = useWizard();
-
   const totalElo = data.players.reduce((s, p) => s + (p.maxRatingRm1v1 ?? 0), 0);
   const captain = data.players.find((p) => p.isCaptain);
-  const hasData = data.teamName && data.players.every((p) => p.aoe2ProfileId);
-
-  if (!hasData) {
-    return (
-      <div style={{ maxWidth: "400px", margin: "0 auto", textAlign: "center" }}>
-        <div style={{ fontSize: "10px", color: "rgba(255, 46, 158, 0.7)", letterSpacing: "0.4em", textTransform: "uppercase", marginBottom: "8px" }}>
-          PASO 09
-        </div>
-        <h1 style={{ fontSize: "28px", fontWeight: 600, color: "#f5eaff", fontFamily: "Inter, system-ui, sans-serif", marginBottom: "12px" }}>
-          Faltan datos
-        </h1>
-        <p style={{ fontSize: "13px", color: "rgba(255, 180, 220, 0.6)", marginBottom: "20px" }}>
-          Completá los pasos anteriores antes de confirmar la inscripción.
-        </p>
-      </div>
-    );
-  }
+  const players = data.players.map((p) => p.displayName).filter(Boolean);
+  const civs = data.baseCivIds.map((c) => CIV_NAMES[c] ?? c);
+  const civsExtra = data.extraCivIds.map((c) => CIV_NAMES[c] ?? c);
 
   return (
-    <div style={{ maxWidth: "560px", margin: "0 auto" }}>
-      <div style={{ textAlign: "center", marginBottom: "24px" }}>
-        <div style={{ fontSize: "10px", color: "rgba(255, 46, 158, 0.7)", letterSpacing: "0.4em", textTransform: "uppercase", marginBottom: "8px" }}>
-          PASO 09
-        </div>
-        <h1 style={{ fontSize: "28px", fontWeight: 600, color: "#f5eaff", fontFamily: "Inter, system-ui, sans-serif", letterSpacing: "-0.01em" }}>
-          Confirmá tu inscripción
-        </h1>
-      </div>
-
-      {/* Equipo */}
-      <div style={{
-        padding: "16px",
-        background: "rgba(255, 46, 158, 0.04)",
-        border: "1px solid rgba(255, 46, 158, 0.15)",
-        borderRadius: "4px",
-        marginBottom: "12px",
-        display: "flex", alignItems: "center", gap: "14px",
-      }}>
-        <div style={{
-          width: "48px", height: "48px", borderRadius: "50%",
-          border: "1px solid rgba(255, 46, 158, 0.4)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          color: "#ff2e9e", fontSize: "20px", fontWeight: 600,
-        }}>
-          {data.teamName.charAt(0).toUpperCase()}
-        </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: "16px", fontWeight: 600, color: "#f5eaff" }}>
-            {data.teamName}
-          </div>
-          {data.teamTagline && (
-            <div style={{ fontSize: "12px", color: "rgba(255, 180, 220, 0.6)", fontStyle: "italic", marginTop: "2px" }}>
-              &ldquo;{data.teamTagline}&rdquo;
-            </div>
-          )}
-        </div>
-        <div style={{ textAlign: "right" }}>
-          <div style={{ fontSize: "10px", color: "rgba(255, 180, 220, 0.5)", letterSpacing: "0.1em", textTransform: "uppercase" }}>
-            ELO TOTAL
-          </div>
-          <div style={{ fontSize: "18px", fontWeight: 600, color: "#ff2e9e" }}>
-            {totalElo}
-          </div>
-        </div>
-      </div>
-
-      {/* Jugadores */}
-      <div style={{
-        padding: "16px",
-        background: "rgba(255, 46, 158, 0.04)",
-        border: "1px solid rgba(255, 46, 158, 0.15)",
-        borderRadius: "4px",
-        marginBottom: "12px",
-      }}>
-        <div style={{ fontSize: "10px", color: "rgba(255, 180, 220, 0.6)", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: "10px" }}>
-          Jugadores
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px" }}>
-          {data.players.map((p, idx) => (
-            <div key={idx} style={{ textAlign: "center", position: "relative" }}>
-              {p.isCaptain && (
-                <div style={{
-                  position: "absolute", top: "-8px", left: "50%", transform: "translateX(-50%)",
-                  background: "#ff2e9e", color: "#0a0011",
-                  fontSize: "8px", fontWeight: 700, letterSpacing: "0.1em",
-                  padding: "2px 6px", borderRadius: "8px", textTransform: "uppercase",
-                }}>
-                  CAP
-                </div>
-              )}
-              <div style={{
-                width: "32px", height: "32px", borderRadius: "50%",
-                border: `1px solid ${p.isCaptain ? "#ff2e9e" : "rgba(255, 46, 158, 0.2)"}`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                color: p.isCaptain ? "#ff2e9e" : "rgba(255, 180, 220, 0.5)",
-                fontSize: "13px", fontWeight: 600, margin: "0 auto 4px",
-              }}>
-                {p.displayName.charAt(0).toUpperCase()}
-              </div>
-              <div style={{ fontSize: "11px", fontWeight: 500, color: "#f5eaff" }}>
-                {p.displayName}
-              </div>
-              {p.maxRatingRm1v1 !== null && p.maxRatingRm1v1 !== undefined && (
-                <div style={{ fontSize: "10px", color: "#ff2e9e", marginTop: "2px" }}>
-                  {p.maxRatingRm1v1}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Civs */}
-      <div style={{
-        padding: "16px",
-        background: "rgba(255, 46, 158, 0.04)",
-        border: "1px solid rgba(255, 46, 158, 0.15)",
-        borderRadius: "4px",
-        marginBottom: "12px",
-      }}>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px" }}>
-          <span style={{ fontSize: "10px", color: "rgba(255, 180, 220, 0.6)", letterSpacing: "0.2em", textTransform: "uppercase" }}>
-            Civs base
-          </span>
-          <span style={{ fontSize: "11px", color: "#ff2e9e", fontWeight: 600 }}>
-            {data.baseCivIds.length}/9
-          </span>
-        </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginBottom: "12px" }}>
-          {data.baseCivIds.map((civId, idx) => (
-            <span key={civId} style={{
-              fontSize: "10px", padding: "3px 8px",
-              background: "rgba(255, 46, 158, 0.1)",
-              border: "1px solid rgba(255, 46, 158, 0.3)",
-              borderRadius: "10px",
-              color: "#f5eaff",
-            }}>
-              {idx + 1}. {CIV_NAMES[civId] ?? civId}
-            </span>
-          ))}
-        </div>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px" }}>
-          <span style={{ fontSize: "10px", color: "rgba(255, 180, 220, 0.6)", letterSpacing: "0.2em", textTransform: "uppercase" }}>
-            Civs extra
-          </span>
-          <span style={{ fontSize: "11px", color: "#ff2e9e", fontWeight: 600 }}>
-            {data.extraCivIds.length}/3
-          </span>
-        </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
-          {data.extraCivIds.map((civId, idx) => (
-            <span key={civId} style={{
-              fontSize: "10px", padding: "3px 8px",
-              background: "rgba(255, 46, 158, 0.05)",
-              border: "1px solid rgba(255, 46, 158, 0.15)",
-              borderRadius: "10px",
-              color: "rgba(255, 180, 220, 0.8)",
-            }}>
-              {idx + 1}. {CIV_NAMES[civId] ?? civId}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {/* Status checks */}
-      <div style={{
-        padding: "14px 16px",
-        background: "rgba(34, 197, 94, 0.04)",
-        border: "1px solid rgba(34, 197, 94, 0.2)",
-        borderRadius: "4px",
-        display: "flex", flexDirection: "column", gap: "6px",
-      }}>
-        <StatusItem ok={!!data.handbookDownloadedAt} label="Handbook descargado" />
-        <StatusItem ok={data.restreamAccepted} label="Permiso de transmisión aceptado" />
-        <StatusItem ok={!!data.termsAcceptedAt} label="Reglamento aceptado" />
-        <StatusItem ok={!!captain} label={`Capitán: ${captain?.displayName ?? "—"}`} />
-      </div>
-
-      <p style={{ fontSize: "11px", color: "rgba(255, 180, 220, 0.5)", textAlign: "center", marginTop: "16px", lineHeight: 1.5 }}>
-        Al confirmar, tu equipo quedará pendiente de aprobación del staff.
-      </p>
-    </div>
-  );
-}
-
-function StatusItem({ ok, label }: { ok: boolean; label: string }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-      <div style={{
-        width: "16px", height: "16px", borderRadius: "50%",
-        background: ok ? "rgba(34, 197, 94, 0.15)" : "rgba(239, 68, 68, 0.15)",
-        border: `1px solid ${ok ? "rgba(34, 197, 94, 0.4)" : "rgba(239, 68, 68, 0.4)"}`,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        color: ok ? "#22c55e" : "#ef4444",
-        fontSize: "10px", fontWeight: 700,
-      }}>
-        {ok ? "✓" : "✗"}
-      </div>
-      <span style={{ fontSize: "12px", color: ok ? "#f5eaff" : "rgba(255, 180, 220, 0.6)" }}>
-        {label}
-      </span>
-    </div>
+    <>
+      <dl className="summary">
+        <div className="s-row"><dt>Equipo</dt><dd>{data.teamName} {data.teamTagline && <em>"{data.teamTagline}"</em>}</dd></div>
+        <div className="s-row"><dt>Correo</dt><dd>{data.email}</dd></div>
+        <div className="s-row"><dt>Jugadores</dt><dd>{players.map((p, i) => i === 0 ? <em key={i}>★ {p}</em> : p).reduce((acc: any[], el, i) => i === 0 ? [el] : [...acc, " · ", el], [])}</dd></div>
+        <div className="s-row"><dt>Capitán</dt><dd><em>{captain?.displayName ?? "—"}</em></dd></div>
+        <div className="s-row"><dt>ELO Total</dt><dd><em>{totalElo}</em> / 3520</dd></div>
+        <div className="s-row"><dt>Civs base (9)</dt><dd>{civs.join(" · ") || "—"}</dd></div>
+        <div className="s-row"><dt>Civs extra (3)</dt><dd>{civsExtra.join(" · ") || "—"}</dd></div>
+        <div className="s-row"><dt>Handbook</dt><dd>{data.handbookDownloadedAt ? <em>✓ Descargado</em> : "—"}</dd></div>
+        <div className="s-row"><dt>Términos</dt><dd>{data.restreamAccepted && data.termsAcceptedAt ? <em>✓ Aceptados</em> : "—"}</dd></div>
+      </dl>
+      <p className="note">Al confirmar, tu equipo quedará pendiente de aprobación del staff. Recibirás la confirmación por email.</p>
+    </>
   );
 }

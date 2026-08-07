@@ -1,19 +1,20 @@
 "use client";
 
 import { useWizard } from "@/components/wizard/wizard-context";
-import Step1 from "@/components/wizard/steps/step-1-account";
-import Step2 from "@/components/wizard/steps/step-2-team-data";
-import Step3 from "@/components/wizard/steps/step-3-players";
-import Step4 from "@/components/wizard/steps/step-4-captain";
-import Step5 from "@/components/wizard/steps/step-5-civs-base";
-import Step6 from "@/components/wizard/steps/step-6-civs-extra";
-import Step7 from "@/components/wizard/steps/step-7-handbook";
-import Step8 from "@/components/wizard/steps/step-8-terms";
-import Step9 from "@/components/wizard/steps/step-9-confirm";
+import dynamic from "next/dynamic";
+
+const Step1 = dynamic(() => import("@/components/wizard/steps/step-1-account"));
+const Step2 = dynamic(() => import("@/components/wizard/steps/step-2-team-data"));
+const Step3 = dynamic(() => import("@/components/wizard/steps/step-3-players"));
+const Step4 = dynamic(() => import("@/components/wizard/steps/step-4-captain"));
+const Step5 = dynamic(() => import("@/components/wizard/steps/step-5-civs-base"));
+const Step6 = dynamic(() => import("@/components/wizard/steps/step-6-civs-extra"));
+const Step7 = dynamic(() => import("@/components/wizard/steps/step-7-handbook"));
+const Step8 = dynamic(() => import("@/components/wizard/steps/step-8-terms"));
+const Step9 = dynamic(() => import("@/components/wizard/steps/step-9-confirm"));
 
 export default function WizardRouter() {
   const { step } = useWizard();
-
   switch (step) {
     case 1: return <Step1 />;
     case 2: return <Step2 />;
