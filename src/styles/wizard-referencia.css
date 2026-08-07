@@ -17,17 +17,12 @@
 .wizard-page ::selection{background:rgba(124,58,237,.45);color:#fff}
 @keyframes bgPulse{from{background-position:0 0,0 0,0 0}to{background-position:30px -20px,-30px 20px,0 0}}
 
-/* ============ MODAL ============ */
+/* ============ FULLSCREEN ============ */
 .wizard-page .modal{
-  width:min(1400px,96vw); height:min(860px,94vh); background:var(--modal);
-  border:1px solid var(--modal-border); border-radius:22px; display:flex; flex-direction:column;
-  box-shadow:0 40px 90px rgba(0,0,0,.65), 0 0 70px rgba(88,28,175,.14);
+  width:100vw; height:100vh; background:var(--modal);
+  border:none; border-radius:0; display:flex; flex-direction:column;
   overflow:hidden; position:relative;
-  animation:modalIn .7s var(--ease) both;
 }
-@keyframes modalIn{from{opacity:0;transform:translateY(18px) scale(.975)}to{opacity:1;transform:none}}
-.wizard-page .modal.closed{animation:modalOut .35s ease both}
-@keyframes modalOut{to{opacity:0;transform:translateY(10px) scale(.97);pointer-events:none}}
 .wizard-page .modal-main{flex:1; display:grid; grid-template-columns:300px 400px 1fr; min-height:0}
 
 /* ============ SIDEBAR ============ */
