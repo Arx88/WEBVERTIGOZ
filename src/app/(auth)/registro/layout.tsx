@@ -1,16 +1,18 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, useRef, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { WizardProvider, useWizard, WIZARD_STEPS } from "@/components/wizard/wizard-context";
-import { ChevronLeft, ChevronRight, Check, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { signUpOrLogin, submitWizard } from "@/server/actions/wizard";
 
 // ============================================================
-// Wizard Shell — altura fija 100vh, sin scroll vertical molesto
-// Paleta magenta VÉRTIGO (replica estética del landing)
+// Wizard Shell — VÉRTIGO brand redesign
+// 4-row grid: HEADER (h-16) / TITLE BAR (h-24) / CONTENT (flex-1) / FOOTER (h-16)
+// h-screen overflow-hidden — sin scroll vertical en el shell
+// Paleta magenta del landing · Cinzel titles + Inter body
 // ============================================================
 
 function WizardShell({ children }: { children: ReactNode }) {
@@ -18,6 +20,11 @@ function WizardShell({ children }: { children: ReactNode }) {
   const { step, totalSteps, prevStep, nextStep, goToStep, data } = useWizard();
   const [submitting, setSubmitting] = useState(false);
   const [authDone, setAuthDone] = useState(false);
+
+  // Track slide direction for transition (forward = slide from right)
+  const prevStepRef = useRef(step);
+  const isForward = step >= prevStepRef.current;
+  if (step !== prevStepRef.current) prevStepRef.current = step;
 
   const currentStepData = WIZARD_STEPS[step - 1];
   const progressValue = (step / totalSteps) * 100;
@@ -40,7 +47,6 @@ function WizardShell({ children }: { children: ReactNode }) {
   const isLastStep = step === totalSteps;
 
   async function handleNext() {
-    // En el paso 1 → hacer auth al avanzar
     if (step === 1 && !authDone) {
       setSubmitting(true);
       const result = await signUpOrLogin(data);
@@ -73,56 +79,89 @@ function WizardShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="wiz-bg h-screen flex flex-col overflow-hidden text-[#f5eaff]">
-      {/* HEADER FIJO — logo + step X/9 + progress magenta */}
-      <header className="shrink-0 border-b border-[rgba(255,46,158,0.15)] bg-[rgba(10,0,17,0.55)] backdrop-blur-sm">
-        <div className="mx-auto max-w-5xl px-6 py-3.5 flex items-center justify-between gap-6">
-          <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rotate-45 border border-[rgba(255,46,158,0.7)] flex items-center justify-center shadow-[0_0_14px_rgba(255,46,158,0.35)]">
+    <div className="wiz-bg relative h-screen flex flex-col overflow-hidden text-[#f5eaff] font-inter">
+      {/* ============ HEADER (h-16) ============ */}
+      <header className="relative z-10 shrink-0 h-16 border-b border-[rgba(255,46,158,0.15)] bg-[rgba(10,0,17,0.55)] backdrop-blur-md">
+        <div className="h-full mx-auto max-w-6xl px-6 flex items-center justify-between gap-6">
+          {/* Logo + brand */}
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="relative w-8 h-8 rotate-45 border border-[rgba(255,46,158,0.7)] flex items-center justify-center shadow-[0_0_14px_rgba(255,46,158,0.35)] shrink-0">
               <span className="-rotate-45 font-cinzel text-[#ff2e9e] text-sm font-bold">V</span>
             </div>
-            <span className="font-cinzel text-[13px] tracking-[0.32em] uppercase text-[#f5eaff] hidden sm:inline">
-              VÉRTIGO · Inscripción
-            </span>
+            <div className="hidden sm:flex flex-col min-w-0">
+              <span className="font-cinzel text-[12px] tracking-[0.32em] uppercase text-[#f5eaff] truncate">
+                Vértigo
+              </span>
+              <span className="font-inter text-[9px] tracking-[0.22em] uppercase text-[rgba(255,180,220,0.55)] truncate">
+                Inscripción del equipo
+              </span>
+            </div>
           </div>
 
-          <div className="flex items-center gap-4 flex-1 max-w-md">
+          {/* Progress + counter — centered */}
+          <div className="flex-1 flex items-center gap-4 max-w-md">
             <div className="wiz-progress-track flex-1">
               <div
                 className="wiz-progress-fill"
                 style={{ width: `${progressValue}%` }}
               />
             </div>
-            <span className="wiz-caption tabular-nums text-[10px] whitespace-nowrap">
-              {String(step).padStart(2, "0")} / {String(totalSteps).padStart(2, "0")}
+            <span className="font-cinzel text-[11px] tabular-nums whitespace-nowrap tracking-[0.18em] text-[#ffb4dc]">
+              {String(step).padStart(2, "0")}
+              <span className="text-[rgba(255,180,220,0.4)] mx-1">/</span>
+              {String(totalSteps).padStart(2, "0")}
             </span>
           </div>
+
+          {/* Close button */}
+          <button
+            onClick={() => router.push("/")}
+            aria-label="Salir del wizard"
+            className="group flex items-center justify-center w-9 h-9 border border-[rgba(255,180,220,0.18)] hover:border-[rgba(255,46,158,0.55)] hover:bg-[rgba(255,46,158,0.04)] transition-colors shrink-0"
+          >
+            <X className="w-3.5 h-3.5 text-[rgba(255,180,220,0.55)] group-hover:text-[#ff2e9e] transition-colors" strokeWidth={1.5} />
+          </button>
         </div>
       </header>
 
-      {/* TÍTULO FIJO DEL PASO */}
-      <div className="shrink-0 text-center pt-5 pb-3 px-6">
-        <div className="badge-thin mx-auto inline-flex">
-          Paso {String(step).padStart(2, "0")} · {currentStepData.short}
+      {/* ============ TITLE BAR (h-24) ============ */}
+      <div className="relative z-10 shrink-0 h-24 px-6 flex flex-col items-center justify-center gap-2 border-b border-[rgba(255,46,158,0.08)]">
+        <div className="flex items-center gap-3">
+          <span className="h-px w-6 bg-[rgba(255,46,158,0.4)]" />
+          <span className="badge-thin !py-1.5 !px-3 !text-[10px] !tracking-[0.32em]">
+            Paso {String(step).padStart(2, "0")} · {currentStepData.short}
+          </span>
+          <span className="h-px w-6 bg-[rgba(255,46,158,0.4)]" />
         </div>
         <h1
-          key={step}
-          className="wiz-step-in font-cinzel text-[24px] md:text-[32px] leading-tight uppercase tracking-[0.08em] text-neon mt-3"
+          key={`title-${step}`}
+          className={cn(
+            "font-cinzel text-[22px] md:text-[28px] leading-tight uppercase tracking-[0.08em] text-neon",
+            isForward ? "wiz-step-in" : "wiz-step-back"
+          )}
         >
           {currentStepData.title}
         </h1>
       </div>
 
-      {/* CONTENIDO CENTRAL — puede tener scroll INTERNO oculto */}
-      <div className="flex-1 min-h-0 overflow-y-auto wiz-scroll-hide">
-        <div className="mx-auto max-w-4xl px-6 py-4 flex items-center justify-center min-h-full">
-          <div key={step} className="wiz-step-in w-full">{children}</div>
+      {/* ============ CONTENT (flex-1) ============ */}
+      <div className="relative z-10 flex-1 min-h-0 overflow-y-auto wiz-scroll-hide">
+        <div className="h-full w-full mx-auto max-w-6xl px-6 py-6 flex items-center justify-center">
+          <div
+            key={`step-${step}`}
+            className={cn(
+              "w-full max-w-6xl",
+              isForward ? "wiz-step-in" : "wiz-step-back"
+            )}
+          >
+            {children}
+          </div>
         </div>
       </div>
 
-      {/* FOOTER FIJO — Atrás | dots | Siguiente */}
-      <footer className="shrink-0 border-t border-[rgba(255,46,158,0.15)] bg-[rgba(10,0,17,0.55)] backdrop-blur-sm">
-        <div className="mx-auto max-w-5xl px-6 py-3.5 flex items-center justify-between gap-4">
+      {/* ============ FOOTER (h-16) ============ */}
+      <footer className="relative z-10 shrink-0 h-16 border-t border-[rgba(255,46,158,0.15)] bg-[rgba(10,0,17,0.55)] backdrop-blur-md">
+        <div className="h-full mx-auto max-w-6xl px-6 flex items-center justify-between gap-4">
           <button
             onClick={prevStep}
             disabled={step === 1 || submitting}
@@ -132,7 +171,7 @@ function WizardShell({ children }: { children: ReactNode }) {
             Atrás
           </button>
 
-          <div className="hidden sm:flex items-center gap-1.5">
+          <div className="hidden md:flex items-center gap-1.5">
             {WIZARD_STEPS.map((s) => (
               <button
                 key={s.num}

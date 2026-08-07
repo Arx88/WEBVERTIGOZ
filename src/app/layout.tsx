@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Oswald, Cinzel, Cinzel_Decorative } from "next/font/google";
+import { Oswald, Cinzel, Cinzel_Decorative, Inter } from "next/font/google";
 import { Toaster } from "@/components/ui/toaster";
 import "./globals.css";
 
@@ -25,6 +25,14 @@ const cinzelDec = Cinzel_Decorative({
   variable: "--font-cinzel-dec",
   display: "swap",
   weight: ["400", "700", "900"],
+});
+
+// Inter — body sans para wizard y UI densa
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+  weight: ["300", "400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -57,7 +65,7 @@ export default function RootLayout({
   return (
     <html
       lang="es"
-      className={`${oswald.variable} ${cinzel.variable} ${cinzelDec.variable} dark`}
+      className={`${oswald.variable} ${cinzel.variable} ${cinzelDec.variable} ${inter.variable} dark`}
     >
       <body className="bg-bg text-text antialiased min-h-screen">
         {children}
