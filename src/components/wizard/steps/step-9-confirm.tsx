@@ -1,336 +1,226 @@
 "use client";
 
 import { useWizard } from "@/components/wizard/wizard-context";
-import { Shield, Crown, Star, FileText, Check, Swords, Flag, Radio, ShieldAlert, Mail } from "lucide-react";
-import { cn } from "@/lib/utils";
 
-// ============================================================
-// Step 9 — Confirmación
-// Layout: 3 columnas (top) + full-width players + civs + state
-// ============================================================
+const CIV_NAMES: Record<string, string> = {
+  britons: "Britanos", franks: "Francos", goths: "Godos", teutons: "Teutones",
+  japanese: "Japoneses", chinese: "Chinos", byzantines: "Bizantinos", persians: "Persas",
+  saracens: "Sarracenos", turks: "Turcos", vikings: "Vikingos", mongols: "Mongoles",
+  celts: "Celtas", spanish: "Españoles", aztecs: "Aztecas", mayans: "Mayas",
+  huns: "Hunos", koreans: "Coreanos", italians: "Italianos", indians: "Hindúes",
+  incas: "Incas", magyars: "Magiares", slavs: "Eslavos", berbers: "Bereberes",
+  ethiopians: "Etíopes", malians: "Malianos", portuguese: "Portugueses", burmese: "Birmanos",
+  khmer: "Jémeres", malay: "Malayos", vietnamese: "Vietnamitas", bulgarians: "Búlgaros",
+  cumans: "Cumanos", lithuanians: "Lituanos", tatars: "Tártaros", burgundians: "Borgoñones",
+  sicilians: "Sicilianos", poles: "Polacos", bohemians: "Bohemios", romans: "Romanos",
+};
 
-const AOE2_CIVS: { id: string; name: string }[] = [
-  { id: "britons", name: "Britanos" },
-  { id: "franks", name: "Francos" },
-  { id: "goths", name: "Godos" },
-  { id: "teutons", name: "Teutones" },
-  { id: "japanese", name: "Japoneses" },
-  { id: "chinese", name: "Chinos" },
-  { id: "byzantines", name: "Bizantinos" },
-  { id: "persians", name: "Persas" },
-  { id: "saracens", name: "Sarracenos" },
-  { id: "turks", name: "Turcos" },
-  { id: "vikings", name: "Vikingos" },
-  { id: "mongols", name: "Mongoles" },
-  { id: "celts", name: "Celtas" },
-  { id: "spanish", name: "Españoles" },
-  { id: "aztecs", name: "Aztecas" },
-  { id: "mayans", name: "Mayas" },
-  { id: "huns", name: "Hunos" },
-  { id: "koreans", name: "Coreanos" },
-  { id: "italians", name: "Italianos" },
-  { id: "indians", name: "Hindúes" },
-  { id: "incas", name: "Incas" },
-  { id: "magyars", name: "Magiares" },
-  { id: "slavs", name: "Eslavos" },
-  { id: "berbers", name: "Bereberes" },
-  { id: "ethiopians", name: "Etíopes" },
-  { id: "malians", name: "Malianos" },
-  { id: "portuguese", name: "Portugueses" },
-  { id: "burmese", name: "Birmanos" },
-  { id: "khmer", name: "Jémeres" },
-  { id: "malay", name: "Malayos" },
-  { id: "vietnamese", name: "Vietnamitas" },
-  { id: "bulgarians", name: "Búlgaros" },
-  { id: "cumans", name: "Cumanos" },
-  { id: "lithuanians", name: "Lituanos" },
-  { id: "tatars", name: "Tártaros" },
-  { id: "burgundians", name: "Borgoñones" },
-  { id: "sicilians", name: "Sicilianos" },
-  { id: "poles", name: "Polacos" },
-  { id: "bohemians", name: "Bohemios" },
-  { id: "romans", name: "Romanos" },
-];
-
-function CivChip({ civId, idx, variant }: { civId: string; idx: number; variant: "base" | "extra" }) {
-  const civ = AOE2_CIVS.find((c) => c.id === civId);
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 px-2.5 py-1 border rounded-[3px]",
-        variant === "base"
-          ? "border-[rgba(255,46,158,0.4)] bg-[rgba(255,46,158,0.04)]"
-          : "border-[rgba(255,46,158,0.2)] bg-transparent"
-      )}
-    >
-      <span className="font-cinzel text-[10px] tabular-nums text-[rgba(255,180,220,0.55)]">
-        {String(idx + 1).padStart(2, "0")}.
-      </span>
-      <span
-        className={cn(
-          "font-cinzel text-[11px] tracking-[0.12em] uppercase",
-          variant === "base" ? "text-[#ff2e9e]" : "text-[rgba(255,180,220,0.85)]"
-        )}
-      >
-        {civ?.name ?? civId}
-      </span>
-    </span>
-  );
-}
-
-export default function WizardStepConfirm() {
+export default function Step9Confirm() {
   const { data } = useWizard();
 
-  const totalElo = data.players.reduce((sum, p) => sum + (p.maxRatingRm1v1 ?? 0), 0);
+  const totalElo = data.players.reduce((s, p) => s + (p.maxRatingRm1v1 ?? 0), 0);
   const captain = data.players.find((p) => p.isCaptain);
+  const hasData = data.teamName && data.players.every((p) => p.aoe2ProfileId);
+
+  if (!hasData) {
+    return (
+      <div style={{ maxWidth: "400px", margin: "0 auto", textAlign: "center" }}>
+        <div style={{ fontSize: "10px", color: "rgba(255, 46, 158, 0.7)", letterSpacing: "0.4em", textTransform: "uppercase", marginBottom: "8px" }}>
+          PASO 09
+        </div>
+        <h1 style={{ fontSize: "28px", fontWeight: 600, color: "#f5eaff", fontFamily: "Inter, system-ui, sans-serif", marginBottom: "12px" }}>
+          Faltan datos
+        </h1>
+        <p style={{ fontSize: "13px", color: "rgba(255, 180, 220, 0.6)", marginBottom: "20px" }}>
+          Completá los pasos anteriores antes de confirmar la inscripción.
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col gap-4 max-w-5xl mx-auto w-full">
-      <p className="wiz-body max-w-2xl mx-auto text-center">
-        Revisá todos los datos antes de confirmar. Una vez enviada, el staff la
-        revisará y aprobará. Las civilizaciones y la cuenta de equipo son
-        definitivas para esta edición.
-      </p>
-
-      {/* ====== Top row: 3 cards ====== */}
-      <div className="grid md:grid-cols-3 gap-4">
-        {/* Card: Equipo */}
-        <section className="wiz-card !rounded-[4px] p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <Shield className="w-3.5 h-3.5 text-[#ff2e9e]" strokeWidth={1.5} />
-            <span className="wiz-caption text-[10px]" style={{ letterSpacing: "0.32em" }}>
-              Equipo
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full border border-[rgba(255,46,158,0.55)] flex items-center justify-center text-[#ff2e9e] shadow-[0_0_12px_rgba(255,46,158,0.3)] shrink-0">
-              <Shield className="w-6 h-6" strokeWidth={1.25} />
-            </div>
-            <div className="min-w-0">
-              <div className="font-cinzel text-[16px] text-[#f5eaff] truncate">
-                {data.teamName || "—"}
-              </div>
-              {data.teamTagline && (
-                <div className="text-[12px] italic mt-0.5 text-[#e6d3f5] truncate">
-                  &ldquo;{data.teamTagline}&rdquo;
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
-
-        {/* Card: ELO total */}
-        <section className="wiz-card !rounded-[4px] p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <Swords className="w-3.5 h-3.5 text-[#ff2e9e]" strokeWidth={1.5} />
-            <span className="wiz-caption text-[10px]" style={{ letterSpacing: "0.32em" }}>
-              ELO total
-            </span>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span
-              className="font-cinzel text-[34px] tabular-nums leading-none text-[#ff2e9e]"
-              style={{ textShadow: "0 0 18px rgba(255,46,158,0.5)" }}
-            >
-              {totalElo}
-            </span>
-            <span className="wiz-caption text-[10px]" style={{ letterSpacing: "0.18em" }}>
-              de 3520 máx
-            </span>
-          </div>
-          <div className="mt-3 h-1 w-full bg-[rgba(255,46,158,0.08)] rounded-full overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-[rgba(255,46,158,0.55)] to-[#ff2e9e] shadow-[0_0_8px_rgba(255,46,158,0.55)] rounded-full"
-              style={{ width: `${Math.min(100, (totalElo / 3520) * 100)}%` }}
-            />
-          </div>
-        </section>
-
-        {/* Card: Capitán */}
-        <section className="wiz-card !rounded-[4px] p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <Crown className="w-3.5 h-3.5 text-[#ff2e9e]" strokeWidth={1.5} />
-            <span className="wiz-caption text-[10px]" style={{ letterSpacing: "0.32em" }}>
-              Capitán
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full border border-[#ff2e9e] text-[#ff2e9e] flex items-center justify-center shadow-[0_0_14px_rgba(255,46,158,0.4)] shrink-0">
-              <Crown className="w-6 h-6" strokeWidth={1.25} />
-            </div>
-            <div className="min-w-0">
-              <div className="font-cinzel text-[14px] text-[#f5eaff] truncate">
-                {captain?.displayName || "—"}
-              </div>
-              <div className="wiz-meta text-[10px] normal-case mt-0.5">
-                {captain?.country && <span>{captain.country}</span>}
-                {captain?.clan && <span> · {captain.clan}</span>}
-              </div>
-            </div>
-          </div>
-        </section>
+    <div style={{ maxWidth: "560px", margin: "0 auto" }}>
+      <div style={{ textAlign: "center", marginBottom: "24px" }}>
+        <div style={{ fontSize: "10px", color: "rgba(255, 46, 158, 0.7)", letterSpacing: "0.4em", textTransform: "uppercase", marginBottom: "8px" }}>
+          PASO 09
+        </div>
+        <h1 style={{ fontSize: "28px", fontWeight: 600, color: "#f5eaff", fontFamily: "Inter, system-ui, sans-serif", letterSpacing: "-0.01em" }}>
+          Confirmá tu inscripción
+        </h1>
       </div>
 
-      {/* ====== Players row (3 cols) ====== */}
-      <section className="wiz-card !rounded-[4px] p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <Star className="w-3.5 h-3.5 text-[#ff2e9e]" strokeWidth={1.5} />
-          <span className="wiz-caption text-[10px]" style={{ letterSpacing: "0.32em" }}>
-            Jugadores
-          </span>
+      {/* Equipo */}
+      <div style={{
+        padding: "16px",
+        background: "rgba(255, 46, 158, 0.04)",
+        border: "1px solid rgba(255, 46, 158, 0.15)",
+        borderRadius: "4px",
+        marginBottom: "12px",
+        display: "flex", alignItems: "center", gap: "14px",
+      }}>
+        <div style={{
+          width: "48px", height: "48px", borderRadius: "50%",
+          border: "1px solid rgba(255, 46, 158, 0.4)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          color: "#ff2e9e", fontSize: "20px", fontWeight: 600,
+        }}>
+          {data.teamName.charAt(0).toUpperCase()}
         </div>
-        <div className="grid grid-cols-3 gap-4">
-          {data.players.map((player, idx) => (
-            <div key={idx} className="text-center">
-              <div
-                className={cn(
-                  "w-12 h-12 rounded-full border flex items-center justify-center mx-auto mb-2 transition-all",
-                  player.isCaptain
-                    ? "border-[#ff2e9e] text-[#ff2e9e] shadow-[0_0_14px_rgba(255,46,158,0.45)]"
-                    : "border-[rgba(255,46,158,0.35)] text-[rgba(255,180,220,0.55)]"
-                )}
-              >
-                {player.isCaptain ? (
-                  <Crown className="w-6 h-6" strokeWidth={1.25} />
-                ) : (
-                  <span className="font-cinzel text-[14px]">{idx + 1}</span>
-                )}
-              </div>
-              <div className="font-cinzel text-[12px] text-[#f5eaff] truncate">
-                {player.displayName}
-              </div>
-              <div className="wiz-meta text-[9px] normal-case mt-0.5">
-                {player.country && (
-                  <span className="inline-flex items-center gap-0.5">
-                    <Flag className="w-2.5 h-2.5" strokeWidth={1.5} />
-                    {player.country}
-                  </span>
-                )}
-                {player.clan && <span> · {player.clan}</span>}
-              </div>
-              {player.maxRatingRm1v1 !== undefined && (
-                <div className="mt-1 flex items-baseline justify-center gap-1">
-                  <span className="font-cinzel text-[13px] tabular-nums text-[#ff2e9e]">
-                    {player.maxRatingRm1v1}
-                  </span>
-                  <span className="font-inter text-[8px] tracking-[0.18em] uppercase text-[rgba(255,180,220,0.45)]">
-                    ELO
-                  </span>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: "16px", fontWeight: 600, color: "#f5eaff" }}>
+            {data.teamName}
+          </div>
+          {data.teamTagline && (
+            <div style={{ fontSize: "12px", color: "rgba(255, 180, 220, 0.6)", fontStyle: "italic", marginTop: "2px" }}>
+              &ldquo;{data.teamTagline}&rdquo;
+            </div>
+          )}
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <div style={{ fontSize: "10px", color: "rgba(255, 180, 220, 0.5)", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+            ELO TOTAL
+          </div>
+          <div style={{ fontSize: "18px", fontWeight: 600, color: "#ff2e9e" }}>
+            {totalElo}
+          </div>
+        </div>
+      </div>
+
+      {/* Jugadores */}
+      <div style={{
+        padding: "16px",
+        background: "rgba(255, 46, 158, 0.04)",
+        border: "1px solid rgba(255, 46, 158, 0.15)",
+        borderRadius: "4px",
+        marginBottom: "12px",
+      }}>
+        <div style={{ fontSize: "10px", color: "rgba(255, 180, 220, 0.6)", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: "10px" }}>
+          Jugadores
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px" }}>
+          {data.players.map((p, idx) => (
+            <div key={idx} style={{ textAlign: "center", position: "relative" }}>
+              {p.isCaptain && (
+                <div style={{
+                  position: "absolute", top: "-8px", left: "50%", transform: "translateX(-50%)",
+                  background: "#ff2e9e", color: "#0a0011",
+                  fontSize: "8px", fontWeight: 700, letterSpacing: "0.1em",
+                  padding: "2px 6px", borderRadius: "8px", textTransform: "uppercase",
+                }}>
+                  CAP
                 </div>
               )}
-              {player.isCaptain && (
-                <span className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 border-y border-[rgba(255,46,158,0.5)] bg-[rgba(255,46,158,0.06)] rounded-[2px]">
-                  <Crown className="w-2.5 h-2.5 text-[#ff2e9e]" strokeWidth={1.5} />
-                  <span className="font-cinzel text-[8px] tracking-[0.18em] uppercase text-[#ff2e9e]">
-                    Capitán
-                  </span>
-                </span>
+              <div style={{
+                width: "32px", height: "32px", borderRadius: "50%",
+                border: `1px solid ${p.isCaptain ? "#ff2e9e" : "rgba(255, 46, 158, 0.2)"}`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                color: p.isCaptain ? "#ff2e9e" : "rgba(255, 180, 220, 0.5)",
+                fontSize: "13px", fontWeight: 600, margin: "0 auto 4px",
+              }}>
+                {p.displayName.charAt(0).toUpperCase()}
+              </div>
+              <div style={{ fontSize: "11px", fontWeight: 500, color: "#f5eaff" }}>
+                {p.displayName}
+              </div>
+              {p.maxRatingRm1v1 !== null && p.maxRatingRm1v1 !== undefined && (
+                <div style={{ fontSize: "10px", color: "#ff2e9e", marginTop: "2px" }}>
+                  {p.maxRatingRm1v1}
+                </div>
               )}
             </div>
           ))}
         </div>
-      </section>
+      </div>
 
-      {/* ====== Civs row ====== */}
-      <section className="wiz-card !rounded-[4px] p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <Swords className="w-3.5 h-3.5 text-[#ff2e9e]" strokeWidth={1.5} />
-          <span className="wiz-caption text-[10px]" style={{ letterSpacing: "0.32em" }}>
-            Civilizaciones · pool total {9 + data.extraCivIds.length}
+      {/* Civs */}
+      <div style={{
+        padding: "16px",
+        background: "rgba(255, 46, 158, 0.04)",
+        border: "1px solid rgba(255, 46, 158, 0.15)",
+        borderRadius: "4px",
+        marginBottom: "12px",
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px" }}>
+          <span style={{ fontSize: "10px", color: "rgba(255, 180, 220, 0.6)", letterSpacing: "0.2em", textTransform: "uppercase" }}>
+            Civs base
+          </span>
+          <span style={{ fontSize: "11px", color: "#ff2e9e", fontWeight: 600 }}>
+            {data.baseCivIds.length}/9
           </span>
         </div>
-        <div className="grid md:grid-cols-2 gap-5">
-          <div>
-            <div className="wiz-caption text-[9px] mb-2" style={{ letterSpacing: "0.18em" }}>
-              9 civs base
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {data.baseCivIds.length === 0 ? (
-                <span className="text-[12px] text-[rgba(255,180,220,0.4)] italic">—</span>
-              ) : (
-                data.baseCivIds.map((civId, idx) => (
-                  <CivChip key={civId} civId={civId} idx={idx} variant="base" />
-                ))
-              )}
-            </div>
-          </div>
-          <div>
-            <div className="wiz-caption text-[9px] mb-2" style={{ letterSpacing: "0.18em" }}>
-              3 civs extra (final)
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {data.extraCivIds.length === 0 ? (
-                <span className="text-[12px] text-[rgba(255,180,220,0.4)] italic">—</span>
-              ) : (
-                data.extraCivIds.map((civId, idx) => (
-                  <CivChip key={civId} civId={civId} idx={idx} variant="extra" />
-                ))
-              )}
-            </div>
-          </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginBottom: "12px" }}>
+          {data.baseCivIds.map((civId, idx) => (
+            <span key={civId} style={{
+              fontSize: "10px", padding: "3px 8px",
+              background: "rgba(255, 46, 158, 0.1)",
+              border: "1px solid rgba(255, 46, 158, 0.3)",
+              borderRadius: "10px",
+              color: "#f5eaff",
+            }}>
+              {idx + 1}. {CIV_NAMES[civId] ?? civId}
+            </span>
+          ))}
         </div>
-      </section>
-
-      {/* ====== Confirmations + warning row ====== */}
-      <div className="grid md:grid-cols-2 gap-4">
-        <section className="wiz-card !rounded-[4px] p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <Check className="w-3.5 h-3.5 text-[#ff2e9e]" strokeWidth={1.5} />
-            <span className="wiz-caption text-[10px]" style={{ letterSpacing: "0.32em" }}>
-              Confirmaciones
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px" }}>
+          <span style={{ fontSize: "10px", color: "rgba(255, 180, 220, 0.6)", letterSpacing: "0.2em", textTransform: "uppercase" }}>
+            Civs extra
+          </span>
+          <span style={{ fontSize: "11px", color: "#ff2e9e", fontWeight: 600 }}>
+            {data.extraCivIds.length}/3
+          </span>
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+          {data.extraCivIds.map((civId, idx) => (
+            <span key={civId} style={{
+              fontSize: "10px", padding: "3px 8px",
+              background: "rgba(255, 46, 158, 0.05)",
+              border: "1px solid rgba(255, 46, 158, 0.15)",
+              borderRadius: "10px",
+              color: "rgba(255, 180, 220, 0.8)",
+            }}>
+              {idx + 1}. {CIV_NAMES[civId] ?? civId}
             </span>
-          </div>
-          <ul className="space-y-2">
-            <li className="flex items-center gap-3">
-              <Mail className="w-3.5 h-3.5 text-[#ff2e9e] shrink-0" strokeWidth={1.5} />
-              <span className="wiz-body text-[12px]">
-                <span className="text-[rgba(255,180,220,0.55)]">Cuenta:</span>{" "}
-                <span className="text-[#f5eaff] font-cinzel">{data.email}</span>
-              </span>
-            </li>
-            <li className="flex items-center gap-3">
-              {data.handbookDownloadedAt ? (
-                <Check className="w-3.5 h-3.5 text-[#ff2e9e] shrink-0" strokeWidth={2} />
-              ) : (
-                <FileText className="w-3.5 h-3.5 text-[rgba(255,180,220,0.45)] shrink-0" strokeWidth={1.5} />
-              )}
-              <span className="wiz-body text-[12px]">Handbook descargado</span>
-            </li>
-            <li className="flex items-center gap-3">
-              {data.restreamAccepted ? (
-                <Check className="w-3.5 h-3.5 text-[#ff2e9e] shrink-0" strokeWidth={2} />
-              ) : (
-                <Radio className="w-3.5 h-3.5 text-[rgba(255,180,220,0.45)] shrink-0" strokeWidth={1.5} />
-              )}
-              <span className="wiz-body text-[12px]">Permiso de transmisión aceptado</span>
-            </li>
-            <li className="flex items-center gap-3">
-              {data.termsAcceptedAt ? (
-                <Check className="w-3.5 h-3.5 text-[#ff2e9e] shrink-0" strokeWidth={2} />
-              ) : (
-                <ShieldAlert className="w-3.5 h-3.5 text-[rgba(255,180,220,0.45)] shrink-0" strokeWidth={1.5} />
-              )}
-              <span className="wiz-body text-[12px]">Reglamento aceptado</span>
-            </li>
-          </ul>
-        </section>
-
-        <section className="wiz-panel-active border-l-2 !border-l-[#ff2e9e] p-5 rounded-[4px] flex flex-col justify-center">
-          <div className="flex items-center gap-2 mb-2">
-            <ShieldAlert className="w-3.5 h-3.5 text-[#ff2e9e]" strokeWidth={1.5} />
-            <span className="wiz-caption text-[10px]" style={{ letterSpacing: "0.32em" }}>
-              Próximo paso
-            </span>
-          </div>
-          <p className="wiz-body text-[13px]">
-            Al confirmar, tu equipo quedará{" "}
-            <span className="text-[#ff2e9e] font-semibold">pendiente de aprobación</span>.
-            El staff revisará los perfiles AoE2 Companion de los 3 jugadores y la
-            suma de ELO. Recibirás la confirmación por email antes del inicio del
-            torneo.
-          </p>
-        </section>
+          ))}
+        </div>
       </div>
+
+      {/* Status checks */}
+      <div style={{
+        padding: "14px 16px",
+        background: "rgba(34, 197, 94, 0.04)",
+        border: "1px solid rgba(34, 197, 94, 0.2)",
+        borderRadius: "4px",
+        display: "flex", flexDirection: "column", gap: "6px",
+      }}>
+        <StatusItem ok={!!data.handbookDownloadedAt} label="Handbook descargado" />
+        <StatusItem ok={data.restreamAccepted} label="Permiso de transmisión aceptado" />
+        <StatusItem ok={!!data.termsAcceptedAt} label="Reglamento aceptado" />
+        <StatusItem ok={!!captain} label={`Capitán: ${captain?.displayName ?? "—"}`} />
+      </div>
+
+      <p style={{ fontSize: "11px", color: "rgba(255, 180, 220, 0.5)", textAlign: "center", marginTop: "16px", lineHeight: 1.5 }}>
+        Al confirmar, tu equipo quedará pendiente de aprobación del staff.
+      </p>
+    </div>
+  );
+}
+
+function StatusItem({ ok, label }: { ok: boolean; label: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+      <div style={{
+        width: "16px", height: "16px", borderRadius: "50%",
+        background: ok ? "rgba(34, 197, 94, 0.15)" : "rgba(239, 68, 68, 0.15)",
+        border: `1px solid ${ok ? "rgba(34, 197, 94, 0.4)" : "rgba(239, 68, 68, 0.4)"}`,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        color: ok ? "#22c55e" : "#ef4444",
+        fontSize: "10px", fontWeight: 700,
+      }}>
+        {ok ? "✓" : "✗"}
+      </div>
+      <span style={{ fontSize: "12px", color: ok ? "#f5eaff" : "rgba(255, 180, 220, 0.6)" }}>
+        {label}
+      </span>
     </div>
   );
 }

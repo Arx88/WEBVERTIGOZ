@@ -1,167 +1,170 @@
 "use client";
 
 import { useWizard } from "@/components/wizard/wizard-context";
-import { Mail, Lock, User, LogIn, Info } from "lucide-react";
-import { cn } from "@/lib/utils";
 
-// ============================================================
-// Step 1 — Cuenta
-// Layout: 2 columnas
-//   LEFT  (40%) — hero panel: brand mark + tagline phrase
-//   RIGHT (60%) — toggle + email/password + info box
-// ============================================================
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  background: "rgba(255, 46, 158, 0.04)",
+  border: "1px solid rgba(255, 46, 158, 0.15)",
+  borderRadius: "4px",
+  padding: "12px 16px",
+  color: "#f5eaff",
+  fontSize: "14px",
+  fontFamily: "Inter, system-ui, sans-serif",
+  outline: "none",
+  transition: "all 200ms ease",
+};
 
-export default function WizardStepAccount() {
+const labelStyle: React.CSSProperties = {
+  display: "block",
+  fontSize: "11px",
+  fontWeight: 500,
+  color: "#ffb4dc",
+  letterSpacing: "0.15em",
+  textTransform: "uppercase",
+  marginBottom: "8px",
+};
+
+export default function Step1Account() {
   const { data, updateData } = useWizard();
 
   return (
-    <div className="grid lg:grid-cols-[2fr_3fr] gap-6 lg:gap-8 items-stretch">
-      {/* ====== LEFT — Brand visual side ====== */}
-      <aside className="wiz-hero-panel relative hidden lg:flex flex-col justify-between p-8 min-h-[460px]">
-        {/* Brand mark */}
-        <div className="flex items-center gap-3">
-          <div className="relative w-10 h-10 rotate-45 border border-[rgba(255,46,158,0.7)] flex items-center justify-center shadow-[0_0_18px_rgba(255,46,158,0.4)]">
-            <span className="-rotate-45 font-cinzel text-[#ff2e9e] text-base font-bold">V</span>
-          </div>
-          <div className="flex flex-col leading-none">
-            <span className="font-cinzel text-[14px] tracking-[0.42em] uppercase text-[#f5eaff]">
-              Vértigo
-            </span>
-            <span className="font-inter text-[9px] tracking-[0.22em] uppercase text-[rgba(255,180,220,0.55)] mt-1">
-              Cup · 3a Edición
-            </span>
-          </div>
+    <div style={{ maxWidth: "380px", margin: "0 auto" }}>
+      {/* Eyebrow + title */}
+      <div style={{ textAlign: "center", marginBottom: "32px" }}>
+        <div style={{
+          fontSize: "10px",
+          color: "rgba(255, 46, 158, 0.7)",
+          letterSpacing: "0.4em",
+          marginBottom: "8px",
+          textTransform: "uppercase",
+        }}>
+          PASO 01
         </div>
-
-        {/* Phrase */}
-        <div className="relative">
-          <span className="block h-px w-12 bg-[rgba(255,46,158,0.55)] mb-5" />
-          <p className="font-cinzel text-[20px] md:text-[22px] leading-[1.32] uppercase tracking-[0.04em] text-neon">
-            El vértigo es el instante
-            <br />
-            entre conocer tu destino
-            <br />
-            y tener que enfrentarlo.
-          </p>
-        </div>
-
-        {/* Footer caption */}
-        <div className="flex items-center gap-2">
-          <span className="h-1.5 w-1.5 rounded-full bg-[#ff2e9e] shadow-[0_0_8px_rgba(255,46,158,0.7)]" />
-          <span className="font-inter text-[10px] tracking-[0.18em] uppercase text-[rgba(255,180,220,0.55)]">
-            Inscripción de equipo · AoE2 DE
-          </span>
-        </div>
-      </aside>
-
-      {/* ====== RIGHT — Form ====== */}
-      <div className="flex flex-col justify-center gap-6 max-w-md w-full mx-auto lg:mx-0">
-        {/* Eyebrow */}
-        <div className="flex items-center gap-2">
-          <span className="h-px w-6 bg-[rgba(255,46,158,0.55)]" />
-          <span className="wiz-section-eyebrow">
-            Acceso del equipo
-          </span>
-        </div>
-
-        <p className="wiz-body">
-          Comenzá creando la <strong>cuenta de tu equipo</strong>. Será el acceso
-          principal para gestionar tu inscripción, ver tus partidos y administrar
-          al equipo en futuras ediciones del torneo.
+        <h1 style={{
+          fontSize: "28px",
+          fontWeight: 600,
+          color: "#f5eaff",
+          fontFamily: "Inter, system-ui, sans-serif",
+          letterSpacing: "-0.01em",
+        }}>
+          Tu cuenta de equipo
+        </h1>
+        <p style={{
+          fontSize: "13px",
+          color: "rgba(255, 180, 220, 0.6)",
+          marginTop: "8px",
+          lineHeight: 1.5,
+        }}>
+          Esta cuenta será el acceso principal para gestionar tu equipo en el torneo.
         </p>
+      </div>
 
-        {/* Toggle: nueva cuenta vs existente */}
-        <div className="flex border border-[rgba(255,46,158,0.22)] divide-x divide-[rgba(255,46,158,0.22)] rounded-[4px] overflow-hidden">
-          <button
-            onClick={() => updateData({ existingAccount: false })}
-            className={cn(
-              "flex-1 px-3 py-3 font-cinzel text-[11px] tracking-[0.22em] uppercase transition-all flex items-center justify-center gap-2",
-              !data.existingAccount
-                ? "bg-[rgba(255,46,158,0.08)] text-[#f5eaff] border-b-2 border-[#ff2e9e] -mb-px"
-                : "text-[rgba(255,180,220,0.55)] hover:text-[#ffb4dc]"
-            )}
-          >
-            <User className="w-3.5 h-3.5" strokeWidth={1.5} />
-            Crear cuenta
-          </button>
-          <button
-            onClick={() => updateData({ existingAccount: true })}
-            className={cn(
-              "flex-1 px-3 py-3 font-cinzel text-[11px] tracking-[0.22em] uppercase transition-all flex items-center justify-center gap-2",
-              data.existingAccount
-                ? "bg-[rgba(255,46,158,0.08)] text-[#f5eaff] border-b-2 border-[#ff2e9e] -mb-px"
-                : "text-[rgba(255,180,220,0.55)] hover:text-[#ffb4dc]"
-            )}
-          >
-            <LogIn className="w-3.5 h-3.5" strokeWidth={1.5} />
-            Ya tengo cuenta
-          </button>
-        </div>
+      {/* Toggle Crear / Ya tengo */}
+      <div style={{
+        display: "flex",
+        background: "rgba(255, 46, 158, 0.05)",
+        borderRadius: "4px",
+        padding: "3px",
+        marginBottom: "24px",
+      }}>
+        {[
+          { val: false, label: "Crear cuenta" },
+          { val: true, label: "Ya tengo cuenta" },
+        ].map((opt) => {
+          const active = data.existingAccount === opt.val;
+          return (
+            <button
+              key={String(opt.val)}
+              onClick={() => updateData({ existingAccount: opt.val })}
+              style={{
+                flex: 1,
+                padding: "10px",
+                fontSize: "12px",
+                fontWeight: 600,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                borderRadius: "3px",
+                transition: "all 200ms ease",
+                background: active ? "#ff2e9e" : "transparent",
+                color: active ? "#0a0011" : "rgba(255, 180, 220, 0.5)",
+                cursor: "pointer",
+              }}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
 
-        <div className="space-y-5">
-          <div>
-            <label htmlFor="email" className="wiz-label">
-              Email del equipo
-            </label>
-            <div className="relative">
-              <Mail
-                className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-[rgba(255,180,220,0.55)]"
-                strokeWidth={1.5}
-              />
-              <input
-                id="email"
-                type="email"
-                placeholder="equipo@gmail.com"
-                className="wiz-input pl-11"
-                value={data.email}
-                onChange={(e) => updateData({ email: e.target.value })}
-                autoComplete="email"
-                required
-              />
-            </div>
-            <p className="wiz-meta mt-2 normal-case">
-              Será el contacto principal con el staff.
-            </p>
-          </div>
+      {/* Email */}
+      <div style={{ marginBottom: "20px" }}>
+        <label style={labelStyle}>Email</label>
+        <input
+          type="email"
+          placeholder="tu@email.com"
+          value={data.email}
+          onChange={(e) => updateData({ email: e.target.value })}
+          autoComplete="email"
+          style={inputStyle}
+          onFocus={(e) => {
+            e.target.style.borderColor = "rgba(255, 46, 158, 0.5)";
+            e.target.style.boxShadow = "0 0 0 3px rgba(255, 46, 158, 0.1)";
+          }}
+          onBlur={(e) => {
+            e.target.style.borderColor = "rgba(255, 46, 158, 0.15)";
+            e.target.style.boxShadow = "none";
+          }}
+        />
+      </div>
 
-          <div>
-            <label htmlFor="password" className="wiz-label">
-              {data.existingAccount ? "Contraseña" : "Crear contraseña"}
-            </label>
-            <div className="relative">
-              <Lock
-                className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-[rgba(255,180,220,0.55)]"
-                strokeWidth={1.5}
-              />
-              <input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                className="wiz-input pl-11"
-                value={data.password}
-                onChange={(e) => updateData({ password: e.target.value })}
-                autoComplete={data.existingAccount ? "current-password" : "new-password"}
-                minLength={6}
-                required
-              />
-            </div>
-            {!data.existingAccount && (
-              <p className="wiz-meta mt-2 normal-case">
-                Mínimo 6 caracteres.
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Info box */}
-        <div className="wiz-panel-sunken border-l-2 !border-l-[#ff2e9e] px-4 py-3 rounded-[4px] flex items-start gap-3">
-          <Info className="w-4 h-4 text-[#ff2e9e] mt-0.5 shrink-0" strokeWidth={1.5} />
-          <p className="wiz-body text-[13px]">
-            Esta cuenta es <span className="text-[#ff2e9e] font-semibold">por equipo</span>, no por jugador.
-            El dueño podrá cargar los 3 jugadores y elegir un capitán como
-            contacto oficial con el staff.
+      {/* Password */}
+      <div style={{ marginBottom: "24px" }}>
+        <label style={labelStyle}>
+          {data.existingAccount ? "Contraseña" : "Crear contraseña"}
+        </label>
+        <input
+          type="password"
+          placeholder="••••••••"
+          value={data.password}
+          onChange={(e) => updateData({ password: e.target.value })}
+          autoComplete={data.existingAccount ? "current-password" : "new-password"}
+          minLength={6}
+          style={inputStyle}
+          onFocus={(e) => {
+            e.target.style.borderColor = "rgba(255, 46, 158, 0.5)";
+            e.target.style.boxShadow = "0 0 0 3px rgba(255, 46, 158, 0.1)";
+          }}
+          onBlur={(e) => {
+            e.target.style.borderColor = "rgba(255, 46, 158, 0.15)";
+            e.target.style.boxShadow = "none";
+          }}
+        />
+        {!data.existingAccount && (
+          <p style={{
+            fontSize: "11px",
+            color: "rgba(255, 180, 220, 0.4)",
+            marginTop: "6px",
+          }}>
+            Mínimo 6 caracteres.
           </p>
-        </div>
+        )}
+      </div>
+
+      {/* Info box */}
+      <div style={{
+        padding: "12px 14px",
+        background: "rgba(255, 46, 158, 0.05)",
+        borderLeft: "2px solid rgba(255, 46, 158, 0.4)",
+        borderRadius: "2px",
+      }}>
+        <p style={{
+          fontSize: "12px",
+          color: "rgba(255, 180, 220, 0.7)",
+          lineHeight: 1.5,
+        }}>
+          Esta cuenta es por equipo, no por jugador. Vas a poder cargar 3 jugadores después.
+        </p>
       </div>
     </div>
   );

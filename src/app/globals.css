@@ -265,252 +265,373 @@ input::placeholder, textarea::placeholder {
 }
 
 /* ============================================================
-   WIZARD — Utility classes (magenta palette, port from landing)
-   "Premium sobrio medieval" — sutil neon magenta, no cyberpunk
-   Typography: Cinzel (titles + uppercase labels) · Inter (body, inputs)
+   WIZARD V3 — Professional design system (Inter-first)
+   Cinzel ONLY for the VÉRTIGO brand mark in the header.
+   All body, labels, captions, inputs use Inter.
+   Subtle shadows (no cyberpunk), 200ms transitions.
    ============================================================ */
 
-/* Font utility — Inter for body, input, captions in normal case */
+/* Inter utility */
 .font-inter { font-family: var(--font-inter), system-ui, sans-serif; }
 
+/* ----- Backgrounds ----- */
 .wiz-bg {
   background:
-    radial-gradient(1200px 600px at 50% -10%, rgba(255, 46, 158, 0.07), transparent 60%),
-    radial-gradient(900px 500px at 50% 110%, rgba(122, 90, 144, 0.10), transparent 60%),
+    radial-gradient(1200px 600px at 50% -10%, rgba(255, 46, 158, 0.05), transparent 60%),
+    radial-gradient(900px 500px at 50% 110%, rgba(122, 90, 144, 0.06), transparent 60%),
     #0a0011;
 }
 
-/* Subtle grain/noise overlay (CSS-only) */
-.wiz-bg::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    repeating-linear-gradient(
-      0deg,
-      transparent 0px,
-      transparent 2px,
-      rgba(255, 255, 255, 0.012) 2px,
-      rgba(255, 255, 255, 0.012) 3px
-    );
-  z-index: 0;
+/* ----- Containers / panels ----- */
+.wiz-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: #14001f;
+  border: 1px solid rgba(255, 46, 158, 0.15);
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease;
 }
-
-.wiz-panel {
-  background: rgba(20, 0, 31, 0.55);
-  border: 1px solid rgba(255, 46, 158, 0.16);
-  backdrop-filter: blur(6px);
-  transition: border-color 220ms ease, background-color 220ms ease, box-shadow 220ms ease;
-}
-
-.wiz-panel-hover:hover {
-  border-color: rgba(255, 46, 158, 0.35);
+.wiz-card-active {
+  border-color: rgba(255, 46, 158, 0.5);
   background: rgba(255, 46, 158, 0.03);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 46, 158, 0.18);
 }
-
-.wiz-panel-active {
-  background: rgba(255, 46, 158, 0.04);
-  border: 1px solid rgba(255, 46, 158, 0.5);
-  box-shadow:
-    0 0 20px rgba(255, 46, 158, 0.12),
-    inset 0 0 14px rgba(255, 46, 158, 0.04);
+.wiz-card-success {
+  border-color: rgba(34, 197, 94, 0.45);
+  background: rgba(34, 197, 94, 0.04);
 }
-
 .wiz-panel-sunken {
   background: rgba(5, 2, 8, 0.5);
   border: 1px solid rgba(255, 46, 158, 0.10);
+  border-radius: 4px;
+}
+.wiz-hero-panel {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(500px 320px at 25% 15%, rgba(255, 46, 158, 0.10), transparent 70%),
+    radial-gradient(360px 260px at 80% 80%, rgba(122, 90, 144, 0.14), transparent 60%),
+    linear-gradient(135deg, #14001f 0%, #0a0011 60%, #050208 100%);
+  border: 1px solid rgba(255, 46, 158, 0.18);
+  border-radius: 6px;
 }
 
+/* ----- Inputs ----- */
 .wiz-input {
   width: 100%;
-  background: rgba(20, 0, 31, 0.4);
-  border: 1px solid rgba(255, 46, 158, 0.22);
+  background: #1a0228;
+  border: 1px solid rgba(255, 46, 158, 0.18);
   color: #f5eaff;
   font-family: var(--font-inter), system-ui, sans-serif;
-  font-size: 15px;
-  letter-spacing: 0.01em;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0.005em;
   padding: 12px 16px;
   border-radius: 4px;
   transition: border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease;
 }
-
 .wiz-input::placeholder {
-  color: rgba(255, 180, 220, 0.32);
+  color: rgba(255, 180, 220, 0.40);
   font-family: var(--font-inter), system-ui, sans-serif;
-  letter-spacing: 0.01em;
   font-weight: 400;
 }
-
 .wiz-input:focus {
   outline: none;
-  border-color: rgba(255, 46, 158, 0.7);
-  background: rgba(255, 46, 158, 0.04);
-  box-shadow:
-    0 0 0 1px rgba(255, 46, 158, 0.25),
-    0 0 16px rgba(255, 46, 158, 0.15);
+  border-color: rgba(255, 46, 158, 0.5);
+  background: #1c0330;
+  box-shadow: 0 0 0 3px rgba(255, 46, 158, 0.15);
 }
-
 .wiz-input:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
-
-.wiz-label {
-  display: block;
-  font-family: var(--font-cinzel), serif;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.32em;
-  text-transform: uppercase;
-  color: #ffb4dc;
-  margin-bottom: 8px;
+.wiz-input-error {
+  border-color: rgba(239, 68, 68, 0.7) !important;
+  background: rgba(239, 68, 68, 0.04);
+}
+.wiz-input-error:focus {
+  border-color: rgba(239, 68, 68, 0.85) !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
 }
 
+/* ----- Labels / captions / body ----- */
+.wiz-label {
+  display: block;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #ffb4dc;
+  margin-bottom: 6px;
+}
 .wiz-caption {
-  font-family: var(--font-cinzel), serif;
-  font-size: 10px;
-  letter-spacing: 0.28em;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: rgba(255, 180, 220, 0.55);
 }
-
 .wiz-body {
   color: #e6d3f5;
   font-size: 14px;
-  line-height: 1.65;
+  line-height: 1.6;
   font-weight: 400;
   font-family: var(--font-inter), system-ui, sans-serif;
 }
-
 .wiz-body strong, .wiz-body .wiz-accent {
   color: #ff2e9e;
   font-weight: 600;
 }
-
 .wiz-meta {
   font-family: var(--font-inter), system-ui, sans-serif;
-  font-size: 11px;
-  letter-spacing: 0.02em;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.005em;
   color: rgba(255, 180, 220, 0.55);
-  line-height: 1.55;
+  line-height: 1.5;
+}
+.wiz-title {
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  color: #f5eaff;
+}
+.wiz-subtitle {
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  color: rgba(255, 180, 220, 0.65);
+  line-height: 1.5;
+}
+.wiz-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #ffb4dc;
+}
+.wiz-error-text {
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: #ef4444;
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.wiz-helper {
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  color: rgba(255, 180, 220, 0.50);
+  margin-top: 6px;
+  line-height: 1.45;
 }
 
+/* ----- Buttons ----- */
 .wiz-btn-primary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 12px 30px;
+  min-height: 44px;
+  padding: 10px 24px;
   color: #ffffff;
-  background: #14001f;
-  border: 1px solid rgba(255, 46, 158, 0.6);
+  background: #ff2e9e;
+  border: 1px solid #ff2e9e;
   border-radius: 4px;
-  letter-spacing: 0.16em;
-  font-family: var(--font-cinzel), serif;
+  letter-spacing: 0.04em;
+  font-family: var(--font-inter), system-ui, sans-serif;
   font-weight: 600;
-  font-size: 12px;
-  text-transform: uppercase;
+  font-size: 13px;
+  text-transform: none;
   cursor: pointer;
-  transition: background-color 220ms ease, border-color 220ms ease, box-shadow 220ms ease, transform 220ms ease, opacity 220ms ease;
-  box-shadow: 0 0 0 rgba(255, 46, 158, 0);
+  transition: background-color 200ms ease, border-color 200ms ease, box-shadow 200ms ease, transform 200ms ease, opacity 200ms ease;
 }
-
 .wiz-btn-primary:hover:not(:disabled) {
-  background: #1e0230;
-  border-color: rgba(255, 46, 158, 0.95);
-  box-shadow: 0 0 22px rgba(255, 46, 158, 0.35), inset 0 0 12px rgba(255, 46, 158, 0.12);
+  background: #ff4cae;
+  border-color: #ff4cae;
+  box-shadow: 0 4px 12px rgba(255, 46, 158, 0.35);
   transform: translateY(-1px);
 }
-
 .wiz-btn-primary:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
-
 .wiz-btn-ghost {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 12px 22px;
+  min-height: 44px;
+  padding: 10px 22px;
   color: #ffb4dc;
   background: transparent;
-  border: 1px solid rgba(255, 180, 220, 0.22);
+  border: 1px solid rgba(255, 180, 220, 0.20);
   border-radius: 4px;
-  letter-spacing: 0.16em;
-  font-family: var(--font-cinzel), serif;
+  letter-spacing: 0.04em;
+  font-family: var(--font-inter), system-ui, sans-serif;
   font-weight: 500;
-  font-size: 12px;
-  text-transform: uppercase;
+  font-size: 13px;
   cursor: pointer;
-  transition: all 220ms ease;
+  transition: all 200ms ease;
 }
-
 .wiz-btn-ghost:hover:not(:disabled) {
-  border-color: rgba(255, 180, 220, 0.55);
+  border-color: rgba(255, 46, 158, 0.5);
   color: #ffffff;
   background: rgba(255, 46, 158, 0.04);
 }
-
 .wiz-btn-ghost:disabled {
   opacity: 0.35;
   cursor: not-allowed;
 }
 
-/* Hairline divider */
-.wiz-hairline {
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255, 180, 220, 0.35), transparent);
+/* ----- Toggle button group (Crear/Ya tengo etc.) ----- */
+.wiz-toggle-group {
+  display: inline-flex;
+  background: #1a0228;
+  border: 1px solid rgba(255, 46, 158, 0.15);
+  border-radius: 4px;
+  padding: 3px;
+  gap: 2px;
+}
+.wiz-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border-radius: 3px;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: rgba(255, 180, 220, 0.55);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 180ms ease;
+  white-space: nowrap;
+}
+.wiz-toggle-btn:hover:not(.wiz-toggle-active) {
+  color: #ffb4dc;
+  background: rgba(255, 46, 158, 0.04);
+}
+.wiz-toggle-active {
+  background: #ff2e9e;
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(255, 46, 158, 0.4);
 }
 
-.wiz-hairline-v {
-  width: 1px;
-  background: linear-gradient(180deg, transparent, rgba(255, 180, 220, 0.18), transparent);
+/* ----- Civ order badge (number circle top-right) ----- */
+.wiz-order-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ff2e9e;
+  color: #0a0011;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 2px #14001f, 0 2px 6px rgba(0, 0, 0, 0.4);
+  z-index: 2;
 }
 
-/* Progress bar (magenta) */
+/* ----- Chips ----- */
+.wiz-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  background: rgba(255, 46, 158, 0.08);
+  border: 1px solid rgba(255, 46, 158, 0.30);
+  color: #ffb4dc;
+}
+.wiz-chip-num {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: #ff2e9e;
+  font-size: 10px;
+}
+
+/* ----- Stepper dots ----- */
+.wiz-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: rgba(255, 46, 158, 0.20);
+  border: none;
+  transition: all 200ms ease;
+  cursor: pointer;
+  padding: 0;
+}
+.wiz-dot-current {
+  width: 22px;
+  background: #ff2e9e;
+  box-shadow: 0 0 8px rgba(255, 46, 158, 0.5);
+}
+.wiz-dot-done {
+  background: rgba(255, 46, 158, 0.50);
+}
+.wiz-dot-done:hover {
+  background: rgba(255, 46, 158, 0.75);
+}
+
+/* ----- Progress bar ----- */
 .wiz-progress-track {
   height: 2px;
   width: 100%;
-  background: rgba(255, 46, 158, 0.08);
+  background: rgba(255, 46, 158, 0.10);
   overflow: hidden;
 }
 .wiz-progress-fill {
   height: 100%;
   background: linear-gradient(90deg, rgba(255, 46, 158, 0.55), #ff2e9e);
-  box-shadow: 0 0 12px rgba(255, 46, 158, 0.55);
+  box-shadow: 0 0 6px rgba(255, 46, 158, 0.40);
   transition: width 380ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* Hide scrollbar but keep scroll behavior */
+/* ----- Scrollbar hide ----- */
 .wiz-scroll-hide {
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE10+ */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 .wiz-scroll-hide::-webkit-scrollbar {
-  display: none; /* Chrome/Safari */
+  display: none;
 }
 
-/* Step transition — slide-in animation */
-@keyframes wizStepIn {
-  from { opacity: 0; transform: translateX(12px); }
-  to { opacity: 1; transform: none; }
+/* ----- Step transition (fade-in only, no slide) ----- */
+@keyframes wizStepFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
-.wiz-step-in {
-  animation: wizStepIn 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-/* Reverse direction on step-back */
-@keyframes wizStepBack {
-  from { opacity: 0; transform: translateX(-12px); }
-  to { opacity: 1; transform: none; }
-}
-.wiz-step-back {
-  animation: wizStepBack 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+.wiz-step-in, .wiz-step-back {
+  animation: wizStepFade 200ms ease-out both;
 }
 
-/* Spinner ring (magenta) */
+/* ----- Spinner ----- */
 @keyframes wizSpin { to { transform: rotate(360deg); } }
 .wiz-spin {
   width: 14px;
@@ -522,7 +643,7 @@ input::placeholder, textarea::placeholder {
   display: inline-block;
 }
 
-/* Player slot pill */
+/* ----- Player slot ----- */
 .wiz-slot {
   position: relative;
   display: flex;
@@ -530,30 +651,31 @@ input::placeholder, textarea::placeholder {
   align-items: center;
   text-align: center;
   padding: 14px 12px;
-  background: rgba(20, 0, 31, 0.4);
+  background: #14001f;
   border: 1px solid rgba(255, 46, 158, 0.16);
-  border-radius: 4px;
-  transition: all 220ms ease;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: all 200ms ease;
   cursor: pointer;
 }
 .wiz-slot:hover {
   border-color: rgba(255, 46, 158, 0.35);
-  background: rgba(255, 46, 158, 0.03);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 .wiz-slot-active {
-  background: rgba(255, 46, 158, 0.05);
+  background: rgba(255, 46, 158, 0.04);
   border: 1px solid rgba(255, 46, 158, 0.55);
-  box-shadow: 0 0 18px rgba(255, 46, 158, 0.18);
+  box-shadow: 0 0 0 1px rgba(255, 46, 158, 0.20), 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 .wiz-slot-empty {
-  border: 1px dashed rgba(255, 46, 158, 0.25);
+  border: 1px dashed rgba(255, 46, 158, 0.30);
 }
 .wiz-slot-loaded {
-  background: rgba(255, 46, 158, 0.03);
-  border: 1px solid rgba(255, 46, 158, 0.35);
+  background: #14001f;
+  border: 1px solid rgba(255, 46, 158, 0.30);
 }
 
-/* Civ tile */
+/* ----- Civ tile (denser, square-ish for 40 civs grid) ----- */
 .wiz-civ-tile {
   position: relative;
   display: flex;
@@ -561,36 +683,37 @@ input::placeholder, textarea::placeholder {
   align-items: center;
   justify-content: center;
   text-align: center;
-  aspect-ratio: 3 / 4;
-  padding: 6px 4px;
-  background: rgba(20, 0, 31, 0.4);
+  padding: 8px 4px 6px;
+  background: #14001f;
   border: 1px solid rgba(255, 46, 158, 0.14);
   border-radius: 4px;
-  transition: all 200ms ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  transition: all 180ms ease;
   cursor: pointer;
+  min-height: 64px;
 }
 .wiz-civ-tile:hover:not(:disabled) {
-  border-color: rgba(255, 46, 158, 0.5);
-  background: rgba(255, 46, 158, 0.04);
+  border-color: rgba(255, 46, 158, 0.40);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 .wiz-civ-tile-selected {
-  background: rgba(255, 46, 158, 0.06);
-  border: 1px solid rgba(255, 46, 158, 0.7);
-  box-shadow: 0 0 14px rgba(255, 46, 158, 0.18);
+  background: rgba(255, 46, 158, 0.10);
+  border: 1px solid #ff2e9e;
+  box-shadow: 0 0 0 1px rgba(255, 46, 158, 0.25), 0 2px 8px rgba(255, 46, 158, 0.18);
 }
 .wiz-civ-tile-locked {
-  opacity: 0.35;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 .wiz-civ-tile:disabled {
   cursor: not-allowed;
 }
 
-/* Checkmark box */
+/* ----- Checkmark ----- */
 .wiz-check {
-  width: 22px;
-  height: 22px;
-  border: 1px solid rgba(255, 46, 158, 0.4);
+  width: 20px;
+  height: 20px;
+  border: 1px solid rgba(255, 46, 158, 0.40);
   background: transparent;
   border-radius: 3px;
   display: inline-flex;
@@ -603,93 +726,53 @@ input::placeholder, textarea::placeholder {
 .wiz-check-checked {
   background: #ff2e9e;
   border-color: #ff2e9e;
-  color: #0a0011;
-  box-shadow: 0 0 12px rgba(255, 46, 158, 0.5);
+  color: #ffffff;
+  box-shadow: 0 0 0 1px rgba(255, 46, 158, 0.30);
 }
 
-/* Stepper dot */
-.wiz-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 9999px;
-  background: rgba(255, 46, 158, 0.18);
-  transition: all 300ms ease;
-}
-.wiz-dot-current {
-  width: 24px;
-  background: #ff2e9e;
-  box-shadow: 0 0 10px rgba(255, 46, 158, 0.7);
-}
-.wiz-dot-done {
-  background: rgba(255, 46, 158, 0.45);
-}
-
-/* Wizard card — generic container for grid layouts */
-.wiz-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  background: rgba(20, 0, 31, 0.55);
-  border: 1px solid rgba(255, 46, 158, 0.16);
-  border-radius: 4px;
-  backdrop-filter: blur(6px);
-  transition: border-color 220ms ease, box-shadow 220ms ease, background-color 220ms ease;
-}
-.wiz-card-active {
-  border-color: rgba(255, 46, 158, 0.55);
-  background: rgba(255, 46, 158, 0.04);
-  box-shadow: 0 0 20px rgba(255, 46, 158, 0.14);
-}
-
-/* Wizard hero panel — for left column visual side */
-.wiz-hero-panel {
-  position: relative;
-  overflow: hidden;
-  background:
-    radial-gradient(600px 400px at 30% 20%, rgba(255, 46, 158, 0.12), transparent 70%),
-    radial-gradient(400px 300px at 80% 80%, rgba(122, 90, 144, 0.18), transparent 60%),
-    linear-gradient(135deg, #14001f 0%, #0a0011 60%, #050208 100%);
-  border: 1px solid rgba(255, 46, 158, 0.18);
-  border-radius: 4px;
-}
-
-/* Wizard ring with magenta glow — for avatars/emblems */
+/* ----- Ring with magenta glow ----- */
 .wiz-ring {
-  position: relative;
-  border-radius: 9999px;
-  border: 1px solid rgba(255, 46, 158, 0.55);
-  box-shadow:
-    0 0 14px rgba(255, 46, 158, 0.22),
-    inset 0 0 10px rgba(255, 46, 158, 0.08);
+  border: 1px solid rgba(255, 46, 158, 0.40);
+  box-shadow: 0 0 0 1px rgba(255, 46, 158, 0.05);
 }
 .wiz-ring-strong {
-  border-color: #ff2e9e;
-  box-shadow:
-    0 0 22px rgba(255, 46, 158, 0.55),
-    inset 0 0 14px rgba(255, 46, 158, 0.15);
+  border: 1px solid #ff2e9e;
+  box-shadow: 0 0 0 2px rgba(255, 46, 158, 0.20), 0 2px 8px rgba(255, 46, 158, 0.25);
 }
 
-/* Section header within wizard content */
-.wiz-section-eyebrow {
-  display: inline-flex;
+/* ----- Hairline dividers ----- */
+.wiz-hairline {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 180, 220, 0.30), transparent);
+}
+.wiz-hairline-v {
+  width: 1px;
+  background: linear-gradient(180deg, transparent, rgba(255, 180, 220, 0.18), transparent);
+}
+
+/* ----- Brand mark (Cinzel, ONLY for V logo / VÉRTIGO wordmark) ----- */
+.wiz-brand-mark {
+  position: relative;
+  display: flex;
   align-items: center;
-  gap: 10px;
-  font-family: var(--font-cinzel), serif;
-  font-size: 10px;
-  letter-spacing: 0.42em;
-  text-transform: uppercase;
-  color: #ffb4dc;
+  justify-content: center;
+  border: 1px solid rgba(255, 46, 158, 0.55);
+  background: rgba(255, 46, 158, 0.05);
+  box-shadow: 0 0 12px rgba(255, 46, 158, 0.18);
+  transform: rotate(45deg);
 }
-
-/* Numbered avatar (Cinzel big numeral) */
-.wiz-numeral {
+.wiz-brand-mark > span {
+  transform: rotate(-45deg);
   font-family: var(--font-cinzel), serif;
   font-weight: 700;
-  letter-spacing: -0.02em;
   color: #ff2e9e;
-  text-shadow: 0 0 16px rgba(255, 46, 158, 0.5);
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
+}
+.wiz-brand-word {
+  font-family: var(--font-cinzel), serif;
+  text-transform: uppercase;
+  letter-spacing: 0.32em;
+  color: #f5eaff;
+  font-weight: 600;
 }
 
 @media (prefers-reduced-motion: reduce) {

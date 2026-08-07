@@ -1,16 +1,12 @@
 "use client";
 
 import { useWizard } from "@/components/wizard/wizard-context";
-import { Crown, AlertCircle, Check, Info, Flag } from "lucide-react";
-import { cn } from "@/lib/utils";
 
-// ============================================================
-// Step 4 — Elegir capitán
-// Layout: 3 cards en row centradas + ELO check bar arriba
-// ============================================================
-
-export default function WizardStepCaptain() {
+export default function Step4Captain() {
   const { data, updatePlayer } = useWizard();
+  const totalElo = data.players.reduce((s, p) => s + (p.maxRatingRm1v1 ?? 0), 0);
+  const eloMax = 3520;
+  const isWithinCap = totalElo <= eloMax;
 
   function setCaptain(slot: 0 | 1 | 2) {
     data.players.forEach((_, idx) => {
@@ -18,172 +14,100 @@ export default function WizardStepCaptain() {
     });
   }
 
-  const totalElo = data.players.reduce((sum, p) => sum + (p.maxRatingRm1v1 ?? 0), 0);
-  const eloCap = 3500;
-  const eloTolerance = 20;
-  const eloMax = eloCap + eloTolerance;
-  const isWithinCap = totalElo <= eloMax;
-
   const selectedCaptain = data.players.findIndex((p) => p.isCaptain);
 
   return (
-    <div className="flex flex-col gap-5">
-      {/* ====== ELO bar ====== */}
-      <div
-        className={cn(
-          "wiz-card !rounded-[4px] px-5 py-4 flex items-center justify-between",
-          isWithinCap ? "wiz-card-active" : "!border-[rgba(255,77,109,0.5)]"
-        )}
-        style={!isWithinCap ? { background: "rgba(255,77,109,0.04)" } : undefined}
-      >
-        <div className="flex items-center gap-4">
-          <div
-            className={cn(
-              "w-10 h-10 rounded-full border flex items-center justify-center",
-              isWithinCap
-                ? "border-[rgba(255,46,158,0.5)] text-[#ff2e9e]"
-                : "border-[rgba(255,77,109,0.5)] text-[#ff4d6d]"
-            )}
-          >
-            {isWithinCap ? (
-              <Check className="w-5 h-5" strokeWidth={2} />
-            ) : (
-              <AlertCircle className="w-5 h-5" strokeWidth={2} />
-            )}
-          </div>
-          <div>
-            <div className="wiz-caption text-[10px]" style={{ letterSpacing: "0.32em" }}>
-              Verificación ELO
-            </div>
-            <div
-              className={cn(
-                "font-cinzel text-[15px] tracking-[0.04em] mt-0.5",
-                isWithinCap ? "text-[#f5eaff]" : "text-[#ff4d6d]"
-              )}
-            >
-              {isWithinCap ? "Dentro del límite" : "Excede el límite"}
-            </div>
-          </div>
+    <div style={{ maxWidth: "560px", margin: "0 auto" }}>
+      <div style={{ textAlign: "center", marginBottom: "28px" }}>
+        <div style={{ fontSize: "10px", color: "rgba(255, 46, 158, 0.7)", letterSpacing: "0.4em", textTransform: "uppercase", marginBottom: "8px" }}>
+          PASO 04
         </div>
-        <div className="text-right">
-          <div
-            className={cn(
-              "font-cinzel text-[28px] tabular-nums leading-none",
-              isWithinCap ? "text-[#f5eaff]" : "text-[#ff4d6d]"
-            )}
-          >
-            {totalElo}
-          </div>
-          <div className="wiz-caption text-[9px] mt-1" style={{ letterSpacing: "0.18em" }}>
-            de {eloMax} máx
-          </div>
-        </div>
+        <h1 style={{ fontSize: "28px", fontWeight: 600, color: "#f5eaff", fontFamily: "Inter, system-ui, sans-serif", letterSpacing: "-0.01em" }}>
+          Elegir capitán
+        </h1>
+        <p style={{ fontSize: "13px", color: "rgba(255, 180, 220, 0.6)", marginTop: "8px" }}>
+          Será el contacto oficial con el staff del torneo.
+        </p>
       </div>
 
-      {/* ====== Captain cards (3 cols) ====== */}
-      <div className="grid grid-cols-3 gap-4">
-        {data.players.map((player, idx) => (
-          <button
-            key={idx}
-            onClick={() => setCaptain(idx as 0 | 1 | 2)}
-            disabled={player.aoe2ProfileId === null}
-            className={cn(
-              "relative p-5 flex flex-col items-center text-center transition-all min-h-[220px] !rounded-[4px] disabled:opacity-40 disabled:cursor-not-allowed group",
-              player.isCaptain
-                ? "wiz-card-active"
-                : "wiz-card hover:!border-[rgba(255,46,158,0.45)]"
-            )}
-          >
-            {/* Captain badge */}
-            {player.isCaptain && (
-              <div className="absolute top-3 right-3 inline-flex items-center gap-1 px-2 py-1 border-y border-[rgba(255,46,158,0.5)] bg-[rgba(255,46,158,0.08)] rounded-[2px]">
-                <Crown className="w-2.5 h-2.5 text-[#ff2e9e]" strokeWidth={2} />
-                <span className="font-cinzel text-[8px] tracking-[0.18em] uppercase text-[#ff2e9e]">
+      {/* ELO check */}
+      <div style={{
+        padding: "10px 14px",
+        background: isWithinCap ? "rgba(34, 197, 94, 0.08)" : "rgba(239, 68, 68, 0.08)",
+        border: `1px solid ${isWithinCap ? "rgba(34, 197, 94, 0.3)" : "rgba(239, 68, 68, 0.3)"}`,
+        borderRadius: "4px",
+        marginBottom: "20px",
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+      }}>
+        <span style={{ fontSize: "11px", letterSpacing: "0.15em", textTransform: "uppercase",
+          color: isWithinCap ? "#22c55e" : "#ef4444", fontWeight: 600 }}>
+          {isWithinCap ? "✓ ELO dentro del cap" : "✗ ELO excedido"}
+        </span>
+        <span style={{ fontSize: "14px", fontWeight: 600, color: isWithinCap ? "#22c55e" : "#ef4444" }}>
+          {totalElo} / {eloMax}
+        </span>
+      </div>
+
+      {/* 3 cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "12px", marginBottom: "16px" }}>
+        {data.players.map((player, idx) => {
+          const isCaptain = player.isCaptain;
+          return (
+            <button
+              key={idx}
+              onClick={() => setCaptain(idx as 0 | 1 | 2)}
+              disabled={!player.aoe2ProfileId}
+              style={{
+                padding: "20px 12px",
+                borderRadius: "6px",
+                background: isCaptain ? "rgba(255, 46, 158, 0.08)" : "rgba(255, 46, 158, 0.02)",
+                border: `1px solid ${isCaptain ? "#ff2e9e" : "rgba(255, 46, 158, 0.12)"}`,
+                cursor: player.aoe2ProfileId ? "pointer" : "not-allowed",
+                opacity: player.aoe2ProfileId ? 1 : 0.4,
+                transition: "all 200ms ease",
+                boxShadow: isCaptain ? "0 0 0 1px #ff2e9e, 0 0 16px rgba(255, 46, 158, 0.25)" : "none",
+                position: "relative",
+              }}
+            >
+              {isCaptain && (
+                <div style={{
+                  position: "absolute", top: "-8px", left: "50%", transform: "translateX(-50%)",
+                  background: "#ff2e9e", color: "#0a0011",
+                  fontSize: "9px", fontWeight: 700, letterSpacing: "0.15em",
+                  padding: "3px 10px", borderRadius: "10px",
+                  textTransform: "uppercase",
+                }}>
                   Capitán
-                </span>
+                </div>
+              )}
+              <div style={{
+                width: "44px", height: "44px", borderRadius: "50%",
+                border: `1px solid ${isCaptain ? "#ff2e9e" : "rgba(255, 180, 220, 0.2)"}`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                color: isCaptain ? "#ff2e9e" : "rgba(255, 180, 220, 0.4)",
+                fontSize: "18px", fontWeight: 600,
+                margin: "0 auto 10px",
+              }}>
+                {player.displayName.charAt(0).toUpperCase() || "?"}
               </div>
-            )}
-
-            {/* Slot number top-left */}
-            <span className="absolute top-3 left-3 font-cinzel text-[10px] tabular-nums tracking-[0.18em] text-[rgba(255,180,220,0.35)]">
-              {String(idx + 1).padStart(2, "0")}
-            </span>
-
-            {/* Avatar */}
-            <div
-              className={cn(
-                "w-16 h-16 rounded-full border flex items-center justify-center mb-4 mt-3 transition-all",
-                player.isCaptain
-                  ? "border-[#ff2e9e] text-[#ff2e9e] shadow-[0_0_18px_rgba(255,46,158,0.5)]"
-                  : "border-[rgba(255,46,158,0.35)] text-[rgba(255,180,220,0.55)] group-hover:border-[rgba(255,46,158,0.55)]"
-              )}
-            >
-              {player.isCaptain ? (
-                <Crown className="w-8 h-8" strokeWidth={1.25} />
-              ) : (
-                <span className="font-cinzel text-[22px] text-[rgba(255,180,220,0.55)]">{idx + 1}</span>
-              )}
-            </div>
-
-            {/* Name */}
-            <div className="font-cinzel text-[14px] text-[#f5eaff] mb-1 truncate w-full px-1">
-              {player.displayName}
-            </div>
-            <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.08em] font-cinzel text-[rgba(255,180,220,0.55)] mb-2">
-              {player.country && (
-                <span className="flex items-center gap-1">
-                  <Flag className="w-2.5 h-2.5" strokeWidth={1.5} />
-                  {player.country}
-                </span>
-              )}
-              {player.clan && <span>· {player.clan}</span>}
-            </div>
-
-            {player.maxRatingRm1v1 !== undefined && (
-              <div className="mt-1 flex items-baseline gap-1">
-                <span className="font-cinzel text-[18px] tabular-nums text-[#ff2e9e]">
-                  {player.maxRatingRm1v1}
-                </span>
-                <span className="font-inter text-[9px] tracking-[0.18em] uppercase text-[rgba(255,180,220,0.45)]">
-                  ELO máx
-                </span>
+              <div style={{ fontSize: "13px", fontWeight: 600, color: "#f5eaff", textAlign: "center" }}>
+                {player.displayName || "Sin cargar"}
               </div>
-            )}
-
-            {/* Hover hint */}
-            {!player.isCaptain && player.aoe2ProfileId !== null && (
-              <span className="mt-3 font-cinzel text-[9px] tracking-[0.18em] uppercase text-[rgba(255,180,220,0.35)] opacity-0 group-hover:opacity-100 transition-opacity">
-                Click para elegir
-              </span>
-            )}
-          </button>
-        ))}
+              {player.maxRatingRm1v1 !== undefined && player.maxRatingRm1v1 !== null && (
+                <div style={{ fontSize: "11px", color: "rgba(255, 180, 220, 0.5)", textAlign: "center", marginTop: "4px" }}>
+                  ELO: <span style={{ color: "#ff2e9e", fontWeight: 600 }}>{player.maxRatingRm1v1}</span>
+                </div>
+              )}
+            </button>
+          );
+        })}
       </div>
 
-      {/* ====== Info bar ====== */}
-      <div className="grid sm:grid-cols-2 gap-3 max-w-3xl mx-auto w-full">
-        <div className="wiz-panel-sunken border-l-2 !border-l-[#ff2e9e] px-4 py-3 rounded-[4px] flex items-start gap-2">
-          <Info className="w-3.5 h-3.5 text-[#ff2e9e] mt-0.5 shrink-0" strokeWidth={1.5} />
-          <p className="wiz-body text-[12px]">
-            El capitán será el <span className="text-[#ff2e9e] font-semibold">contacto oficial</span> con el staff y responsable de declarar el lineup antes de cada partida.
-          </p>
-        </div>
-        {selectedCaptain === -1 ? (
-          <div className="wiz-panel-sunken px-4 py-3 rounded-[4px] flex items-center gap-2">
-            <AlertCircle className="w-3.5 h-3.5 text-[rgba(255,180,220,0.55)] shrink-0" strokeWidth={1.5} />
-            <p className="wiz-meta text-[11px] normal-case">
-              Seleccioná un jugador como capitán para continuar.
-            </p>
-          </div>
-        ) : (
-          <div className="wiz-panel-active px-4 py-3 rounded-[4px] flex items-center gap-2">
-            <Check className="w-3.5 h-3.5 text-[#ff2e9e] shrink-0" strokeWidth={2} />
-            <p className="wiz-meta text-[11px] normal-case">
-              Capitán elegido: <span className="text-[#ff2e9e] font-cinzel tracking-[0.04em]">{data.players[selectedCaptain].displayName}</span>
-            </p>
-          </div>
-        )}
-      </div>
+      {selectedCaptain === -1 && (
+        <p style={{ textAlign: "center", fontSize: "12px", color: "rgba(255, 180, 220, 0.4)" }}>
+          Hacé click en un jugador para elegirlo capitán.
+        </p>
+      )}
     </div>
   );
 }

@@ -4,262 +4,150 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseServer } from "@/lib/supabase/server";
-import { getDb } from "@/lib/db";
-import { account, teamAccount, teamRegistration, playerRegistration, emblem } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
 import { GENERIC_AVATARS } from "@/lib/constants";
 import type { WizardData } from "@/components/wizard/wizard-context";
 
 // ============================================================
-// Auth: crear cuenta o loguear
-// ============================================================
-//
-// Importante: NO usamos supabase.auth.signUp() porque manda email
-// de confirmación y Supabase tiene rate limit de 2 emails/hora.
-//
-// En su lugar, usamos admin API con service_role para crear el usuario
-// directamente confirmado (sin email).
+// Auth — sin email de confirmación (admin API)
 // ============================================================
 
 export async function signUpOrLogin(data: WizardData) {
   const supabase = await getSupabaseServer();
 
   if (data.existingAccount) {
-    // Login normal
     const { data: result, error } = await supabase.auth.signInWithPassword({
       email: data.email,
       password: data.password,
     });
-    if (error) {
-      return { ok: false as const, error: error.message };
-    }
+    if (error) return { ok: false as const, error: error.message };
     return { ok: true as const, user: result.user };
   }
 
-  // Signup nuevo usando admin API (no manda email, confirma directo)
-  const adminClient = createClient(
+  // Signup vía admin API (no manda email, confirma directo)
+  const admin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { autoRefreshToken: false, persistSession: false } }
   );
 
-  const { data: newUser, error: createErr } = await adminClient.auth.admin.createUser({
+  const { data: newUser, error: createErr } = await admin.auth.admin.createUser({
     email: data.email,
     password: data.password,
-    email_confirm: true, // confirmado directo, sin email
-    user_metadata: {
-      role: "owner",
-      team_name: data.teamName,
-    },
+    email_confirm: true,
+    user_metadata: { role: "owner", team_name: data.teamName },
   });
 
-  if (createErr) {
-    return { ok: false as const, error: createErr.message };
-  }
+  if (createErr) return { ok: false as const, error: createErr.message };
 
-  // Hacer login automáticamente con el usuario recién creado
-  // para que la cookie de sesión quede seteada
+  // Auto-login
   const { data: loginResult, error: loginErr } = await supabase.auth.signInWithPassword({
     email: data.email,
     password: data.password,
   });
 
-  if (loginErr) {
-    // El usuario se creó pero el login auto falló — el usuario puede loguear después
-    return { ok: true as const, user: newUser.user };
-  }
-
-  return { ok: true as const, user: loginResult.user };
+  return { ok: true as const, user: loginErr ? newUser.user : loginResult.user };
 }
 
 // ============================================================
-// Submit del wizard completo
+// Submit wizard completo
 // ============================================================
 
 export async function submitWizard(data: WizardData) {
   try {
-    const supabase = await getSupabaseServer();
+    const supabase = (await getSupabaseServer()) as any;
     const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      return { ok: false as const, error: "No autenticado. Hacé login primero." };
-    }
-
-    const db = getDb();
+    if (!user) return { ok: false as const, error: "No autenticado." };
 
     // 1. Buscar o crear account
-    const [accountRow] = await db
-      .select()
-      .from(account)
-      .where(eq(account.supabaseAuthId, user.id))
-      .limit(1);
+    const { data: accountRow } = await supabase
+      .from("account")
+      .select("id")
+      .eq("supabase_auth_id", user.id)
+      .single();
 
     let accountId: string;
-
     if (!accountRow) {
-      const [newAccount] = await db
-        .insert(account)
-        .values({
-          supabaseAuthId: user.id,
+      const { data: newAcc } = await supabase
+        .from("account")
+        .insert({
+          supabase_auth_id: user.id,
           email: user.email!,
           role: "owner",
           avatarKey: GENERIC_AVATARS[Math.floor(Math.random() * GENERIC_AVATARS.length)],
-          displayName: data.teamName,
+          display_name: data.teamName,
         })
-        .returning();
-      accountId = newAccount.id;
+        .select("id")
+        .single();
+      accountId = newAcc.id;
     } else {
       accountId = accountRow.id;
-      if (accountRow.role !== "owner") {
-        await db
-          .update(account)
-          .set({ role: "owner", displayName: data.teamName })
-          .where(eq(account.id, accountId));
-      }
     }
 
-    // 2. Buscar edition activa
-    const editionSlug = "vertigo-2026-1";
-    const { data: editionDataRaw, error: editionErr } = await supabase
+    // 2. Buscar edition
+    const { data: edition } = await supabase
       .from("tournament_edition")
       .select("id, civs_base, civs_extra_finalist, elo_cap, elo_tolerance")
-      .eq("slug", editionSlug)
+      .eq("slug", "vertigo-2026-1")
+      .single();
+    if (!edition) return { ok: false as const, error: "Edición no encontrada." };
+
+    // 3. Crear team_account
+    const { data: team } = await supabase
+      .from("team_account")
+      .insert({
+        ownerId: accountId,
+        name: data.teamName,
+        tagline: data.teamTagline || null,
+        emblemId: data.emblemId || null,
+      })
+      .select("id")
       .single();
 
-    if (editionErr || !editionDataRaw) {
-      return {
-        ok: false as const,
-        error: "No se encontró la edición del torneo. Contactá al staff.",
-      };
+    // 4. Validaciones
+    const totalElo = data.players.reduce((s, p) => s + (p.maxRatingRm1v1 ?? 0), 0);
+    const maxElo = (edition.elo_cap ?? 3500) + (edition.elo_tolerance ?? 20);
+    if (totalElo > maxElo) {
+      return { ok: false as const, error: `ELO total ${totalElo} excede el máximo ${maxElo}.` };
+    }
+    const expectedBase = edition.civs_base ?? 9;
+    const expectedExtra = edition.civs_extra_finalist ?? 3;
+    if (data.baseCivIds.length !== expectedBase) {
+      return { ok: false as const, error: `Debes elegir ${expectedBase} civs base.` };
+    }
+    if (data.extraCivIds.length !== expectedExtra) {
+      return { ok: false as const, error: `Debes elegir ${expectedExtra} civs extra.` };
+    }
+    const all = [...data.baseCivIds, ...data.extraCivIds];
+    if (new Set(all).size !== all.length) {
+      return { ok: false as const, error: "Civs duplicadas." };
+    }
+    if (!data.handbookDownloadedAt) return { ok: false as const, error: "Descargá el handbook." };
+    if (!data.restreamAccepted || !data.termsAcceptedAt) return { ok: false as const, error: "Aceptá los términos." };
+    if (data.players.filter((p) => p.isCaptain).length !== 1) {
+      return { ok: false as const, error: "Debe haber 1 capitán." };
     }
 
-    const editionData = editionDataRaw as {
-      id: string;
-      civs_base: number | null;
-      civs_extra_finalist: number | null;
-      elo_cap: number | null;
-      elo_tolerance: number | null;
-    };
-
-    // 3. Crear o actualizar team_account
-    const [existingTeam] = await db
-      .select()
-      .from(teamAccount)
-      .where(eq(teamAccount.ownerId, accountId))
-      .limit(1);
-
-    let teamAccountId: string;
-
-    if (existingTeam) {
-      const [updated] = await db
-        .update(teamAccount)
-        .set({
-          name: data.teamName,
-          tagline: data.teamTagline || null,
-          emblemId: data.emblemId || null,
-        })
-        .where(eq(teamAccount.id, existingTeam.id))
-        .returning();
-      teamAccountId = updated.id;
-    } else {
-      const [newTeam] = await db
-        .insert(teamAccount)
-        .values({
-          ownerId: accountId,
-          name: data.teamName,
-          tagline: data.teamTagline || null,
-          emblemId: data.emblemId || null,
-        })
-        .returning();
-      teamAccountId = newTeam.id;
-    }
-
-    // 4. Verificar que no exista ya una registration
-    const [existingReg] = await db
-      .select()
-      .from(teamRegistration)
-      .where(
-        and(
-          eq(teamRegistration.teamAccountId, teamAccountId),
-          eq(teamRegistration.tournamentEditionId, editionData.id)
-        )
-      )
-      .limit(1);
-
-    if (existingReg) {
-      return {
-        ok: false as const,
-        error: "Tu equipo ya está inscripto en esta edición.",
-      };
-    }
-
-    // 5. Validar ELO cap
-    const totalElo = data.players.reduce(
-      (sum, p) => sum + (p.maxRatingRm1v1 ?? 0),
-      0
-    );
-    const eloMax = (editionData.elo_cap ?? 3500) + (editionData.elo_tolerance ?? 20);
-    if (totalElo > eloMax) {
-      return {
-        ok: false as const,
-        error: `El ELO total (${totalElo}) excede el máximo permitido (${eloMax}).`,
-      };
-    }
-
-    // 6. Validar civs
-    const expectedCivsBase = editionData.civs_base ?? 9;
-    const expectedCivsExtra = editionData.civs_extra_finalist ?? 3;
-    if (data.baseCivIds.length !== expectedCivsBase) {
-      return { ok: false as const, error: `Debes elegir ${expectedCivsBase} civs base.` };
-    }
-    if (data.extraCivIds.length !== expectedCivsExtra) {
-      return { ok: false as const, error: `Debes elegir ${expectedCivsExtra} civs extra.` };
-    }
-    const allCivs = [...data.baseCivIds, ...data.extraCivIds];
-    const uniqueCivs = new Set(allCivs);
-    if (uniqueCivs.size !== allCivs.length) {
-      return {
-        ok: false as const,
-        error: "Hay civs duplicadas. Las civs extra no pueden repetir con las base.",
-      };
-    }
-
-    // 7. Validaciones finales
-    if (!data.handbookDownloadedAt) {
-      return { ok: false as const, error: "Debes descargar el handbook antes de continuar." };
-    }
-    if (!data.restreamAccepted || !data.termsAcceptedAt) {
-      return { ok: false as const, error: "Debes aceptar los términos." };
-    }
-    const captains = data.players.filter((p) => p.isCaptain);
-    if (captains.length !== 1) {
-      return { ok: false as const, error: "Debe haber exactamente 1 capitán." };
-    }
-
-    // 8. Crear team_registration
-    const [reg] = await db
-      .insert(teamRegistration)
-      .values({
-        teamAccountId,
-        tournamentEditionId: editionData.id,
+    // 5. Crear team_registration
+    const { data: reg } = await supabase
+      .from("team_registration")
+      .insert({
+        teamAccountId: team.id,
+        tournamentEditionId: edition.id,
         baseCivIds: data.baseCivIds,
         extraCivIds: data.extraCivIds,
         eloFreezeSnapshot: totalElo,
-        eloVerificationStatus: data.players.some((p) => p.verificationStatus === "hidden")
-          ? "pending"
-          : data.players.every((p) => p.verificationStatus === "verified")
-          ? "verified"
-          : "pending",
+        eloVerificationStatus: data.players.some((p) => !p.isVerified) ? "pending" : "verified",
         restreamAccepted: data.restreamAccepted,
         handbookDownloadedAt: data.handbookDownloadedAt,
         termsAcceptedAt: data.termsAcceptedAt,
         submittedAt: new Date(),
         status: "pending",
       })
-      .returning();
+      .select("id")
+      .single();
 
-    // 9. Insertar jugadores
-    await db.insert(playerRegistration).values(
+    // 6. Insertar jugadores
+    await supabase.from("player_registration").insert(
       data.players.map((p) => ({
         teamRegistrationId: reg.id,
         aoe2ProfileId: p.aoe2ProfileId!,
@@ -267,26 +155,18 @@ export async function submitWizard(data: WizardData) {
         displayName: p.displayName,
         country: p.country || null,
         clan: p.clan || null,
-        platform: null,
         isVerified: p.isVerified,
         maxRatingRm1v1: p.maxRatingRm1v1 ?? null,
         ratingRm1v1Current: p.ratingRm1v1Current ?? null,
-        ratingRm1v1Rank: p.ratingRm1v1Rank ?? null,
         isCaptain: p.isCaptain,
         linkedProfiles: [],
         verificationPayload: null,
       }))
     );
 
-    // comodin_inventory se crea automáticamente por trigger
-
     revalidatePath("/mi-equipo");
     return { ok: true as const, teamRegistrationId: reg.id };
   } catch (err) {
-    console.error("[submitWizard] error:", err);
-    return {
-      ok: false as const,
-      error: err instanceof Error ? err.message : "Error desconocido al inscribir",
-    };
+    return { ok: false as const, error: err instanceof Error ? err.message : "Error" };
   }
 }

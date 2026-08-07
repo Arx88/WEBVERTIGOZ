@@ -1,33 +1,24 @@
 "use client";
 
-import { useState, useRef, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { WizardProvider, useWizard, WIZARD_STEPS } from "@/components/wizard/wizard-context";
-import { ChevronLeft, ChevronRight, Check, Loader2, X } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { signUpOrLogin, submitWizard } from "@/server/actions/wizard";
 
 // ============================================================
-// Wizard Shell — VÉRTIGO brand redesign
-// 4-row grid: HEADER (h-16) / TITLE BAR (h-24) / CONTENT (flex-1) / FOOTER (h-16)
-// h-screen overflow-hidden — sin scroll vertical en el shell
-// Paleta magenta del landing · Cinzel titles + Inter body
+// Wizard Shell — Layout centrado
+// El wizard es una CARD CENTRADA dentro de la página (max-w-2xl),
+// NO ocupa toda la pantalla. Como un modal elegante.
 // ============================================================
 
 function WizardShell({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const { step, totalSteps, prevStep, nextStep, goToStep, data } = useWizard();
+  const { step, totalSteps, prevStep, nextStep, data } = useWizard();
   const [submitting, setSubmitting] = useState(false);
   const [authDone, setAuthDone] = useState(false);
 
-  // Track slide direction for transition (forward = slide from right)
-  const prevStepRef = useRef(step);
-  const isForward = step >= prevStepRef.current;
-  if (step !== prevStepRef.current) prevStepRef.current = step;
-
-  const currentStepData = WIZARD_STEPS[step - 1];
-  const progressValue = (step / totalSteps) * 100;
+  const progress = (step / totalSteps) * 100;
 
   const canProceed = (): boolean => {
     switch (step) {
@@ -43,8 +34,6 @@ function WizardShell({ children }: { children: ReactNode }) {
       default: return false;
     }
   };
-
-  const isLastStep = step === totalSteps;
 
   async function handleNext() {
     if (step === 1 && !authDone) {
@@ -65,159 +54,171 @@ function WizardShell({ children }: { children: ReactNode }) {
     setSubmitting(true);
     const result = await submitWizard(data);
     setSubmitting(false);
-
     if (!result.ok) {
       toast.error(result.error);
       return;
     }
-
-    toast.success("Inscripción enviada", {
-      description: "El staff revisará tu solicitud. Te avisaremos por email.",
+    toast.success("¡Inscripción enviada!", {
+      description: "El staff revisará tu solicitud.",
     });
-
     setTimeout(() => router.push("/mi-equipo"), 1500);
   }
 
   return (
-    <div className="wiz-bg relative h-screen flex flex-col overflow-hidden text-[#f5eaff] font-inter">
-      {/* ============ HEADER (h-16) ============ */}
-      <header className="relative z-10 shrink-0 h-16 border-b border-[rgba(255,46,158,0.15)] bg-[rgba(10,0,17,0.55)] backdrop-blur-md">
-        <div className="h-full mx-auto max-w-6xl px-6 flex items-center justify-between gap-6">
-          {/* Logo + brand */}
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="relative w-8 h-8 rotate-45 border border-[rgba(255,46,158,0.7)] flex items-center justify-center shadow-[0_0_14px_rgba(255,46,158,0.35)] shrink-0">
-              <span className="-rotate-45 font-cinzel text-[#ff2e9e] text-sm font-bold">V</span>
+    <div className="min-h-screen flex items-center justify-center px-4 py-8">
+      {/* Card central — max-w-2xl */}
+      <div
+        className="w-full max-w-2xl"
+        style={{
+          background: "#0a0011",
+          border: "1px solid rgba(255, 46, 158, 0.18)",
+          borderRadius: "8px",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(255, 46, 158, 0.04)",
+        }}
+      >
+        {/* HEADER */}
+        <header style={{ borderBottom: "1px solid rgba(255, 46, 158, 0.1)" }}>
+          <div className="px-8 pt-7 pb-4">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div
+                  className="font-serif font-bold"
+                  style={{
+                    color: "#ff2e9e",
+                    fontSize: "20px",
+                    letterSpacing: "0.04em",
+                  }}
+                >
+                  VÉRTIGO
+                </div>
+                <span style={{ color: "rgba(255,180,220,0.4)", fontSize: "11px", letterSpacing: "0.3em" }}>
+                  INSCRIPCIÓN
+                </span>
+              </div>
+              <button
+                onClick={() => router.push("/")}
+                style={{
+                  color: "rgba(255,180,220,0.4)",
+                  fontSize: "13px",
+                }}
+                className="hover:text-white transition-colors"
+              >
+                Cancelar
+              </button>
             </div>
-            <div className="hidden sm:flex flex-col min-w-0">
-              <span className="font-cinzel text-[12px] tracking-[0.32em] uppercase text-[#f5eaff] truncate">
-                Vértigo
-              </span>
-              <span className="font-inter text-[9px] tracking-[0.22em] uppercase text-[rgba(255,180,220,0.55)] truncate">
-                Inscripción del equipo
-              </span>
-            </div>
-          </div>
-
-          {/* Progress + counter — centered */}
-          <div className="flex-1 flex items-center gap-4 max-w-md">
-            <div className="wiz-progress-track flex-1">
+            {/* Progress bar */}
+            <div
+              style={{
+                height: "2px",
+                background: "rgba(255, 46, 158, 0.1)",
+                borderRadius: "1px",
+                overflow: "hidden",
+              }}
+            >
               <div
-                className="wiz-progress-fill"
-                style={{ width: `${progressValue}%` }}
+                style={{
+                  height: "100%",
+                  width: `${progress}%`,
+                  background: "linear-gradient(90deg, #ff2e9e, #ff6bb5)",
+                  transition: "width 300ms cubic-bezier(0.22, 1, 0.36, 1)",
+                  boxShadow: "0 0 8px rgba(255, 46, 158, 0.6)",
+                }}
               />
             </div>
-            <span className="font-cinzel text-[11px] tabular-nums whitespace-nowrap tracking-[0.18em] text-[#ffb4dc]">
-              {String(step).padStart(2, "0")}
-              <span className="text-[rgba(255,180,220,0.4)] mx-1">/</span>
-              {String(totalSteps).padStart(2, "0")}
-            </span>
           </div>
+        </header>
 
-          {/* Close button */}
-          <button
-            onClick={() => router.push("/")}
-            aria-label="Salir del wizard"
-            className="group flex items-center justify-center w-9 h-9 border border-[rgba(255,180,220,0.18)] hover:border-[rgba(255,46,158,0.55)] hover:bg-[rgba(255,46,158,0.04)] transition-colors shrink-0"
-          >
-            <X className="w-3.5 h-3.5 text-[rgba(255,180,220,0.55)] group-hover:text-[#ff2e9e] transition-colors" strokeWidth={1.5} />
-          </button>
-        </div>
-      </header>
-
-      {/* ============ TITLE BAR (h-24) ============ */}
-      <div className="relative z-10 shrink-0 h-24 px-6 flex flex-col items-center justify-center gap-2 border-b border-[rgba(255,46,158,0.08)]">
-        <div className="flex items-center gap-3">
-          <span className="h-px w-6 bg-[rgba(255,46,158,0.4)]" />
-          <span className="badge-thin !py-1.5 !px-3 !text-[10px] !tracking-[0.32em]">
-            Paso {String(step).padStart(2, "0")} · {currentStepData.short}
-          </span>
-          <span className="h-px w-6 bg-[rgba(255,46,158,0.4)]" />
-        </div>
-        <h1
-          key={`title-${step}`}
-          className={cn(
-            "font-cinzel text-[22px] md:text-[28px] leading-tight uppercase tracking-[0.08em] text-neon",
-            isForward ? "wiz-step-in" : "wiz-step-back"
-          )}
+        {/* CONTENT */}
+        <div
+          className="px-8 py-8"
+          style={{ minHeight: "420px", maxHeight: "calc(100vh - 240px)", overflowY: "auto" }}
         >
-          {currentStepData.title}
-        </h1>
-      </div>
-
-      {/* ============ CONTENT (flex-1) ============ */}
-      <div className="relative z-10 flex-1 min-h-0 overflow-y-auto wiz-scroll-hide">
-        <div className="h-full w-full mx-auto max-w-6xl px-6 py-6 flex items-center justify-center">
-          <div
-            key={`step-${step}`}
-            className={cn(
-              "w-full max-w-6xl",
-              isForward ? "wiz-step-in" : "wiz-step-back"
-            )}
-          >
+          <style>{`
+            /* Scrollbar oculto premium */
+            .vertigo-scroll::-webkit-scrollbar { width: 0; height: 0; }
+            .vertigo-scroll { scrollbar-width: none; -ms-overflow-style: none; }
+          `}</style>
+          <div className="vertigo-scroll" style={{ height: "100%" }}>
             {children}
           </div>
         </div>
-      </div>
 
-      {/* ============ FOOTER (h-16) ============ */}
-      <footer className="relative z-10 shrink-0 h-16 border-t border-[rgba(255,46,158,0.15)] bg-[rgba(10,0,17,0.55)] backdrop-blur-md">
-        <div className="h-full mx-auto max-w-6xl px-6 flex items-center justify-between gap-4">
+        {/* FOOTER */}
+        <footer
+          style={{
+            borderTop: "1px solid rgba(255, 46, 158, 0.1)",
+            padding: "16px 32px",
+          }}
+          className="flex items-center justify-between"
+        >
           <button
             onClick={prevStep}
             disabled={step === 1 || submitting}
-            className="wiz-btn-ghost"
+            style={{
+              color: "rgba(255,180,220,0.5)",
+              fontSize: "13px",
+              padding: "8px 16px",
+            }}
+            className="hover:text-white transition-colors disabled:opacity-30"
           >
-            <ChevronLeft className="w-4 h-4" strokeWidth={1.5} />
-            Atrás
+            ← Atrás
           </button>
 
-          <div className="hidden md:flex items-center gap-1.5">
+          {/* Stepper dots */}
+          <div className="flex items-center gap-1.5">
             {WIZARD_STEPS.map((s) => (
-              <button
+              <div
                 key={s.num}
-                onClick={() => goToStep(s.num)}
-                className={cn(
-                  "h-1.5 rounded-full transition-all",
-                  s.num === step
-                    ? "w-6 bg-[#ff2e9e] shadow-[0_0_10px_rgba(255,46,158,0.7)]"
-                    : s.num < step
-                    ? "w-1.5 bg-[rgba(255,46,158,0.5)]"
-                    : "w-1.5 bg-[rgba(255,46,158,0.18)]"
-                )}
-                aria-label={`Paso ${s.num}: ${s.short}`}
+                style={{
+                  width: s.num === step ? "20px" : "6px",
+                  height: "6px",
+                  borderRadius: "3px",
+                  background: s.num === step ? "#ff2e9e" : s.num < step ? "rgba(255, 46, 158, 0.4)" : "rgba(255, 46, 158, 0.12)",
+                  transition: "all 300ms cubic-bezier(0.22, 1, 0.36, 1)",
+                  boxShadow: s.num === step ? "0 0 6px rgba(255, 46, 158, 0.6)" : "none",
+                }}
               />
             ))}
           </div>
 
-          {!isLastStep ? (
+          {step < totalSteps ? (
             <button
               onClick={handleNext}
               disabled={!canProceed() || submitting}
-              className="wiz-btn-primary"
+              style={{
+                background: canProceed() && !submitting ? "#ff2e9e" : "rgba(255, 46, 158, 0.2)",
+                color: canProceed() && !submitting ? "#0a0011" : "rgba(255,180,220,0.4)",
+                fontSize: "13px",
+                fontWeight: 600,
+                padding: "8px 20px",
+                borderRadius: "4px",
+                letterSpacing: "0.08em",
+                transition: "all 200ms ease",
+              }}
+              className="disabled:cursor-not-allowed"
             >
-              {submitting ? (
-                <Loader2 className="w-4 h-4 animate-spin" strokeWidth={1.5} />
-              ) : (
-                <ChevronRight className="w-4 h-4" strokeWidth={1.5} />
-              )}
-              Siguiente
+              SIGUIENTE →
             </button>
           ) : (
             <button
               onClick={handleSubmit}
               disabled={submitting}
-              className="wiz-btn-primary"
+              style={{
+                background: "#ff2e9e",
+                color: "#0a0011",
+                fontSize: "13px",
+                fontWeight: 700,
+                padding: "8px 20px",
+                borderRadius: "4px",
+                letterSpacing: "0.08em",
+                boxShadow: "0 0 16px rgba(255, 46, 158, 0.4)",
+              }}
             >
-              {submitting ? (
-                <Loader2 className="w-4 h-4 animate-spin" strokeWidth={1.5} />
-              ) : (
-                <Check className="w-4 h-4" strokeWidth={1.5} />
-              )}
-              Confirmar inscripción
+              {submitting ? "ENVIANDO..." : "CONFIRMAR ✓"}
             </button>
           )}
-        </div>
-      </footer>
+        </footer>
+      </div>
     </div>
   );
 }
