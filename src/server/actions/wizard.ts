@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { createClient } from "@supabase/supabase-js";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { getDb } from "@/lib/db";
 import { account, teamAccount, teamRegistration, playerRegistration, emblem } from "@/lib/db/schema";
@@ -12,11 +13,19 @@ import type { WizardData } from "@/components/wizard/wizard-context";
 // ============================================================
 // Auth: crear cuenta o loguear
 // ============================================================
+//
+// Importante: NO usamos supabase.auth.signUp() porque manda email
+// de confirmación y Supabase tiene rate limit de 2 emails/hora.
+//
+// En su lugar, usamos admin API con service_role para crear el usuario
+// directamente confirmado (sin email).
+// ============================================================
 
 export async function signUpOrLogin(data: WizardData) {
   const supabase = await getSupabaseServer();
 
   if (data.existingAccount) {
+    // Login normal
     const { data: result, error } = await supabase.auth.signInWithPassword({
       email: data.email,
       password: data.password,
@@ -25,22 +34,42 @@ export async function signUpOrLogin(data: WizardData) {
       return { ok: false as const, error: error.message };
     }
     return { ok: true as const, user: result.user };
-  } else {
-    const { data: result, error } = await supabase.auth.signUp({
-      email: data.email,
-      password: data.password,
-      options: {
-        data: {
-          role: "owner",
-          team_name: data.teamName,
-        },
-      },
-    });
-    if (error) {
-      return { ok: false as const, error: error.message };
-    }
-    return { ok: true as const, user: result.user };
   }
+
+  // Signup nuevo usando admin API (no manda email, confirma directo)
+  const adminClient = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+
+  const { data: newUser, error: createErr } = await adminClient.auth.admin.createUser({
+    email: data.email,
+    password: data.password,
+    email_confirm: true, // confirmado directo, sin email
+    user_metadata: {
+      role: "owner",
+      team_name: data.teamName,
+    },
+  });
+
+  if (createErr) {
+    return { ok: false as const, error: createErr.message };
+  }
+
+  // Hacer login automáticamente con el usuario recién creado
+  // para que la cookie de sesión quede seteada
+  const { data: loginResult, error: loginErr } = await supabase.auth.signInWithPassword({
+    email: data.email,
+    password: data.password,
+  });
+
+  if (loginErr) {
+    // El usuario se creó pero el login auto falló — el usuario puede loguear después
+    return { ok: true as const, user: newUser.user };
+  }
+
+  return { ok: true as const, user: loginResult.user };
 }
 
 // ============================================================
