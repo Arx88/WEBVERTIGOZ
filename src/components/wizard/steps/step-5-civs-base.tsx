@@ -1,8 +1,6 @@
 "use client";
 
 import { useWizard } from "@/components/wizard/wizard-context";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -63,27 +61,37 @@ export default function WizardStepCivsBase() {
     }
   }
 
+  const isComplete = selectedIds.length === TARGET;
+
   return (
-    <div className="max-w-5xl mx-auto space-y-8">
-      <p className="text-text-secondary text-sm font-light leading-relaxed">
-        Elegí <span className="text-gold">{TARGET} civilizaciones</span> principales
-        que tu equipo podrá usar durante el torneo. El día de cada partida, la ruleta
-        sorteará cuál de estas 9 civs te toca. Tu rival no verá tu pool completo, solo
-        la civ que salió en el sorteo.
+    <div className="max-w-5xl mx-auto space-y-5 text-center">
+      <p className="wiz-body max-w-2xl mx-auto">
+        Elegí <strong>{TARGET} civilizaciones principales</strong>. El día de
+        cada partida, la ruleta sorteará cuál de estas civs te toca. Tu rival no
+        verá tu pool completo, solo la civ que salió en el sorteo.
       </p>
 
       {/* Progress */}
       <div className="flex items-center justify-between">
-        <Label>
-          Seleccionadas: <span className="text-gold tabular-nums">{selectedIds.length}</span> / {TARGET}
-        </Label>
-        <Badge variant={selectedIds.length === TARGET ? "success" : "outline"}>
-          {selectedIds.length === TARGET ? "Completo" : "Pendiente"}
-        </Badge>
+        <span className="wiz-caption" style={{ letterSpacing: "0.32em" }}>
+          Seleccionadas:{" "}
+          <span className="text-[#ff2e9e] font-cinzel tabular-nums">{selectedIds.length}</span>
+          <span className="text-[rgba(255,180,220,0.55)]"> / {TARGET}</span>
+        </span>
+        <span
+          className={cn(
+            "font-cinzel text-[10px] tracking-[0.28em] uppercase px-2 py-1 border",
+            isComplete
+              ? "border-[rgba(255,46,158,0.5)] text-[#ff2e9e] bg-[rgba(255,46,158,0.06)]"
+              : "border-[rgba(255,46,158,0.18)] text-[rgba(255,180,220,0.55)]"
+          )}
+        >
+          {isComplete ? "Completo" : "Pendiente"}
+        </span>
       </div>
 
       {/* Grid de civs */}
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-8 gap-2">
+      <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-8 gap-2">
         {AOE2_CIVS.map((civ) => {
           const isSelected = selectedIds.includes(civ.id);
           const order = selectedIds.indexOf(civ.id) + 1;
@@ -93,37 +101,40 @@ export default function WizardStepCivsBase() {
               onClick={() => toggleCiv(civ.id)}
               disabled={!isSelected && selectedIds.length >= TARGET}
               className={cn(
-                "aspect-[3/4] border flex flex-col items-center justify-center p-2 transition-all relative group",
-                isSelected
-                  ? "border-gold bg-gold/5"
-                  : "border-border-subtle hover:border-border-strong hover:bg-bg-hover disabled:opacity-30 disabled:cursor-not-allowed"
+                "wiz-civ-tile",
+                isSelected && "wiz-civ-tile-selected",
+                !isSelected && selectedIds.length >= TARGET && "wiz-civ-tile-locked"
               )}
             >
-              {/* Número de orden */}
               {isSelected && (
-                <div className="absolute top-1 right-1 w-5 h-5 rounded-full bg-gold text-bg flex items-center justify-center text-caption font-bold">
+                <div className="absolute top-1 right-1 w-5 h-5 rounded-full bg-[#ff2e9e] text-[#0a0011] flex items-center justify-center font-cinzel text-[10px] font-bold shadow-[0_0_8px_rgba(255,46,158,0.7)]">
                   {order}
                 </div>
               )}
 
-              {/* Placeholder ilustración civ */}
-              <div className={cn(
-                "w-10 h-10 rounded-full border-2 flex items-center justify-center mb-2 transition-colors",
-                isSelected ? "border-gold text-gold" : "border-border-strong text-text-tertiary group-hover:text-text-secondary"
-              )}>
+              <div
+                className={cn(
+                  "w-9 h-9 rounded-full border flex items-center justify-center mb-1.5 transition-colors",
+                  isSelected
+                    ? "border-[#ff2e9e] text-[#ff2e9e]"
+                    : "border-[rgba(255,46,158,0.3)] text-[rgba(255,180,220,0.55)]"
+                )}
+              >
                 {isSelected ? (
-                  <Check className="w-5 h-5" strokeWidth={1.5} />
+                  <Check className="w-4 h-4" strokeWidth={1.75} />
                 ) : (
-                  <span className="font-serif text-base font-bold">
+                  <span className="font-cinzel text-sm font-bold">
                     {civ.name.charAt(0)}
                   </span>
                 )}
               </div>
 
-              <span className={cn(
-                "text-caption uppercase tracking-wider text-center leading-tight",
-                isSelected ? "text-gold" : "text-text-tertiary"
-              )}>
+              <span
+                className={cn(
+                  "font-cinzel text-[9px] uppercase tracking-[0.1em] text-center leading-tight",
+                  isSelected ? "text-[#ff2e9e]" : "text-[rgba(255,180,220,0.55)]"
+                )}
+              >
                 {civ.name}
               </span>
             </button>
@@ -133,18 +144,25 @@ export default function WizardStepCivsBase() {
 
       {/* Summary */}
       {selectedIds.length > 0 && (
-        <div className="border border-border-subtle bg-bg-elevated p-5">
-          <div className="label-premium text-gold/80 mb-3">
-            TUS {TARGET} CIVILIZACIONES
+        <div className="wiz-panel px-5 py-4 text-left">
+          <div className="wiz-caption mb-3" style={{ letterSpacing: "0.32em" }}>
+            Tus {TARGET} civilizaciones
           </div>
           <div className="flex flex-wrap gap-2">
             {selectedIds.map((civId, idx) => {
               const civ = AOE2_CIVS.find((c) => c.id === civId);
               return (
-                <Badge key={civId} variant="gold">
-                  <span className="tabular-nums mr-1">{idx + 1}.</span>
-                  {civ?.name ?? civId}
-                </Badge>
+                <span
+                  key={civId}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 border border-[rgba(255,46,158,0.4)] bg-[rgba(255,46,158,0.04)]"
+                >
+                  <span className="font-cinzel text-[10px] tabular-nums text-[rgba(255,180,220,0.55)]">
+                    {String(idx + 1).padStart(2, "0")}.
+                  </span>
+                  <span className="font-cinzel text-[11px] tracking-[0.12em] uppercase text-[#ff2e9e]">
+                    {civ?.name ?? civId}
+                  </span>
+                </span>
               );
             })}
           </div>

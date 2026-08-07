@@ -1,9 +1,7 @@
 "use client";
 
 import { useWizard } from "@/components/wizard/wizard-context";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Crown, Star, AlertCircle } from "lucide-react";
+import { Crown, AlertCircle, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function WizardStepCaptain() {
@@ -15,10 +13,7 @@ export default function WizardStepCaptain() {
     });
   }
 
-  const totalElo = data.players.reduce(
-    (sum, p) => sum + (p.maxRatingRm1v1 ?? 0),
-    0
-  );
+  const totalElo = data.players.reduce((sum, p) => sum + (p.maxRatingRm1v1 ?? 0), 0);
   const eloCap = 3500;
   const eloTolerance = 20;
   const eloMax = eloCap + eloTolerance;
@@ -27,108 +22,128 @@ export default function WizardStepCaptain() {
   const selectedCaptain = data.players.findIndex((p) => p.isCaptain);
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      <p className="text-text-secondary text-sm font-light leading-relaxed">
-        El capitán será el contacto oficial con el staff del torneo y el
-        responsable de confirmar "Listo" en cada llave, declarar el lineup
-        antes de cada partida y ejecutar los comodines cuando corresponda.
+    <div className="max-w-3xl mx-auto space-y-6 text-center">
+      <p className="wiz-body max-w-xl mx-auto">
+        El <strong>capitán</strong> será el contacto oficial con el staff, el
+        responsable de confirmar &ldquo;Listo&rdquo; en cada llave, declarar el
+        lineup antes de cada partida y ejecutar los comodines cuando corresponda.
       </p>
 
       {/* ELO check */}
-      <div className={cn(
-        "border p-4 flex items-center justify-between",
-        isWithinCap ? "border-success/40 bg-success/5" : "border-danger/40 bg-danger/5"
-      )}>
-        <div className="flex items-center gap-3">
-          {isWithinCap ? (
-            <div className="w-8 h-8 rounded-full bg-success/10 border border-success/40 flex items-center justify-center">
-              <Star className="w-4 h-4 text-success" strokeWidth={2} />
-            </div>
-          ) : (
-            <div className="w-8 h-8 rounded-full bg-danger/10 border border-danger/40 flex items-center justify-center">
-              <AlertCircle className="w-4 h-4 text-danger" strokeWidth={2} />
-            </div>
-          )}
+      <div
+        className={cn(
+          "border px-5 py-4 flex items-center justify-between",
+          isWithinCap
+            ? "border-[rgba(255,46,158,0.4)] bg-[rgba(255,46,158,0.04)]"
+            : "border-[rgba(255,77,109,0.5)] bg-[rgba(255,77,109,0.04)]"
+        )}
+      >
+        <div className="flex items-center gap-3 text-left">
+          <div
+            className={cn(
+              "w-9 h-9 rounded-full border flex items-center justify-center",
+              isWithinCap
+                ? "border-[rgba(255,46,158,0.5)] text-[#ff2e9e]"
+                : "border-[rgba(255,77,109,0.5)] text-[#ff4d6d]"
+            )}
+          >
+            {isWithinCap ? (
+              <Check className="w-4 h-4" strokeWidth={2} />
+            ) : (
+              <AlertCircle className="w-4 h-4" strokeWidth={2} />
+            )}
+          </div>
           <div>
-            <div className="label-premium text-text-secondary">VERIFICACIÓN ELO</div>
-            <div className={cn("font-serif text-lg", isWithinCap ? "text-success" : "text-danger")}>
+            <div className="wiz-caption" style={{ letterSpacing: "0.32em" }}>
+              Verificación ELO
+            </div>
+            <div
+              className={cn(
+                "font-cinzel text-base tracking-[0.04em]",
+                isWithinCap ? "text-[#f5eaff]" : "text-[#ff4d6d]"
+              )}
+            >
               {isWithinCap ? "Dentro del límite" : "Excede el límite"}
             </div>
           </div>
         </div>
         <div className="text-right">
-          <div className="text-2xl font-serif tabular-nums">
+          <div className="font-cinzel text-2xl tabular-nums text-[#f5eaff]">
             {totalElo}
           </div>
-          <div className="text-caption text-text-tertiary">de {eloMax} máx</div>
+          <div className="wiz-caption text-[9px]" style={{ letterSpacing: "0.18em" }}>
+            de {eloMax} máx
+          </div>
         </div>
       </div>
 
       {/* Selector de capitán */}
-      <div className="grid md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-3">
         {data.players.map((player, idx) => (
           <button
             key={idx}
             onClick={() => setCaptain(idx as 0 | 1 | 2)}
             disabled={player.aoe2ProfileId === null}
             className={cn(
-              "border p-5 flex flex-col items-center text-center transition-all min-h-[200px] relative disabled:opacity-40 disabled:cursor-not-allowed",
+              "relative p-4 flex flex-col items-center text-center transition-all min-h-[180px] disabled:opacity-40 disabled:cursor-not-allowed",
               player.isCaptain
-                ? "border-gold bg-gold/5"
-                : "border-border-subtle hover:border-border-strong"
+                ? "bg-[rgba(255,46,158,0.06)] border border-[rgba(255,46,158,0.7)] shadow-[0_0_18px_rgba(255,46,158,0.22)]"
+                : "bg-[rgba(20,0,31,0.4)] border border-[rgba(255,46,158,0.16)] hover:border-[rgba(255,46,158,0.45)]"
             )}
           >
             {player.isCaptain && (
-              <div className="absolute top-3 right-3">
-                <Badge variant="gold">
-                  <Crown className="w-3 h-3 mr-1" strokeWidth={1.5} />
+              <div className="absolute top-2 right-2 inline-flex items-center gap-1 px-2 py-1 border-y border-[rgba(255,46,158,0.5)] bg-[rgba(255,46,158,0.08)]">
+                <Crown className="w-2.5 h-2.5 text-[#ff2e9e]" strokeWidth={2} />
+                <span className="font-cinzel text-[8px] tracking-[0.18em] uppercase text-[#ff2e9e]">
                   Capitán
-                </Badge>
+                </span>
               </div>
             )}
 
-            <div className={cn(
-              "w-16 h-16 rounded-full border-2 flex items-center justify-center mb-3",
-              player.isCaptain ? "border-gold text-gold" : "border-border-strong text-text-secondary"
-            )}>
+            <div
+              className={cn(
+                "w-14 h-14 rounded-full border flex items-center justify-center mb-3",
+                player.isCaptain
+                  ? "border-[#ff2e9e] text-[#ff2e9e] shadow-[0_0_14px_rgba(255,46,158,0.45)]"
+                  : "border-[rgba(255,46,158,0.35)] text-[rgba(255,180,220,0.55)]"
+              )}
+            >
               {player.isCaptain ? (
-                <Crown className="w-8 h-8" strokeWidth={1.25} />
+                <Crown className="w-7 h-7" strokeWidth={1.25} />
               ) : (
-                <span className="font-serif text-2xl text-text-tertiary">{idx + 1}</span>
+                <span className="font-cinzel text-xl text-[rgba(255,180,220,0.55)]">{idx + 1}</span>
               )}
             </div>
 
-            <div className="font-medium text-text-primary mb-1">
+            <div className="font-cinzel text-[13px] text-[#f5eaff] mb-1 truncate w-full px-1">
               {player.displayName}
             </div>
-            <div className="flex items-center gap-2 text-caption text-text-tertiary mb-3">
+            <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.08em] font-cinzel text-[rgba(255,180,220,0.55)] mb-2">
               {player.country && <span>{player.country}</span>}
               {player.clan && <span>· {player.clan}</span>}
             </div>
             {player.maxRatingRm1v1 !== undefined && (
-              <div className="text-caption text-text-secondary">
-                ELO máx: <span className="font-medium text-gold tabular-nums">{player.maxRatingRm1v1}</span>
+              <div className="text-[11px] text-[#e6d3f5]">
+                ELO máx:{" "}
+                <span className="font-cinzel font-semibold text-[#ff2e9e] tabular-nums">
+                  {player.maxRatingRm1v1}
+                </span>
               </div>
-            )}
-            {player.verificationStatus === "hidden" && (
-              <Badge variant="warning" size="sm" className="mt-2">
-                Falta verificación
-              </Badge>
             )}
           </button>
         ))}
       </div>
 
       {/* Info box */}
-      <div className="border-l-2 border-gold/40 pl-4 py-2">
-        <p className="text-caption text-text-secondary leading-relaxed">
+      <div className="wiz-panel border-l-2 border-l-[#ff2e9e] px-4 py-3 text-left inline-block">
+        <p className="text-[13px] leading-relaxed text-[#e6d3f5]">
           El capitán puede ser cualquiera de los 3 jugadores. Podrás cambiarlo
-          antes del inicio del torneo si es necesario, contactando al staff.
+          antes del inicio del torneo contactando al staff.
         </p>
       </div>
 
       {selectedCaptain === -1 && (
-        <div className="text-center text-text-tertiary text-sm">
+        <div className="wiz-caption text-[11px] normal-case" style={{ letterSpacing: "0.04em" }}>
           Seleccioná un jugador como capitán para continuar.
         </div>
       )}

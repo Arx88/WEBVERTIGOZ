@@ -1,129 +1,135 @@
 "use client";
 
 import { useWizard } from "@/components/wizard/wizard-context";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Placeholder emblems (luego se cargan de Supabase Storage)
-const PLACEHOLDER_EMBLEMS = [
-  { id: "e1", name: "Caballero", url: "" },
-  { id: "e2", name: "Águila", url: "" },
-  { id: "e3", name: "Dragón", url: "" },
-  { id: "e4", name: "León", url: "" },
-  { id: "e5", name: "Lobo", url: "" },
-  { id: "e6", name: "Cuervo", url: "" },
-  { id: "e7", name: "Oso", url: "" },
-  { id: "e8", name: "Halcón", url: "" },
-  { id: "e9", name: "Serpiente", url: "" },
-  { id: "e10", name: "Toro", url: "" },
-  { id: "e11", name: "Unicornio", url: "" },
-  { id: "e12", name: "Fénix", url: "" },
+// Emblemas de la galería (12 disponibles en MVP)
+const EMBLEMS = [
+  { id: "e1", name: "Caballero" },
+  { id: "e2", name: "Águila" },
+  { id: "e3", name: "Dragón" },
+  { id: "e4", name: "León" },
+  { id: "e5", name: "Lobo" },
+  { id: "e6", name: "Cuervo" },
+  { id: "e7", name: "Oso" },
+  { id: "e8", name: "Halcón" },
+  { id: "e9", name: "Serpiente" },
+  { id: "e10", name: "Toro" },
+  { id: "e11", name: "Unicornio" },
+  { id: "e12", name: "Fénix" },
 ];
 
 export default function WizardStepTeamData() {
   const { data, updateData } = useWizard();
 
   return (
-    <div className="max-w-3xl mx-auto space-y-10">
-      <p className="text-text-secondary text-sm font-light leading-relaxed">
+    <div className="max-w-3xl mx-auto space-y-6 text-center">
+      <p className="wiz-body max-w-xl mx-auto">
         Estos datos representarán a tu equipo en todo el torneo. El nombre y la
         frase aparecerán en tu perfil público, en el bracket y en el stream.
       </p>
 
       {/* Nombre + Frase */}
-      <div className="grid md:grid-cols-2 gap-6">
-        <div className="space-y-2">
-          <Label htmlFor="teamName">Nombre del equipo *</Label>
-          <Input
+      <div className="grid md:grid-cols-2 gap-5 text-left">
+        <div>
+          <label htmlFor="teamName" className="wiz-label">
+            Nombre del equipo *
+          </label>
+          <input
             id="teamName"
             placeholder="Los Invencibles"
+            className="wiz-input"
             value={data.teamName}
             onChange={(e) => updateData({ teamName: e.target.value })}
             maxLength={60}
             required
           />
-          <p className="text-caption text-text-tertiary">
+          <p className="wiz-caption mt-2 text-[10px]" style={{ letterSpacing: "0.06em" }}>
             {data.teamName.length}/60 caracteres
           </p>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="teamTagline">Frase del equipo</Label>
-          <Input
+        <div>
+          <label htmlFor="teamTagline" className="wiz-label">
+            Frase del equipo
+          </label>
+          <input
             id="teamTagline"
             placeholder="Honor et gloria"
+            className="wiz-input"
             value={data.teamTagline}
             onChange={(e) => updateData({ teamTagline: e.target.value })}
             maxLength={140}
           />
-          <p className="text-caption text-text-tertiary">
+          <p className="wiz-caption mt-2 text-[10px]" style={{ letterSpacing: "0.06em" }}>
             {data.teamTagline.length}/140 caracteres
           </p>
         </div>
       </div>
 
       {/* Emblema */}
-      <div className="space-y-4">
-        <div className="flex items-baseline justify-between">
-          <Label>Escudo del equipo *</Label>
-          <span className="text-caption text-text-tertiary">
-            Elige uno de los escudos disponibles
+      <div className="text-left">
+        <div className="flex items-baseline justify-between mb-3">
+          <span className="wiz-label mb-0">Escudo del equipo *</span>
+          <span className="wiz-caption text-[10px]" style={{ letterSpacing: "0.06em" }}>
+            Elegí uno de los 12 disponibles
           </span>
         </div>
 
-        <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-          {PLACEHOLDER_EMBLEMS.map((emblem) => (
-            <button
-              key={emblem.id}
-              onClick={() => updateData({ emblemId: emblem.id })}
-              className={cn(
-                "aspect-square border flex flex-col items-center justify-center gap-2 p-3 transition-all group",
-                data.emblemId === emblem.id
-                  ? "border-gold bg-gold/5"
-                  : "border-border-subtle hover:border-border-strong hover:bg-bg-hover"
-              )}
-            >
-              {/* Placeholder visual del escudo */}
-              <div className={cn(
-                "w-12 h-12 rounded-full border-2 flex items-center justify-center transition-colors",
-                data.emblemId === emblem.id
-                  ? "border-gold text-gold"
-                  : "border-border-strong text-text-tertiary group-hover:text-text-secondary"
-              )}>
-                <Shield className="w-6 h-6" strokeWidth={1.25} />
-              </div>
-              <span className={cn(
-                "text-caption uppercase tracking-wider",
-                data.emblemId === emblem.id ? "text-gold" : "text-text-tertiary"
-              )}>
-                {emblem.name}
-              </span>
-            </button>
-          ))}
+        <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
+          {EMBLEMS.map((emblem) => {
+            const isSelected = data.emblemId === emblem.id;
+            return (
+              <button
+                key={emblem.id}
+                onClick={() => updateData({ emblemId: emblem.id })}
+                className={cn(
+                  "aspect-square flex flex-col items-center justify-center gap-1.5 p-2 transition-all",
+                  isSelected
+                    ? "bg-[rgba(255,46,158,0.06)] border border-[rgba(255,46,158,0.7)] shadow-[0_0_14px_rgba(255,46,158,0.18)]"
+                    : "bg-[rgba(20,0,31,0.4)] border border-[rgba(255,46,158,0.14)] hover:border-[rgba(255,46,158,0.45)]"
+                )}
+              >
+                <div
+                  className={cn(
+                    "w-9 h-9 rounded-full border flex items-center justify-center transition-colors",
+                    isSelected
+                      ? "border-[#ff2e9e] text-[#ff2e9e]"
+                      : "border-[rgba(255,46,158,0.3)] text-[rgba(255,180,220,0.55)]"
+                  )}
+                >
+                  <Shield className="w-4 h-4" strokeWidth={1.25} />
+                </div>
+                <span
+                  className={cn(
+                    "font-cinzel text-[9px] tracking-[0.16em] uppercase text-center leading-tight",
+                    isSelected ? "text-[#ff2e9e]" : "text-[rgba(255,180,220,0.55)]"
+                  )}
+                >
+                  {emblem.name}
+                </span>
+              </button>
+            );
+          })}
         </div>
-
-        <p className="text-caption text-text-tertiary mt-4">
-          La galería completa de 50+ escudos estará disponible próximamente.
-          Por ahora, todos los equipos se asignan con un escudo genérico que
-          podrá cambiarse más adelante.
-        </p>
       </div>
 
       {/* Preview */}
       {data.teamName && (
-        <div className="border border-border-subtle bg-bg-elevated p-6">
-          <div className="label-premium text-gold/80 mb-3">VISTA PREVIA</div>
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full border-2 border-gold/60 flex items-center justify-center text-gold">
-              <Shield className="w-8 h-8" strokeWidth={1.25} />
+        <div className="wiz-panel px-6 py-5">
+          <div className="wiz-caption mb-3 text-center" style={{ letterSpacing: "0.32em" }}>
+            Vista previa
+          </div>
+          <div className="flex items-center justify-center gap-4">
+            <div className="w-14 h-14 rounded-full border border-[rgba(255,46,158,0.6)] flex items-center justify-center text-[#ff2e9e] shadow-[0_0_14px_rgba(255,46,158,0.3)]">
+              <Shield className="w-7 h-7" strokeWidth={1.25} />
             </div>
-            <div>
-              <div className="font-serif text-2xl">{data.teamName}</div>
+            <div className="text-left">
+              <div className="font-cinzel text-xl text-[#f5eaff]">{data.teamName}</div>
               {data.teamTagline && (
-                <div className="text-text-secondary text-sm italic mt-1">
-                  "{data.teamTagline}"
+                <div className="text-[13px] italic mt-1 text-[#e6d3f5]">
+                  &ldquo;{data.teamTagline}&rdquo;
                 </div>
               )}
             </div>
