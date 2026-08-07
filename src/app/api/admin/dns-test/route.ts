@@ -5,51 +5,34 @@ import net from "net";
 export async function GET() {
   const tests: Array<{ name: string; ok: boolean; detail?: string }> = [];
 
-  // Test DNS resolution
-  const hostnames = [
-    "db.tomlvgzwleolsxksiygs.supabase.co",
-    "aws-0-us-east-1.pooler.supabase.com",
-    "aws-0-eu-west-1.pooler.supabase.com",
-    "tomlvgzwleolsxksiygs.supabase.co",
-  ];
+  // Para cada región, probar conexión TCP al pooler en puerto 5432 y 6543
+  const regions = ["us-east-1", "us-west-1", "eu-west-1", "eu-central-1", "ap-southeast-1"];
 
-  for (const hostname of hostnames) {
-    try {
-      const records = await dns.resolve(hostname);
-      tests.push({ name: `dns:${hostname}`, ok: true, detail: JSON.stringify(records) });
-    } catch (e) {
-      tests.push({
-        name: `dns:${hostname}`,
-        ok: false,
-        detail: e instanceof Error ? e.message : "error",
+  for (const region of regions) {
+    const host = `aws-0-${region}.pooler.supabase.com`;
+    for (const port of [5432, 6543]) {
+      const name = `tcp:${host}:${port}`;
+      await new Promise<void>((resolve) => {
+        const socket = new net.Socket();
+        const timeout = setTimeout(() => {
+          socket.destroy();
+          tests.push({ name, ok: false, detail: "timeout 5s" });
+          resolve();
+        }, 5000);
+        socket.connect(port, host, () => {
+          clearTimeout(timeout);
+          socket.destroy();
+          tests.push({ name, ok: true });
+          resolve();
+        });
+        socket.on("error", (err) => {
+          clearTimeout(timeout);
+          tests.push({ name, ok: false, detail: err.message.slice(0, 80) });
+          resolve();
+        });
       });
     }
   }
-
-  // Test TCP connect to postgres
-  await new Promise<void>((resolve) => {
-    const socket = new net.Socket();
-    const timeout = setTimeout(() => {
-      socket.destroy();
-      tests.push({ name: "tcp:db.tomlvgzwleolsxksiygs.supabase.co:5432", ok: false, detail: "timeout 5s" });
-      resolve();
-    }, 5000);
-    socket.connect(5432, "db.tomlvgzwleolsxksiygs.supabase.co", () => {
-      clearTimeout(timeout);
-      socket.destroy();
-      tests.push({ name: "tcp:db.tomlvgzwleolsxksiygs.supabase.co:5432", ok: true });
-      resolve();
-    });
-    socket.on("error", (err) => {
-      clearTimeout(timeout);
-      tests.push({
-        name: "tcp:db.tomlvgzwleolsxksiygs.supabase.co:5432",
-        ok: false,
-        detail: err.message,
-      });
-      resolve();
-    });
-  });
 
   return NextResponse.json({ tests });
 }
