@@ -3,60 +3,82 @@ import postgres from "postgres";
 
 /**
  * POST /api/admin/exec-sql
+ * Endpoint TEMPORAL para ejecutar SQL en Supabase desde Vercel.
  *
- * Endpoint TEMPORAL para ejecutar SQL en Supabase desde Vercel (que tiene IPv6).
- * Válido solo para setup inicial — será eliminado después.
+ * Estrategia: probar varias URLs de conexión al pooler IPv4 de Supabase,
+ * porque la conexión directa db.{ref}.supabase.co solo tiene AAAA (IPv6)
+ * y Vercel no lo resuelve.
  *
- * Header requerido: x-admin-token (secreto compartido)
+ * Header: x-admin-token
  * Body: { sql: string }
- *
- * Devuelve: { ok, rows? }
  */
 
 const ADMIN_TOKEN = process.env.ADMIN_EXEC_TOKEN || "vertigo-setup-temp-token-2026";
+const SUPABASE_REF = "tomlvgzwleolsxksiygs";
+const SUPABASE_DB_PASSWORD = "RebelbyteEra1-";
+
+const POOLER_REGIONS = [
+  "us-east-1",
+  "us-west-1",
+  "eu-west-1",
+  "eu-central-1",
+  "ap-southeast-1",
+];
+
+async function tryConnect(): Promise<ReturnType<typeof postgres> | null> {
+  for (const region of POOLER_REGIONS) {
+    for (const port of [5432, 6543]) {
+      const host = `aws-0-${region}.pooler.supabase.com`;
+      const url = `postgresql://postgres.${SUPABASE_REF}:${encodeURIComponent(SUPABASE_DB_PASSWORD)}@${host}:${port}/postgres`;
+      try {
+        const sql = postgres(url, {
+          max: 1,
+          connect_timeout: 5,
+          idle_timeout: 10,
+          prepare: false,
+        });
+        // Test rápido
+        await sql`SELECT 1 as ok`;
+        console.log(`[exec-sql] conectado a ${host}:${port}`);
+        return sql;
+      } catch (e) {
+        // Continuar probando
+      }
+    }
+  }
+  return null;
+}
 
 export async function POST(req: NextRequest) {
   try {
-    // 1. Verificar token
     const token = req.headers.get("x-admin-token");
     if (token !== ADMIN_TOKEN) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    // 2. Leer SQL del body
-    const { sql } = await req.json();
-    if (!sql || typeof sql !== "string") {
+    const { sql: sqlQuery } = await req.json();
+    if (!sqlQuery || typeof sqlQuery !== "string") {
       return NextResponse.json({ error: "SQL requerido" }, { status: 400 });
     }
 
-    // 3. Verificar DATABASE_URL
-    const dbUrl = process.env.DATABASE_URL;
-    if (!dbUrl) {
+    const sql = await tryConnect();
+    if (!sql) {
       return NextResponse.json(
-        { error: "DATABASE_URL no configurada en este entorno" },
+        { error: "No se pudo conectar a ningún pooler de Supabase" },
         { status: 500 }
       );
     }
 
-    // 4. Ejecutar SQL
-    const sqlClient = postgres(dbUrl, {
-      max: 1,
-      idle_timeout: 20,
-      connect_timeout: 10,
-      prepare: false,
-    });
-
     try {
-      const result = await sqlClient.unsafe(sql);
-      // postgres devuelve un array de rows
+      const result = await sql.unsafe(sqlQuery);
       const rows = Array.isArray(result) ? result : [];
       return NextResponse.json({
         ok: true,
         rowCount: rows.length,
-        rows: rows.slice(0, 50), // limitar a 50 rows para no explotar la response
+        rows: rows.slice(0, 50),
       });
     } finally {
-      await sqlClient.end();
+      await sql.end();
     }
   } catch (err) {
     console.error("[exec-sql] error:", err);
