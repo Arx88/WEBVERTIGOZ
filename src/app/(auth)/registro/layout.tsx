@@ -205,10 +205,11 @@ function WizardShell({ children }: { children: ReactNode }) {
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
+          alignItems: "center",
           padding: "48px 24px",
         }}
       >
-        <div style={{ maxWidth: "560px", margin: "0 auto", width: "100%" }}>
+        <div style={{ maxWidth: "560px", width: "100%", margin: "0 auto" }}>
           {/* Step header */}
           <div style={{ marginBottom: "32px" }}>
             <div style={{
