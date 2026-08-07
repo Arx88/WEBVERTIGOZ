@@ -3,7 +3,7 @@ export default function TrophySection() {
     <section className="relative w-full min-h-[95vh] overflow-hidden">
       <div className="absolute inset-0">
         <img
-          src="/landing/monje-trofeo.png"
+          src="/landing/monje-trofeo.webp"
           alt="Monje con trofeo"
           className="w-full h-full object-cover object-center"
         />

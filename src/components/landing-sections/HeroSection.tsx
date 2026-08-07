@@ -8,7 +8,7 @@ export default function HeroSection() {
     <section className="relative w-full min-h-screen flex flex-col items-center justify-start pt-8 md:pt-10 overflow-hidden">
       <div className="absolute inset-0">
         <Image
-          src="/landing/hero.png"
+          src="/landing/hero.webp"
           alt="Vertigo Cup Hero"
           fill
           priority

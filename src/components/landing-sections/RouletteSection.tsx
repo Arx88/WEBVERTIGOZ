@@ -10,7 +10,7 @@ export default function RouletteSection() {
     >
       <div className="absolute inset-0">
         <img
-          src="/landing/ruleta-fondo.png"
+          src="/landing/ruleta-fondo.webp"
           alt="Caballero girando la ruleta"
           className="w-full h-full object-cover object-center"
         />

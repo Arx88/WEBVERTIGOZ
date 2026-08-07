@@ -21,7 +21,7 @@ export default function RulesSection() {
     <section className="relative w-full min-h-[95vh] overflow-hidden">
       <div className="absolute inset-0">
         <img
-          src="/landing/universidad.png"
+          src="/landing/universidad.webp"
           alt="Universidad"
           className="w-full h-full object-cover object-center"
         />

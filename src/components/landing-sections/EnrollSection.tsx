@@ -5,7 +5,7 @@ export default function EnrollSection() {
     <section id="enroll" className="relative w-full min-h-[95vh] overflow-hidden">
       <div className="absolute inset-0">
         <img
-          src="/landing/fondo-castillo.png"
+          src="/landing/fondo-castillo.webp"
           alt="Castillo en llamas"
           className="w-full h-full object-cover object-center"
         />
