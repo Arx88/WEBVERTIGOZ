@@ -1,0 +1,785 @@
+@import "tailwindcss";
+@import "../styles/ruleta.css";
+
+/* ============================================================
+   VÉRTIGO CUP — Global Styles
+   "Premium sobrio medieval" — fondo casi negro, sin glow masivo
+   ============================================================ */
+
+@theme {
+  --color-bg: #08080A;
+  --color-bg-elevated: #0C0C0F;
+  --color-bg-hover: #14141A;
+  --color-bg-deep: #040406;
+  --color-border-subtle: #1F1F26;
+  --color-border-strong: #2A2A33;
+  --color-border-gold: #D4AF37;
+  --color-text-primary: #FFF8E7;
+  --color-text-secondary: #A0A0A8;
+  --color-text-tertiary: #5C5C66;
+  --color-text-muted: #7A7A82;
+  --color-accent: #8B2CF5;
+  --color-danger: #E63946;
+  --color-success: #22C55E;
+  --color-gold: #D4AF37;
+  /* Colores del landing original */
+  --color-vertigo-bg: #0a0011;
+  --color-vertigo-neon: #ff2e9e;
+  --color-vertigo-soft: #ffb4dc;
+  --color-vertigo-purple: #7a5a90;
+}
+
+/* Reset base */
+* {
+  border-color: var(--color-border-subtle);
+}
+
+html {
+  background-color: var(--color-bg);
+  color-scheme: dark;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: var(--font-oswald), system-ui, sans-serif;
+  font-weight: 300;
+  font-feature-settings: "tnum" 1, "calt" 1;
+  min-height: 100vh;
+}
+
+/* Tipografía premium */
+h1, h2, h3, h4 {
+  font-family: var(--font-butler), Georgia, serif;
+  color: var(--color-text-primary);
+  letter-spacing: -0.01em;
+}
+
+/* Scrollbar sutil estilizada (premium) */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--color-bg); }
+::-webkit-scrollbar-thumb { background: var(--color-border-strong); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-text-tertiary); }
+
+::selection {
+  background: var(--color-accent);
+  color: var(--color-text-primary);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+input, textarea, select {
+  background-color: transparent;
+  color: var(--color-text-primary);
+  font-family: var(--font-oswald), system-ui, sans-serif;
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+/* Ornamento divisor sutil — dorado fino */
+.divider-gold {
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, var(--color-gold) 50%, transparent 100%);
+  opacity: 0.4;
+}
+
+.divider-double {
+  border-top: 1px solid var(--color-border-subtle);
+  border-bottom: 1px solid var(--color-border-subtle);
+  height: 4px;
+}
+
+.label-premium {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+.card-premium {
+  background-color: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: border-color 200ms cubic-bezier(0.22, 1, 0.36, 1),
+              background-color 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.card-premium:hover { border-color: var(--color-border-strong); }
+
+.text-shadow-premium { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6); }
+
+/* ============================================================
+   LANDING — Utilidades del diseño original (port desde CRA)
+   ============================================================ */
+
+/* Font utilities */
+.font-cinzel { font-family: var(--font-cinzel), serif; }
+.font-cinzel-dec { font-family: var(--font-cinzel-dec), serif; }
+
+/* Neon text effects */
+.text-neon {
+  color: #ffffff;
+  text-shadow:
+    0 0 8px rgba(255, 46, 158, 0.75),
+    0 0 22px rgba(255, 46, 158, 0.55),
+    0 0 40px rgba(200, 30, 180, 0.35);
+}
+
+.text-neon-pink {
+  color: #ff2e9e;
+  text-shadow:
+    0 0 12px rgba(255, 46, 158, 0.85),
+    0 0 28px rgba(255, 46, 158, 0.5);
+}
+
+/* Rays background (fallback) */
+.rays-bg {
+  background:
+    radial-gradient(1200px 800px at 50% 40%, rgba(255, 46, 158, 0.35), transparent 60%),
+    radial-gradient(900px 600px at 50% 0%, rgba(80, 0, 180, 0.6), transparent 70%),
+    linear-gradient(180deg, #12002b 0%, #1a002a 60%, #0a0011 100%);
+}
+
+/* Section fades */
+.section-mask-top {
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 80px);
+  mask-image: linear-gradient(180deg, transparent 0, #000 80px);
+}
+.section-mask-bottom {
+  -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 80px), transparent 100%);
+  mask-image: linear-gradient(180deg, #000 calc(100% - 80px), transparent 100%);
+}
+
+/* Slow bob */
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+.animate-bob { animation: bob 4s ease-in-out infinite; }
+
+/* Card float */
+@keyframes floatA { 0%,100%{transform: translateY(0) rotate(-6deg);} 50%{transform: translateY(-14px) rotate(-4deg);} }
+@keyframes floatB { 0%,100%{transform: translateY(0) rotate(6deg);} 50%{transform: translateY(-14px) rotate(8deg);} }
+.card-float-a { animation: floatA 5s ease-in-out infinite; }
+.card-float-b { animation: floatB 5s ease-in-out infinite 0.7s; }
+
+/* Fanned power cards */
+@keyframes fanA { 0%,100%{transform: translateY(0) rotate(-11deg);} 50%{transform: translateY(-16px) rotate(-9deg);} }
+@keyframes fanB { 0%,100%{transform: translateY(6px) rotate(9deg);} 50%{transform: translateY(-10px) rotate(11deg);} }
+.card-fan-a,
+.card-fan-b {
+  filter: drop-shadow(0 18px 34px rgba(0,0,0,.6)) drop-shadow(0 0 26px rgba(255,46,158,.45));
+  transition: transform 400ms ease, filter 400ms ease;
+  will-change: transform;
+}
+.card-fan-a { animation: fanA 6s ease-in-out infinite; transform-origin: bottom center; z-index: 2; }
+.card-fan-b { animation: fanB 6s ease-in-out infinite .8s; transform-origin: bottom center; z-index: 1; }
+.card-fan-a:hover,
+.card-fan-b:hover {
+  animation-play-state: paused;
+  transform: translateY(-22px) rotate(0deg) scale(1.05);
+  filter: drop-shadow(0 22px 40px rgba(0,0,0,.65)) drop-shadow(0 0 44px rgba(255,46,158,.75));
+  z-index: 3;
+}
+
+/* Phrase crossfade */
+@keyframes phraseIn {
+  from { opacity: 0; transform: translateY(12px); filter: blur(6px); }
+  to { opacity: 1; transform: none; filter: blur(0); }
+}
+.phrase-in { animation: phraseIn 800ms cubic-bezier(.22,.61,.36,1) both; }
+
+/* Neon pulse for arrow */
+@keyframes pulseGlow {
+  0%,100% { text-shadow: 0 0 6px rgba(255,46,158,.7), 0 0 20px rgba(255,46,158,.5); opacity: 0.85; }
+  50% { text-shadow: 0 0 12px rgba(255,46,158,1), 0 0 34px rgba(255,46,158,.9); opacity: 1; }
+}
+.pulse-glow { animation: pulseGlow 2.2s ease-in-out infinite; }
+
+/* Fade-up on scroll */
+.reveal { opacity: 0; transform: translateY(28px); transition: opacity 900ms ease, transform 900ms ease; }
+.reveal.is-in { opacity: 1; transform: none; }
+
+/* Button — landing style */
+.btn-vertigo {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 34px;
+  color: #ffffff;
+  background: #14001f;
+  border: 1px solid rgba(255, 46, 158, 0.6);
+  letter-spacing: 0.16em;
+  font-family: var(--font-cinzel), serif;
+  font-weight: 600;
+  font-size: 14px;
+  text-transform: uppercase;
+  transition: background-color 220ms ease, border-color 220ms ease, box-shadow 220ms ease, transform 220ms ease;
+  box-shadow: 0 0 0 rgba(255,46,158,0), inset 0 0 0 rgba(255,46,158,0);
+  cursor: pointer;
+}
+.btn-vertigo:hover {
+  background: #1e0230;
+  border-color: rgba(255, 46, 158, 0.95);
+  box-shadow: 0 0 24px rgba(255, 46, 158, 0.4), inset 0 0 12px rgba(255, 46, 158, 0.15);
+  transform: translateY(-1px);
+}
+
+/* Badge */
+.badge-thin {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  color: #ffb4dc;
+  border-top: 1px solid rgba(255,46,158,0.4);
+  border-bottom: 1px solid rgba(255,46,158,0.4);
+  font-family: var(--font-cinzel), serif;
+  font-size: 12px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+}
+
+/* Section divider */
+.hairline { height: 1px; background: linear-gradient(90deg, transparent, rgba(255,180,220,.5), transparent); }
+
+/* Vignette overlay */
+.vignette::after {
+  content: "";
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.55) 100%),
+    linear-gradient(180deg, rgba(10,0,20,0.7) 0%, transparent 18%, transparent 82%, rgba(10,0,20,0.9) 100%);
+  pointer-events: none;
+}
+
+/* ============================================================
+   WIZARD V3 — Professional design system (Inter-first)
+   Cinzel ONLY for the VÉRTIGO brand mark in the header.
+   All body, labels, captions, inputs use Inter.
+   Subtle shadows (no cyberpunk), 200ms transitions.
+   ============================================================ */
+
+/* Inter utility */
+.font-inter { font-family: var(--font-inter), system-ui, sans-serif; }
+
+/* ----- Backgrounds ----- */
+.wiz-bg {
+  background:
+    radial-gradient(1200px 600px at 50% -10%, rgba(255, 46, 158, 0.05), transparent 60%),
+    radial-gradient(900px 500px at 50% 110%, rgba(122, 90, 144, 0.06), transparent 60%),
+    #0a0011;
+}
+
+/* ----- Containers / panels ----- */
+.wiz-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: #14001f;
+  border: 1px solid rgba(255, 46, 158, 0.15);
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease;
+}
+.wiz-card-active {
+  border-color: rgba(255, 46, 158, 0.5);
+  background: rgba(255, 46, 158, 0.03);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 46, 158, 0.18);
+}
+.wiz-card-success {
+  border-color: rgba(34, 197, 94, 0.45);
+  background: rgba(34, 197, 94, 0.04);
+}
+.wiz-panel-sunken {
+  background: rgba(5, 2, 8, 0.5);
+  border: 1px solid rgba(255, 46, 158, 0.10);
+  border-radius: 4px;
+}
+.wiz-hero-panel {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(500px 320px at 25% 15%, rgba(255, 46, 158, 0.10), transparent 70%),
+    radial-gradient(360px 260px at 80% 80%, rgba(122, 90, 144, 0.14), transparent 60%),
+    linear-gradient(135deg, #14001f 0%, #0a0011 60%, #050208 100%);
+  border: 1px solid rgba(255, 46, 158, 0.18);
+  border-radius: 6px;
+}
+
+/* ----- Inputs ----- */
+.wiz-input {
+  width: 100%;
+  background: #1a0228;
+  border: 1px solid rgba(255, 46, 158, 0.18);
+  color: #f5eaff;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0.005em;
+  padding: 12px 16px;
+  border-radius: 4px;
+  transition: border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease;
+}
+.wiz-input::placeholder {
+  color: rgba(255, 180, 220, 0.40);
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-weight: 400;
+}
+.wiz-input:focus {
+  outline: none;
+  border-color: rgba(255, 46, 158, 0.5);
+  background: #1c0330;
+  box-shadow: 0 0 0 3px rgba(255, 46, 158, 0.15);
+}
+.wiz-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.wiz-input-error {
+  border-color: rgba(239, 68, 68, 0.7) !important;
+  background: rgba(239, 68, 68, 0.04);
+}
+.wiz-input-error:focus {
+  border-color: rgba(239, 68, 68, 0.85) !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
+}
+
+/* ----- Labels / captions / body ----- */
+.wiz-label {
+  display: block;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #ffb4dc;
+  margin-bottom: 6px;
+}
+.wiz-caption {
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 180, 220, 0.55);
+}
+.wiz-body {
+  color: #e6d3f5;
+  font-size: 14px;
+  line-height: 1.6;
+  font-weight: 400;
+  font-family: var(--font-inter), system-ui, sans-serif;
+}
+.wiz-body strong, .wiz-body .wiz-accent {
+  color: #ff2e9e;
+  font-weight: 600;
+}
+.wiz-meta {
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.005em;
+  color: rgba(255, 180, 220, 0.55);
+  line-height: 1.5;
+}
+.wiz-title {
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  color: #f5eaff;
+}
+.wiz-subtitle {
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  color: rgba(255, 180, 220, 0.65);
+  line-height: 1.5;
+}
+.wiz-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #ffb4dc;
+}
+.wiz-error-text {
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: #ef4444;
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.wiz-helper {
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  color: rgba(255, 180, 220, 0.50);
+  margin-top: 6px;
+  line-height: 1.45;
+}
+
+/* ----- Buttons ----- */
+.wiz-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 24px;
+  color: #ffffff;
+  background: #ff2e9e;
+  border: 1px solid #ff2e9e;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  text-transform: none;
+  cursor: pointer;
+  transition: background-color 200ms ease, border-color 200ms ease, box-shadow 200ms ease, transform 200ms ease, opacity 200ms ease;
+}
+.wiz-btn-primary:hover:not(:disabled) {
+  background: #ff4cae;
+  border-color: #ff4cae;
+  box-shadow: 0 4px 12px rgba(255, 46, 158, 0.35);
+  transform: translateY(-1px);
+}
+.wiz-btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.wiz-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 22px;
+  color: #ffb4dc;
+  background: transparent;
+  border: 1px solid rgba(255, 180, 220, 0.20);
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-weight: 500;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 200ms ease;
+}
+.wiz-btn-ghost:hover:not(:disabled) {
+  border-color: rgba(255, 46, 158, 0.5);
+  color: #ffffff;
+  background: rgba(255, 46, 158, 0.04);
+}
+.wiz-btn-ghost:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ----- Toggle button group (Crear/Ya tengo etc.) ----- */
+.wiz-toggle-group {
+  display: inline-flex;
+  background: #1a0228;
+  border: 1px solid rgba(255, 46, 158, 0.15);
+  border-radius: 4px;
+  padding: 3px;
+  gap: 2px;
+}
+.wiz-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border-radius: 3px;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: rgba(255, 180, 220, 0.55);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 180ms ease;
+  white-space: nowrap;
+}
+.wiz-toggle-btn:hover:not(.wiz-toggle-active) {
+  color: #ffb4dc;
+  background: rgba(255, 46, 158, 0.04);
+}
+.wiz-toggle-active {
+  background: #ff2e9e;
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(255, 46, 158, 0.4);
+}
+
+/* ----- Civ order badge (number circle top-right) ----- */
+.wiz-order-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ff2e9e;
+  color: #0a0011;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 2px #14001f, 0 2px 6px rgba(0, 0, 0, 0.4);
+  z-index: 2;
+}
+
+/* ----- Chips ----- */
+.wiz-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  background: rgba(255, 46, 158, 0.08);
+  border: 1px solid rgba(255, 46, 158, 0.30);
+  color: #ffb4dc;
+}
+.wiz-chip-num {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: #ff2e9e;
+  font-size: 10px;
+}
+
+/* ----- Stepper dots ----- */
+.wiz-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: rgba(255, 46, 158, 0.20);
+  border: none;
+  transition: all 200ms ease;
+  cursor: pointer;
+  padding: 0;
+}
+.wiz-dot-current {
+  width: 22px;
+  background: #ff2e9e;
+  box-shadow: 0 0 8px rgba(255, 46, 158, 0.5);
+}
+.wiz-dot-done {
+  background: rgba(255, 46, 158, 0.50);
+}
+.wiz-dot-done:hover {
+  background: rgba(255, 46, 158, 0.75);
+}
+
+/* ----- Progress bar ----- */
+.wiz-progress-track {
+  height: 2px;
+  width: 100%;
+  background: rgba(255, 46, 158, 0.10);
+  overflow: hidden;
+}
+.wiz-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, rgba(255, 46, 158, 0.55), #ff2e9e);
+  box-shadow: 0 0 6px rgba(255, 46, 158, 0.40);
+  transition: width 380ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ----- Scrollbar hide ----- */
+.wiz-scroll-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.wiz-scroll-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* ----- Step transition (fade-in only, no slide) ----- */
+@keyframes wizStepFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.wiz-step-in, .wiz-step-back {
+  animation: wizStepFade 200ms ease-out both;
+}
+
+/* ----- Spinner ----- */
+@keyframes wizSpin { to { transform: rotate(360deg); } }
+.wiz-spin {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 46, 158, 0.25);
+  border-top-color: #ff2e9e;
+  border-radius: 50%;
+  animation: wizSpin 700ms linear infinite;
+  display: inline-block;
+}
+
+/* ----- Player slot ----- */
+.wiz-slot {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 14px 12px;
+  background: #14001f;
+  border: 1px solid rgba(255, 46, 158, 0.16);
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: all 200ms ease;
+  cursor: pointer;
+}
+.wiz-slot:hover {
+  border-color: rgba(255, 46, 158, 0.35);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+.wiz-slot-active {
+  background: rgba(255, 46, 158, 0.04);
+  border: 1px solid rgba(255, 46, 158, 0.55);
+  box-shadow: 0 0 0 1px rgba(255, 46, 158, 0.20), 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+.wiz-slot-empty {
+  border: 1px dashed rgba(255, 46, 158, 0.30);
+}
+.wiz-slot-loaded {
+  background: #14001f;
+  border: 1px solid rgba(255, 46, 158, 0.30);
+}
+
+/* ----- Civ tile (denser, square-ish for 40 civs grid) ----- */
+.wiz-civ-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 8px 4px 6px;
+  background: #14001f;
+  border: 1px solid rgba(255, 46, 158, 0.14);
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  transition: all 180ms ease;
+  cursor: pointer;
+  min-height: 64px;
+}
+.wiz-civ-tile:hover:not(:disabled) {
+  border-color: rgba(255, 46, 158, 0.40);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+.wiz-civ-tile-selected {
+  background: rgba(255, 46, 158, 0.10);
+  border: 1px solid #ff2e9e;
+  box-shadow: 0 0 0 1px rgba(255, 46, 158, 0.25), 0 2px 8px rgba(255, 46, 158, 0.18);
+}
+.wiz-civ-tile-locked {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.wiz-civ-tile:disabled {
+  cursor: not-allowed;
+}
+
+/* ----- Checkmark ----- */
+.wiz-check {
+  width: 20px;
+  height: 20px;
+  border: 1px solid rgba(255, 46, 158, 0.40);
+  background: transparent;
+  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 200ms ease;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.wiz-check-checked {
+  background: #ff2e9e;
+  border-color: #ff2e9e;
+  color: #ffffff;
+  box-shadow: 0 0 0 1px rgba(255, 46, 158, 0.30);
+}
+
+/* ----- Ring with magenta glow ----- */
+.wiz-ring {
+  border: 1px solid rgba(255, 46, 158, 0.40);
+  box-shadow: 0 0 0 1px rgba(255, 46, 158, 0.05);
+}
+.wiz-ring-strong {
+  border: 1px solid #ff2e9e;
+  box-shadow: 0 0 0 2px rgba(255, 46, 158, 0.20), 0 2px 8px rgba(255, 46, 158, 0.25);
+}
+
+/* ----- Hairline dividers ----- */
+.wiz-hairline {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 180, 220, 0.30), transparent);
+}
+.wiz-hairline-v {
+  width: 1px;
+  background: linear-gradient(180deg, transparent, rgba(255, 180, 220, 0.18), transparent);
+}
+
+/* ----- Brand mark (Cinzel, ONLY for V logo / VÉRTIGO wordmark) ----- */
+.wiz-brand-mark {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 46, 158, 0.55);
+  background: rgba(255, 46, 158, 0.05);
+  box-shadow: 0 0 12px rgba(255, 46, 158, 0.18);
+  transform: rotate(45deg);
+}
+.wiz-brand-mark > span {
+  transform: rotate(-45deg);
+  font-family: var(--font-cinzel), serif;
+  font-weight: 700;
+  color: #ff2e9e;
+}
+.wiz-brand-word {
+  font-family: var(--font-cinzel), serif;
+  text-transform: uppercase;
+  letter-spacing: 0.32em;
+  color: #f5eaff;
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
