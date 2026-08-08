@@ -5,9 +5,9 @@ import { useWizard } from "@/components/wizard/wizard-context";
 interface SearchResult { profileId: number; name: string; steamId?: string; country?: string; clan?: string; verified?: boolean; }
 
 export default function Step3Players() {
-  const { data, updatePlayer } = useWizard();
+  const { data, updatePlayer, config } = useWizard();
   const totalElo = data.players.reduce((s, p) => s + (p.maxRatingRm1v1 ?? 0), 0);
-  const eloCap = 3500 + 20;
+  const eloCap = config.eloMax;
 
   return (
     <>

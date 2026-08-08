@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
 
 export interface PlayerDraft {
   aoe2ProfileId: number | null;
@@ -43,8 +43,25 @@ const DEFAULT_DATA: WizardData = {
   tournamentEditionId: null,
 };
 
+interface TournamentConfig {
+  eloCap: number;
+  eloTolerance: number;
+  eloMax: number;
+  civsBase: number;
+  civsExtra: number;
+}
+
+const DEFAULT_CONFIG: TournamentConfig = {
+  eloCap: 3500,
+  eloTolerance: 20,
+  eloMax: 3520,
+  civsBase: 9,
+  civsExtra: 3,
+};
+
 interface WizardContextValue {
   step: number; totalSteps: number; data: WizardData;
+  config: TournamentConfig;
   setStep: (step: number) => void; nextStep: () => void; prevStep: () => void;
   updateData: (patch: Partial<WizardData>) => void;
   updatePlayer: (index: number, patch: Partial<PlayerDraft>) => void;
@@ -57,6 +74,32 @@ export function WizardProvider({ children }: { children: ReactNode }) {
   const TOTAL = 9;
   const [step, setStepState] = useState(1);
   const [data, setData] = useState<WizardData>(DEFAULT_DATA);
+  const [config, setConfig] = useState<TournamentConfig>(DEFAULT_CONFIG);
+
+  // Fetch dinámico de la config del torneo (ELO cap, civs count)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/tournament/config");
+        if (res.ok) {
+          const c = await res.json();
+          if (!cancelled && c.found) {
+            setConfig({
+              eloCap: c.eloCap,
+              eloTolerance: c.eloTolerance,
+              eloMax: c.eloMax,
+              civsBase: c.civsBase,
+              civsExtra: c.civsExtra,
+            });
+          }
+        }
+      } catch {
+        // Silently fall back to defaults
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const setStep = useCallback((s: number) => setStepState(Math.max(1, Math.min(TOTAL, s))), []);
   const nextStep = useCallback(() => setStepState((s) => Math.min(TOTAL, s + 1)), []);
@@ -72,7 +115,7 @@ export function WizardProvider({ children }: { children: ReactNode }) {
   const resetWizard = useCallback(() => { setData(DEFAULT_DATA); setStepState(1); }, []);
 
   return (
-    <WizardContext.Provider value={{ step, totalSteps: TOTAL, data, setStep, nextStep, prevStep, updateData, updatePlayer, resetWizard }}>
+    <WizardContext.Provider value={{ step, totalSteps: TOTAL, data, config, setStep, nextStep, prevStep, updateData, updatePlayer, resetWizard }}>
       {children}
     </WizardContext.Provider>
   );
