@@ -40,7 +40,7 @@ export default function Step1Account() {
           autoComplete={data.existingAccount ? "current-password" : "new-password"} minLength={6} />
       </div>
       {!data.existingAccount && (
-        <p style={{ fontSize: "12px", color: "var(--faint)", maxWidth: "560px" }}>
+        <p style={{ fontSize: "12.5px", color: "var(--muted)", maxWidth: "560px", fontWeight: 500 }}>
           Esta cuenta es por equipo, no por jugador. Podrás cargar hasta 3 jugadores en el siguiente paso.
         </p>
       )}
