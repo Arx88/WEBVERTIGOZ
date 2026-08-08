@@ -24,7 +24,7 @@ export default function Step3Players() {
           <label>{idx === 0 ? "Capitán — nombre en el juego" : `Jugador ${idx + 1}`}</label>
           {player.aoe2ProfileId ? (
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <input type="text" value={`${player.displayName}${player.maxRatingRm1v1 != null ? ` — ELO máx: ${player.maxRatingRm1v1}` : ""}`} readOnly style={{ flex: 1 }} />
+              <input type="text" value={`${player.displayName}${player.maxRatingRm1v1 != null && player.maxRatingRm1v1 > 0 ? ` — ELO máx: ${player.maxRatingRm1v1}` : player.maxRatingRm1v1 === -1 ? " — Sin ELO RM 1v1" : player.maxRatingRm1v1 === null ? "" : ""}`} readOnly style={{ flex: 1 }} />
               <button className="btn ghost" style={{ padding: "10px 16px", fontSize: "11px" }}
                 onClick={() => updatePlayer(idx as 0 | 1 | 2, { aoe2ProfileId: null, displayName: "", country: undefined, clan: undefined, isVerified: false, maxRatingRm1v1: undefined })}>
                 Cambiar
