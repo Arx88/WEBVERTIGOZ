@@ -2,9 +2,9 @@
 import { useWizard } from "@/components/wizard/wizard-context";
 
 export default function Step4Captain() {
-  const { data, updatePlayer } = useWizard();
+  const { data, updatePlayer, config } = useWizard();
   const totalElo = data.players.reduce((s, p) => s + (p.maxRatingRm1v1 ?? 0), 0);
-  const eloCap = 3520;
+  const eloCap = config.eloMax;
   const isWithinCap = totalElo <= eloCap;
 
   function setCaptain(slot: 0 | 1 | 2) {

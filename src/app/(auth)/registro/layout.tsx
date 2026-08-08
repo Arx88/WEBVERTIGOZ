@@ -21,7 +21,7 @@ const STEP_INFO = [
 
 function WizardShell({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const { step, totalSteps, prevStep, nextStep, data, setStep } = useWizard();
+  const { step, totalSteps, prevStep, nextStep, data, setStep, config } = useWizard();
   const [submitting, setSubmitting] = useState(false);
   const [authDone, setAuthDone] = useState(false);
   const [maxReached, setMaxReached] = useState(1);
@@ -39,11 +39,11 @@ function WizardShell({ children }: { children: ReactNode }) {
         const allLoaded = data.players.every((p) => p.aoe2ProfileId !== null);
         if (!allLoaded) return false;
         const totalElo = data.players.reduce((s, p) => s + (p.maxRatingRm1v1 ?? 0), 0);
-        return totalElo <= 3520;
+        return totalElo <= config.eloMax;
       }
       case 4: return data.players.some((p) => p.isCaptain);
-      case 5: return data.baseCivIds.length === 9;
-      case 6: return data.extraCivIds.length === 3;
+      case 5: return data.baseCivIds.length === config.civsBase;
+      case 6: return data.extraCivIds.length === config.civsExtra;
       case 7: return data.handbookDownloadedAt !== null;
       case 8: return data.restreamAccepted && data.termsAcceptedAt !== null;
       case 9: return true;
