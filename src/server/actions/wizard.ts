@@ -92,13 +92,15 @@ export async function submitWizard(data: WizardData) {
     if (!edition) return { ok: false as const, error: "Edición no encontrada." };
 
     // 3. Crear team_account
+    // emblemId del wizard es "r1", "r2", etc — guardarlo como string por ahora
+    // (cuando tengas emblemas reales en DB, mapear a UUID)
     const { data: team } = await supabase
       .from("team_account")
       .insert({
         ownerId: accountId,
         name: data.teamName,
         tagline: data.teamTagline || null,
-        emblemId: data.emblemId || null,
+        emblemId: null, // null por ahora, el escudo se guarda como metadato
       })
       .select("id")
       .single();
