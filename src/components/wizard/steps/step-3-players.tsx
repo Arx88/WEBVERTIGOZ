@@ -45,19 +45,18 @@ export default function Step3Players() {
                   const res = await fetch(`/api/aoe2/profile?id=${r.profileId}`);
                   if (res.ok) {
                     const data = await res.json();
-                    // Siempre actualizar, incluso si maxRating es null (perfil oculto)
+                    // Si maxRating es null, significa que el perfil no tiene datos de RM 1v1
+                    // (jugador nuevo o que nunca jugó ranked). Lo marcamos como -1 para distinguirlo.
                     updatePlayer(idx as 0 | 1 | 2, {
-                      maxRatingRm1v1: data.maxRating ?? 0, // 0 = no se pudo obtener
+                      maxRatingRm1v1: data.maxRating != null ? data.maxRating : -1, // -1 = sin datos
                       ratingRm1v1Current: data.currentRating,
                       isVerified: data.verificationStatus === "verified",
                     });
                   } else {
-                    // Si la API falla, marcar como 0 para que deje de cargar
-                    updatePlayer(idx as 0 | 1 | 2, { maxRatingRm1v1: 0 });
+                    updatePlayer(idx as 0 | 1 | 2, { maxRatingRm1v1: -1 }); // -1 = error
                   }
                 } catch (e) {
-                  // Si hay error de red, marcar como 0 para que deje de cargar
-                  updatePlayer(idx as 0 | 1 | 2, { maxRatingRm1v1: 0 });
+                  updatePlayer(idx as 0 | 1 | 2, { maxRatingRm1v1: -1 }); // -1 = error
                 }
               }}
             />
@@ -73,6 +72,11 @@ export default function Step3Players() {
           {player.aoe2ProfileId && player.maxRatingRm1v1 == null && (
             <div style={{ fontSize: "12px", color: "var(--faint)", marginTop: "6px", fontFamily: "Inter, sans-serif" }}>
               Cargando ELO...
+            </div>
+          )}
+          {player.aoe2ProfileId && player.maxRatingRm1v1 === -1 && (
+            <div style={{ fontSize: "12px", color: "var(--danger)", marginTop: "6px", fontFamily: "Inter, sans-serif" }}>
+              Sin datos de ELO RM 1v1 (jugador sin partidas ranked)
             </div>
           )}
           {player.aoe2ProfileId && player.maxRatingRm1v1 === 0 && (
