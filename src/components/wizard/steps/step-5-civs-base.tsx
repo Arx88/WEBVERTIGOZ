@@ -22,6 +22,15 @@ const CIVS = [
   { id: "tatars", name: "Tártaros" }, { id: "burgundians", name: "Borgoñones" },
   { id: "sicilians", name: "Sicilianos" }, { id: "poles", name: "Polacos" },
   { id: "bohemians", name: "Bohemios" }, { id: "romans", name: "Romanos" },
+  // The Last Chieftains DLC
+  { id: "armenians", name: "Armenios" }, { id: "georgians", name: "Georgianos" },
+  // Dynasties of India DLC
+  { id: "bengalis", name: "Bengalíes" }, { id: "dravidians", name: "Drávidas" },
+  { id: "gurjaras", name: "Gurjaras" },
+  // The Three Kingdoms DLC
+  { id: "jurchens", name: "Jurchen" }, { id: "khitans", name: "Kitan" },
+  { id: "shu", name: "Shu" }, { id: "wei", name: "Wei" },
+  { id: "wu", name: "Wu" },
 ];
 
 export default function Step5CivsBase() {

@@ -22,6 +22,12 @@ const CIVS = [
   { id: "tatars", name: "Tártaros" }, { id: "burgundians", name: "Borgoñones" },
   { id: "sicilians", name: "Sicilianos" }, { id: "poles", name: "Polacos" },
   { id: "bohemians", name: "Bohemios" }, { id: "romans", name: "Romanos" },
+  { id: "armenians", name: "Armenios" }, { id: "georgians", name: "Georgianos" },
+  { id: "bengalis", name: "Bengalíes" }, { id: "dravidians", name: "Drávidas" },
+  { id: "gurjaras", name: "Gurjaras" },
+  { id: "jurchens", name: "Jurchen" }, { id: "khitans", name: "Kitan" },
+  { id: "shu", name: "Shu" }, { id: "wei", name: "Wei" },
+  { id: "wu", name: "Wu" },
 ];
 
 export default function Step6CivsExtra() {
@@ -46,7 +52,7 @@ export default function Step6CivsExtra() {
           const order = sel.indexOf(c.id) + 1;
           const disabled = isBase || (!isSelected && sel.length >= MAX);
           return (
-            <button key={c.id} className={`chip ${isSelected ? "sel" : ""}`} onClick={() => toggle(c)} disabled={disabled}
+            <button key={c.id} className={`chip ${isSelected ? "sel" : ""}`} onClick={() => toggle(c.id)} disabled={disabled}
               style={{ opacity: isBase ? 0.25 : disabled ? 0.3 : 1, padding: "10px 6px", display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", position: "relative" }}>
               {isSelected && (
                 <span style={{ position: "absolute", top: "4px", right: "4px", width: "18px", height: "18px", borderRadius: "50%", background: "var(--purple)", color: "#0a0011", fontSize: "10px", fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>
