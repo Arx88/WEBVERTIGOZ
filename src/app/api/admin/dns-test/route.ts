@@ -1,8 +1,19 @@
 import { NextResponse } from "next/server";
 import { promises as dns } from "dns";
 import net from "net";
+import { requireAdmin } from "@/lib/auth/admin-guard";
 
+/**
+ * GET /api/admin/dns-test
+ * Diagnóstico de conectividad TCP a los poolers de Supabase.
+ * Requiere sesión admin autenticada.
+ */
 export async function GET() {
+  const account = await requireAdmin();
+  if (!account) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+
   const tests: Array<{ name: string; ok: boolean; detail?: string }> = [];
 
   // Para cada región, probar conexión TCP al pooler en puerto 5432 y 6543

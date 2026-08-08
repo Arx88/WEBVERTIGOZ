@@ -6,13 +6,19 @@ import { createClient } from "@supabase/supabase-js";
  * Crea un usuario super_admin en Supabase.
  */
 
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
 export async function POST(req: NextRequest) {
   try {
+    if (!SERVICE_KEY || !SUPABASE_URL) {
+      return NextResponse.json(
+        { error: "Endpoint no configurado: faltan SUPABASE_SERVICE_ROLE_KEY o NEXT_PUBLIC_SUPABASE_URL" },
+        { status: 503 }
+      );
+    }
     const token = req.headers.get("x-admin-token");
-    if (token !== process.env.ADMIN_EXEC_TOKEN) {
+    if (!process.env.ADMIN_EXEC_TOKEN || token !== process.env.ADMIN_EXEC_TOKEN) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
