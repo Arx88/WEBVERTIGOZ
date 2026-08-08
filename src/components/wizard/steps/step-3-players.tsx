@@ -6,26 +6,66 @@ interface SearchResult { profileId: number; name: string; country?: string; clan
 
 export default function Step3Players() {
   const { data, updatePlayer } = useWizard();
+  const totalElo = data.players.reduce((s, p) => s + (p.maxRatingRm1v1 ?? 0), 0);
+  const eloCap = 3500 + 20;
+
   return (
     <>
+      {/* ELO bar */}
+      <div className="chips-head" style={{ marginBottom: "20px" }}>
+        <span className={`counter ${totalElo > 0 ? "full" : ""}`}
+          style={{ borderColor: totalElo > eloCap ? "var(--danger)" : undefined, color: totalElo > eloCap ? "var(--danger)" : undefined }}>
+          ELO TOTAL: {totalElo} / {eloCap}
+        </span>
+      </div>
+
       {data.players.map((player, idx) => (
         <div className="field" key={idx}>
           <label>{idx === 0 ? "Capitán — nombre en el juego" : `Jugador ${idx + 1}`}</label>
           {player.aoe2ProfileId ? (
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <input type="text" value={player.displayName} readOnly style={{ flex: 1 }} />
+              <input type="text" value={`${player.displayName}${player.maxRatingRm1v1 != null ? ` — ELO máx: ${player.maxRatingRm1v1}` : ""}`} readOnly style={{ flex: 1 }} />
               <button className="btn ghost" style={{ padding: "10px 16px", fontSize: "11px" }}
-                onClick={() => updatePlayer(idx as 0 | 1 | 2, { aoe2ProfileId: null, displayName: "", country: undefined, clan: undefined, isVerified: false })}>
+                onClick={() => updatePlayer(idx as 0 | 1 | 2, { aoe2ProfileId: null, displayName: "", country: undefined, clan: undefined, isVerified: false, maxRatingRm1v1: undefined })}>
                 Cambiar
               </button>
             </div>
           ) : (
             <PlayerSearch
-              onSelect={(r) => updatePlayer(idx as 0 | 1 | 2, {
-                aoe2ProfileId: r.profileId, displayName: r.name,
-                country: r.country, clan: r.clan, isVerified: r.verified ?? false,
-              })}
+              onSelect={async (r) => {
+                // Guardar datos básicos inmediatamente
+                updatePlayer(idx as 0 | 1 | 2, {
+                  aoe2ProfileId: r.profileId, displayName: r.name,
+                  country: r.country, clan: r.clan, isVerified: r.verified ?? false,
+                });
+
+                // Buscar el ELO real en AoE2 Companion
+                try {
+                  const res = await fetch(`/api/aoe2/profile?id=${r.profileId}`);
+                  if (res.ok) {
+                    const data = await res.json();
+                    if (data.maxRating != null) {
+                      updatePlayer(idx as 0 | 1 | 2, { maxRatingRm1v1: data.maxRating });
+                    }
+                  }
+                } catch (e) {
+                  // Si falla, el jugador queda cargado sin ELO
+                }
+              }}
             />
+          )}
+          {/* Mostrar ELO individual debajo del input */}
+          {player.aoe2ProfileId && player.maxRatingRm1v1 != null && (
+            <div style={{ fontSize: "12px", color: "var(--purple-pale)", marginTop: "6px", fontFamily: "Inter, sans-serif" }}>
+              ELO máx RM 1v1: <strong>{player.maxRatingRm1v1}</strong>
+              {player.country && <span style={{ color: "var(--faint)", marginLeft: "12px" }}>{player.country}</span>}
+              {player.clan && <span style={{ color: "var(--faint)", marginLeft: "8px" }}>· {player.clan}</span>}
+            </div>
+          )}
+          {player.aoe2ProfileId && player.maxRatingRm1v1 == null && (
+            <div style={{ fontSize: "12px", color: "var(--faint)", marginTop: "6px", fontFamily: "Inter, sans-serif" }}>
+              Cargando ELO...
+            </div>
           )}
         </div>
       ))}
