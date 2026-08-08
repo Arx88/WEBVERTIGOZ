@@ -93,13 +93,15 @@ export async function submitWizard(data: WizardData) {
     if (edErr || !edition) return { ok: false as const, error: `Edición no encontrada: ${edErr?.message ?? "desconocido"}` };
 
     // 3. Crear team_account
+    // Los nombres de columnas en Postgres son snake_case (owner_id, emblem_id)
+    // No camelCase como en el schema de Drizzle
     const { data: team, error: teamErr } = await supabase
       .from("team_account")
       .insert({
-        ownerId: accountId,
+        owner_id: accountId,
         name: data.teamName,
         tagline: data.teamTagline || null,
-        emblemId: null,
+        emblem_id: null,
       })
       .select("id")
       .single();
@@ -133,16 +135,16 @@ export async function submitWizard(data: WizardData) {
     const { data: reg, error: regErr } = await supabase
       .from("team_registration")
       .insert({
-        teamAccountId: team.id,
-        tournamentEditionId: edition.id,
-        baseCivIds: data.baseCivIds,
-        extraCivIds: data.extraCivIds,
-        eloFreezeSnapshot: totalElo,
-        eloVerificationStatus: data.players.some((p) => !p.isVerified) ? "pending" : "verified",
-        restreamAccepted: data.restreamAccepted,
-        handbookDownloadedAt: data.handbookDownloadedAt,
-        termsAcceptedAt: data.termsAcceptedAt,
-        submittedAt: new Date(),
+        team_account_id: team.id,
+        tournament_edition_id: edition.id,
+        base_civ_ids: data.baseCivIds,
+        extra_civ_ids: data.extraCivIds,
+        elo_freeze_snapshot: totalElo,
+        elo_verification_status: data.players.some((p) => !p.isVerified) ? "pending" : "verified",
+        restream_accepted: data.restreamAccepted,
+        handbook_downloaded_at: data.handbookDownloadedAt,
+        terms_accepted_at: data.termsAcceptedAt,
+        submitted_at: new Date(),
         status: "pending",
       })
       .select("id")
@@ -152,18 +154,18 @@ export async function submitWizard(data: WizardData) {
     // 6. Insertar jugadores
     const { error: playersErr } = await supabase.from("player_registration").insert(
       data.players.map((p) => ({
-        teamRegistrationId: reg.id,
-        aoe2ProfileId: p.aoe2ProfileId!,
-        aoe2SteamId: p.steamId || null,
-        displayName: p.displayName,
+        team_registration_id: reg.id,
+        aoe2_profile_id: p.aoe2ProfileId!,
+        aoe2_steam_id: p.steamId || null,
+        display_name: p.displayName,
         country: p.country || null,
         clan: p.clan || null,
-        isVerified: p.isVerified,
-        maxRatingRm1v1: p.maxRatingRm1v1 ?? null,
-        ratingRm1v1Current: p.ratingRm1v1Current ?? null,
-        isCaptain: p.isCaptain,
-        linkedProfiles: [],
-        verificationPayload: null,
+        is_verified: p.isVerified,
+        max_rating_rm_1v1: p.maxRatingRm1v1 ?? null,
+        rating_rm_1v1_current: p.ratingRm1v1Current ?? null,
+        is_captain: p.isCaptain,
+        linked_profiles: [],
+        verification_payload: null,
       }))
     );
     if (playersErr) return { ok: false as const, error: `Error cargando jugadores: ${playersErr.message}` };
