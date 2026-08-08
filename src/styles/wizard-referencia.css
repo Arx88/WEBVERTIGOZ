@@ -53,7 +53,7 @@ body:has(.wizard-page) {
 .wizard-page .logo-cup{font-size:12px; font-weight:700; letter-spacing:8px; color:var(--purple-soft); margin:2px 0 0 8px}
 
 .wizard-page .steps{list-style:none; margin-top:8px}
-.wizard-page .step{position:relative; display:flex; align-items:center; gap:16px; padding:10px 4px; cursor:pointer;
+.wizard-page .step{position:relative; display:flex; align-items:center; gap:14px; padding:8px 4px; cursor:pointer;
   animation:fadeUp .55s var(--ease) both}
 .wizard-page .step:nth-child(1){animation-delay:.15s}
 .wizard-page .step:nth-child(2){animation-delay:.22s}
@@ -73,7 +73,7 @@ body:has(.wizard-page) {
 .wizard-page .dot .num{font-family:Cinzel; font-size:13px; color:var(--faint); letter-spacing:1px; transition:all .3s}
 .wizard-page .dot .check{position:absolute; width:15px; height:15px; stroke:var(--purple-pale); stroke-width:2.4; fill:none;
   stroke-linecap:round; stroke-linejoin:round; transform:scale(0); transition:transform .35s var(--ease)}
-.wizard-page .label{font-size:11px; font-weight:600; letter-spacing:1.6px; text-transform:uppercase; color:var(--faint);
+.wizard-page .label{font-size:11px; font-weight:600; letter-spacing:1.6px; text-transform:uppercase; color:#7a7287;
   line-height:1.5; transition:color .3s}
 .wizard-page .step:hover .label{color:var(--muted)}
 .wizard-page .step.is-active .dot{border-color:var(--purple); box-shadow:0 0 0 4px rgba(124,58,237,.12), 0 0 22px rgba(124,58,237,.35);
@@ -122,7 +122,7 @@ body:has(.wizard-page) {
   text-transform:uppercase; margin-bottom:14px}
 .wizard-page .p-title{font-family:Cinzel; font-weight:700; font-size:clamp(24px,2.4vw,34px); letter-spacing:1px;
   text-transform:uppercase; color:var(--text)}
-.wizard-page .p-divider{display:flex; align-items:center; gap:10px; margin:20px 0 22px; max-width:660px}
+.wizard-page .p-divider{display:flex; align-items:center; justify-content:center; gap:10px; margin:20px 0 22px; max-width:660px}
 .wizard-page .p-divider span{flex:1; height:1px; background:linear-gradient(90deg,transparent,#3a2f4a)}
 .wizard-page .p-divider span:last-child{background:linear-gradient(90deg,#3a2f4a,transparent)}
 .wizard-page .p-divider i{width:7px; height:7px; border:1px solid var(--purple-soft); transform:rotate(45deg);
