@@ -78,23 +78,8 @@ function WizardShell({ children }: { children: ReactNode }) {
 
           {/* SIDEBAR */}
           <aside className="sidebar">
-            <div className="logo">
-              <div className="logo-emblem">
-                <span className="logo-ii">II</span>
-                <span className="logo-age">AGE<br />OF<br />EMPIRES</span>
-              </div>
-              <div className="logo-vertigo">VERTIGO</div>
-              <div className="logo-cup">CUP</div>
-              <svg className="logo-swoosh" viewBox="0 0 120 22" style={{ display: "block", width: "110px", margin: "4px auto 0" }}>
-                <defs>
-                  <linearGradient id="gradSwoosh" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0" stopColor="#7c3aed" />
-                    <stop offset="1" stopColor="#c4b5fd" />
-                  </linearGradient>
-                </defs>
-                <path d="M6 5 C 40 17, 80 17, 114 5" fill="none" stroke="url(#gradSwoosh)" strokeWidth="2.4" strokeLinecap="round" />
-                <path d="M62 13 c -7 8 -18 9 -26 5" fill="none" stroke="url(#gradSwoosh)" strokeWidth="2.4" strokeLinecap="round" />
-              </svg>
+            <div className="logo" style={{ textAlign: "center", marginBottom: "56px" }}>
+              <img src="/landing/logo.png" alt="VÉRTIGO Cup" style={{ width: "180px", margin: "0 auto", display: "block" }} />
             </div>
 
             <ol className="steps" id="steps">
