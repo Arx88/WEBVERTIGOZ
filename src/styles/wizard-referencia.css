@@ -1,13 +1,33 @@
 /* ============ VÉRTIGO WIZARD — Design tokens del HTML de referencia ============ */
 
+/* Video de fondo detrás del wizard */
+.wizard-bg-video {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  object-fit: cover;
+  z-index: 0;
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+/* Overlay oscuro encima del video para legibilidad */
+.wizard-bg-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: radial-gradient(ellipse at center, rgba(7,3,16,0.4), rgba(7,3,16,0.7));
+  z-index: 1;
+  pointer-events: none;
+}
+
 /* Override del body global cuando estamos en el wizard */
 body:has(.wizard-page), html:has(.wizard-page) {
   background: #070310 !important;
-  background-image:
-    radial-gradient(900px 520px at 12% 8%, rgba(88,28,175,.16), transparent 60%),
-    radial-gradient(800px 500px at 88% 85%, rgba(124,58,237,.10), transparent 60%),
-    radial-gradient(1400px 900px at 50% 50%, rgba(20,8,40,.5), transparent 75%) !important;
-  animation: bgPulse 9s ease-in-out infinite alternate !important;
   margin: 0 !important;
   padding: 0 !important;
   overflow: hidden !important;
@@ -24,6 +44,8 @@ body:has(.wizard-page), html:has(.wizard-page) {
   --ease:cubic-bezier(.22,1,.36,1);
   width:100vw; height:100vh; display:flex; align-items:center; justify-content:center;
   overflow:hidden;
+  position: relative;
+  z-index: 2;
 }
 .wizard-page ::selection{background:rgba(124,58,237,.45);color:#fff}
 @keyframes bgPulse{from{background-position:0 0,0 0,0 0}to{background-position:30px -20px,-30px 20px,0 0}}

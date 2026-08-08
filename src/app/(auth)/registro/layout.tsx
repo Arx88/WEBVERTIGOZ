@@ -72,8 +72,16 @@ function WizardShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="wizard-page">
-      <div className="modal" id="modal">
+    <>
+      {/* Video de fondo */}
+      <video className="wizard-bg-video" autoPlay muted loop playsInline>
+        <source src="/landing/wizard-bg.mp4" type="video/mp4" />
+      </video>
+      {/* Overlay oscuro para legibilidad */}
+      <div className="wizard-bg-overlay" />
+
+      <div className="wizard-page">
+        <div className="modal" id="modal">
         <div className="modal-main">
 
           {/* SIDEBAR */}
@@ -167,7 +175,7 @@ function WizardShell({ children }: { children: ReactNode }) {
           </div>
         )}
       </div>
-    </div>
+    </>
   );
 }
 
