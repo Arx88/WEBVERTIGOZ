@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, Fragment, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { WizardProvider, useWizard, WIZARD_STEPS } from "@/components/wizard/wizard-context";
 import { toast } from "sonner";
@@ -72,7 +72,7 @@ function WizardShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <>
+    <Fragment>
       {/* Video de fondo */}
       <video className="wizard-bg-video" autoPlay muted loop playsInline>
         <source src="/landing/wizard-bg.mp4" type="video/mp4" />
@@ -175,7 +175,7 @@ function WizardShell({ children }: { children: ReactNode }) {
           </div>
         )}
       </div>
-    </>
+    </Fragment>
   );
 }
 
