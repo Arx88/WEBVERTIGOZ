@@ -86,6 +86,26 @@ export default function Step3Players() {
           )}
         </div>
       ))}
+
+      {/* Aviso de ELO excedido */}
+      {data.players.every((p) => p.aoe2ProfileId !== null) && totalElo > eloCap && (
+        <div style={{
+          marginTop: "16px",
+          padding: "12px 16px",
+          background: "rgba(251,113,133,0.08)",
+          border: "1px solid rgba(251,113,133,0.3)",
+          borderRadius: "9px",
+          fontSize: "13px",
+          color: "var(--danger)",
+          fontFamily: "Inter, sans-serif",
+          lineHeight: 1.5,
+          maxWidth: "640px",
+        }}>
+          El ELO total ({totalElo}) supera el máximo permitido ({eloCap}). 
+          No podés avanzar hasta que la suma de los ELOs sea menor o igual a {eloCap}. 
+          Cambiá uno de los jugadores por uno con ELO más bajo.
+        </div>
+      )}
     </>
   );
 }
