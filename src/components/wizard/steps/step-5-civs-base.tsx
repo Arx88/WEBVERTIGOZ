@@ -31,6 +31,9 @@ const CIVS = [
   { id: "jurchens", name: "Jurchen" }, { id: "khitans", name: "Kitan" },
   { id: "shu", name: "Shu" }, { id: "wei", name: "Wei" },
   { id: "wu", name: "Wu" },
+  // The Last Chieftains DLC
+  { id: "mapuche", name: "Mapuche" }, { id: "muiscas", name: "Muiscas" },
+  { id: "tupies", name: "Tupies" },
 ];
 
 export default function Step5CivsBase() {

@@ -74,6 +74,11 @@ export interface Aoe2Profile {
   leaderboards: Aoe2Leaderboard[];
   stats: Aoe2Stat[];
   linkedProfiles?: Aoe2LinkedProfile[];
+  ratings?: Array<{
+    leaderboardId: string;
+    ratings: Array<{ rating: number; date: string; games?: number; ratingDiff?: number }>;
+  }>;
+  [key: string]: unknown;
 }
 
 // ============================================================
