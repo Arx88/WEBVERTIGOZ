@@ -42,7 +42,7 @@ body:has(.wizard-page) {
 
 /* ============ SIDEBAR ============ */
 .wizard-page .sidebar{background:var(--side); border-right:1px solid var(--line-soft); padding:28px 30px 24px; overflow:hidden}
-.wizard-page .logo{text-align:center; margin-bottom:32px; user-select:none}
+.wizard-page .logo{text-align:center; margin-bottom:24px; user-select:none}
 .wizard-page .logo-emblem{position:relative; width:92px; height:62px; margin:0 auto 6px}
 .wizard-page .logo-ii{font-family:Cinzel; font-weight:700; font-size:58px; line-height:1; color:transparent;
   -webkit-text-stroke:1px rgba(167,139,250,.5); position:absolute; inset:0; display:grid; place-items:center}
@@ -68,7 +68,7 @@ body:has(.wizard-page) {
 .wizard-page .step:not(:last-child)::after{content:''; position:absolute; left:23px; top:52px; height:calc(100% - 40px); width:1px;
   background:var(--line); transition:background .5s}
 .wizard-page .step.done:not(:last-child)::after{background:linear-gradient(180deg,var(--purple),rgba(124,58,237,.25))}
-.wizard-page .dot{position:relative; width:40px; height:40px; flex:none; border-radius:50%; border:1px solid var(--line);
+.wizard-page .dot{position:relative; width:36px; height:36px; flex:none; border-radius:50%; border:1px solid var(--line);
   display:grid; place-items:center; background:rgba(255,255,255,.01); transition:all .4s var(--ease)}
 .wizard-page .dot .num{font-family:Cinzel; font-size:13px; color:var(--faint); letter-spacing:1px; transition:all .3s}
 .wizard-page .dot .check{position:absolute; width:15px; height:15px; stroke:var(--purple-pale); stroke-width:2.4; fill:none;
