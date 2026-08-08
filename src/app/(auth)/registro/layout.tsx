@@ -174,6 +174,7 @@ function WizardShell({ children }: { children: ReactNode }) {
             </div>
           </div>
         )}
+        </div>
       </div>
     </Fragment>
   );
