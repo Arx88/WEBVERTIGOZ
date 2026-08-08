@@ -3,8 +3,14 @@ import { createClient } from "@supabase/supabase-js";
 
 export async function POST(req: NextRequest) {
   try {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return NextResponse.json(
+        { error: "Endpoint no configurado" },
+        { status: 503 }
+      );
+    }
     const token = req.headers.get("x-admin-token");
-    if (token !== process.env.ADMIN_EXEC_TOKEN) {
+    if (!process.env.ADMIN_EXEC_TOKEN || token !== process.env.ADMIN_EXEC_TOKEN) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
@@ -14,8 +20,8 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 

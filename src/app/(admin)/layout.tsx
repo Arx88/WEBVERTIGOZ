@@ -1,6 +1,7 @@
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { logoutAction } from "@/server/actions/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +45,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           ))}
         </nav>
         <div className="vertigo-header-right">
-          <form action="/api/auth/logout" method="POST" style={{ display: "inline" }}>
+          <form action={logoutAction} style={{ display: "inline" }}>
             <button type="submit" className="vertigo-btn vertigo-btn-ghost" style={{ padding: "8px 16px", fontSize: "11px" }}>
               Salir
             </button>

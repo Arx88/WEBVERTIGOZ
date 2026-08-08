@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/admin-guard";
 
 /**
  * POST /api/admin/upload-handbook
@@ -7,12 +8,12 @@ import { getSupabaseServer } from "@/lib/supabase/server";
  *
  * Body: multipart/form-data con 'file' (PDF)
  *
- * Requiere header x-admin-token.
+ * Requiere sesión admin autenticada (Supabase Auth + role admin/super_admin).
  */
 export async function POST(req: NextRequest) {
   try {
-    const token = req.headers.get("x-admin-token");
-    if (token !== process.env.ADMIN_EXEC_TOKEN) {
+    const account = await requireAdmin();
+    if (!account) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
