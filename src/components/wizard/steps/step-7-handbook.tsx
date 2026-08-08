@@ -6,15 +6,13 @@ export default function Step7Handbook() {
   const downloaded = data.handbookDownloadedAt !== null;
 
   function handleDownload() {
-    // Marcar como descargado inmediatamente
+    // Marcar como descargado
     updateData({ handbookDownloadedAt: new Date() });
-    // Abrir el PDF en una nueva pestaña SIN que el browser actual se vaya
-    // Usar window.open con noopener para que no afecte el contexto
-    try {
+    // Abrir en nueva pestaña SIN que el browser actual pierda foco
+    // Usar setTimeout para que el state se actualice primero
+    setTimeout(() => {
       window.open("https://tomlvgzwleolsxksiygs.supabase.co/storage/v1/object/public/handbook/vertigo-handbook.pdf", "_blank", "noopener,noreferrer");
-    } catch (e) {
-      // No importa si falla — lo importante es marcar como descargado
-    }
+    }, 100);
   }
 
   return (
