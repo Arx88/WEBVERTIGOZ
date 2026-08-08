@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { GENERIC_AVATARS } from "@/lib/constants";
+import { validateTeamEloCap } from "@/lib/aoe2";
 import type { WizardData } from "@/components/wizard/wizard-context";
 
 // ============================================================
@@ -24,9 +25,12 @@ export async function signUpOrLogin(data: WizardData) {
   }
 
   // Signup vía admin API (no manda email, confirma directo)
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return { ok: false as const, error: "Servidor no configurado para signup." };
+  }
   const admin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
     { auth: { autoRefreshToken: false, persistSession: false } }
   );
 
@@ -53,6 +57,9 @@ export async function signUpOrLogin(data: WizardData) {
 // ============================================================
 
 export async function submitWizard(data: WizardData) {
+  let createdTeamAccountId: string | null = null;
+  let createdTeamRegistrationId: string | null = null;
+
   try {
     const supabase = (await getSupabaseServer()) as any;
     const { data: { user } } = await supabase.auth.getUser();
@@ -92,27 +99,33 @@ export async function submitWizard(data: WizardData) {
       .single();
     if (edErr || !edition) return { ok: false as const, error: `Edición no encontrada: ${edErr?.message ?? "desconocido"}` };
 
-    // 3. Crear team_account
-    // Los nombres de columnas en Postgres son snake_case (owner_id, emblem_id)
-    // No camelCase como en el schema de Drizzle
-    const { data: team, error: teamErr } = await supabase
-      .from("team_account")
-      .insert({
-        owner_id: accountId,
-        name: data.teamName,
-        tagline: data.teamTagline || null,
-        emblem_id: null,
-      })
-      .select("id")
-      .single();
-    if (teamErr || !team) return { ok: false as const, error: `Error creando equipo: ${teamErr?.message ?? "desconocido"}` };
-
-    // 4. Validaciones
-    const totalElo = data.players.reduce((s, p) => s + (p.maxRatingRm1v1 ?? 0), 0);
-    const maxElo = (edition.elo_cap ?? 3500) + (edition.elo_tolerance ?? 20);
-    if (totalElo > maxElo) {
-      return { ok: false as const, error: `ELO total ${totalElo} excede el máximo ${maxElo}.` };
+    // 3. Validar que los 3 aoe2ProfileId sean distintos
+    const profileIds = data.players.map((p) => p.aoe2ProfileId).filter((id): id is number => id != null);
+    if (profileIds.length !== 3) {
+      return { ok: false as const, error: "Los 3 jugadores deben tener perfil de AoE2 Companion cargado." };
     }
+    const uniqueProfileIds = new Set(profileIds);
+    if (uniqueProfileIds.size !== 3) {
+      return { ok: false as const, error: "Los 3 jugadores deben tener perfiles de AoE2 Companion distintos. No podés cargar el mismo jugador dos veces." };
+    }
+
+    // 4. Re-validar ELO server-side contra AoE2 Companion (no confiar en cliente)
+    const eloCap = edition.elo_cap ?? 3500;
+    const eloTolerance = edition.elo_tolerance ?? 20;
+    const maxAllowed = eloCap + eloTolerance;
+
+    const eloValidation = await validateTeamEloCap(profileIds, eloCap, eloTolerance);
+    if (!eloValidation.isWithinCap) {
+      return {
+        ok: false as const,
+        error: `ELO total verificado en servidor (${eloValidation.totalElo}) excede el máximo permitido (${maxAllowed}). Revisá los perfiles de tus jugadores.`,
+      };
+    }
+
+    // Usar los valores frescos del servidor (no los del cliente)
+    const serverEloSnapshot = eloValidation.totalElo;
+
+    // 5. Validaciones de civs y términos
     const expectedBase = edition.civs_base ?? 9;
     const expectedExtra = edition.civs_extra_finalist ?? 3;
     if (data.baseCivIds.length !== expectedBase) {
@@ -131,7 +144,21 @@ export async function submitWizard(data: WizardData) {
       return { ok: false as const, error: "Debe haber 1 capitán." };
     }
 
-    // 5. Crear team_registration
+    // 6. Crear team_account (con emblem_id del wizard, no null)
+    const { data: team, error: teamErr } = await supabase
+      .from("team_account")
+      .insert({
+        owner_id: accountId,
+        name: data.teamName,
+        tagline: data.teamTagline || null,
+        emblem_id: data.emblemId, // ← fix bug #10: antes era null
+      })
+      .select("id")
+      .single();
+    if (teamErr || !team) return { ok: false as const, error: `Error creando equipo: ${teamErr?.message ?? "desconocido"}` };
+    createdTeamAccountId = team.id;
+
+    // 7. Crear team_registration (con ELO snapshot del servidor)
     const { data: reg, error: regErr } = await supabase
       .from("team_registration")
       .insert({
@@ -139,8 +166,8 @@ export async function submitWizard(data: WizardData) {
         tournament_edition_id: edition.id,
         base_civ_ids: data.baseCivIds,
         extra_civ_ids: data.extraCivIds,
-        elo_freeze_snapshot: totalElo,
-        elo_verification_status: data.players.some((p) => !p.isVerified) ? "pending" : "verified",
+        elo_freeze_snapshot: serverEloSnapshot, // ← valor fresco del servidor
+        elo_verification_status: eloValidation.perPlayer.some((p) => p.status === "pending" || p.status === "hidden") ? "pending" : "verified",
         restream_accepted: data.restreamAccepted,
         handbook_downloaded_at: data.handbookDownloadedAt,
         terms_accepted_at: data.termsAcceptedAt,
@@ -149,9 +176,15 @@ export async function submitWizard(data: WizardData) {
       })
       .select("id")
       .single();
-    if (regErr || !reg) return { ok: false as const, error: `Error creando inscripción: ${regErr?.message ?? "desconocido"}` };
+    if (regErr || !reg) {
+      // Cleanup: borrar team_account creado
+      await supabase.from("team_account").delete().eq("id", team.id);
+      createdTeamAccountId = null;
+      return { ok: false as const, error: `Error creando inscripción: ${regErr?.message ?? "desconocido"}` };
+    }
+    createdTeamRegistrationId = reg.id;
 
-    // 6. Insertar jugadores
+    // 8. Insertar jugadores
     const { error: playersErr } = await supabase.from("player_registration").insert(
       data.players.map((p) => ({
         team_registration_id: reg.id,
@@ -168,11 +201,26 @@ export async function submitWizard(data: WizardData) {
         verification_payload: null,
       }))
     );
-    if (playersErr) return { ok: false as const, error: `Error cargando jugadores: ${playersErr.message}` };
+    if (playersErr) {
+      // Cleanup: borrar team_registration y team_account creados
+      await supabase.from("team_registration").delete().eq("id", reg.id);
+      await supabase.from("team_account").delete().eq("id", team.id);
+      createdTeamRegistrationId = null;
+      createdTeamAccountId = null;
+      return { ok: false as const, error: `Error cargando jugadores: ${playersErr.message}` };
+    }
 
     revalidatePath("/mi-equipo");
     return { ok: true as const, teamRegistrationId: reg.id };
   } catch (err) {
+    // Cleanup general: si algo falló y tenemos IDs creados, borrarlos
+    const supabase = (await getSupabaseServer()) as any;
+    if (createdTeamRegistrationId) {
+      await supabase.from("team_registration").delete().eq("id", createdTeamRegistrationId);
+    }
+    if (createdTeamAccountId) {
+      await supabase.from("team_account").delete().eq("id", createdTeamAccountId);
+    }
     return { ok: false as const, error: err instanceof Error ? err.message : "Error" };
   }
 }

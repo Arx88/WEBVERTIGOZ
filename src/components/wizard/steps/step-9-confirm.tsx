@@ -1,26 +1,14 @@
 "use client";
 import { useWizard } from "@/components/wizard/wizard-context";
-
-const CIV_NAMES: Record<string, string> = {
-  britons: "Britanos", franks: "Francos", goths: "Godos", teutons: "Teutones",
-  japanese: "Japoneses", chinese: "Chinos", byzantines: "Bizantinos", persians: "Persas",
-  saracens: "Sarracenos", turks: "Turcos", vikings: "Vikingos", mongols: "Mongoles",
-  celts: "Celtas", spanish: "Españoles", aztecs: "Aztecas", mayans: "Mayas",
-  huns: "Hunos", koreans: "Coreanos", italians: "Italianos", indians: "Hindúes",
-  incas: "Incas", magyars: "Magiares", slavs: "Eslavos", berbers: "Bereberes",
-  ethiopians: "Etíopes", malians: "Malianos", portuguese: "Portugueses", burmese: "Birmanos",
-  khmer: "Jémeres", malay: "Malayos", vietnamese: "Vietnamitas", bulgarians: "Búlgaros",
-  cumans: "Cumanos", lithuanians: "Lituanos", tatars: "Tártaros", burgundians: "Borgoñones",
-  sicilians: "Sicilianos", poles: "Polacos", bohemians: "Bohemios", romans: "Romanos",
-};
+import { civName } from "@/lib/constants/civs";
 
 export default function Step9Confirm() {
   const { data } = useWizard();
   const totalElo = data.players.reduce((s, p) => s + (p.maxRatingRm1v1 ?? 0), 0);
   const captain = data.players.find((p) => p.isCaptain);
   const players = data.players.map((p) => p.displayName).filter(Boolean);
-  const civs = data.baseCivIds.map((c) => CIV_NAMES[c] ?? c);
-  const civsExtra = data.extraCivIds.map((c) => CIV_NAMES[c] ?? c);
+  const civs = data.baseCivIds.map(civName);
+  const civsExtra = data.extraCivIds.map(civName);
 
   return (
     <>
