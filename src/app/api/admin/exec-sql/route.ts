@@ -13,9 +13,21 @@ import postgres from "postgres";
  * Body: { sql: string }
  */
 
-const ADMIN_TOKEN = process.env.ADMIN_EXEC_TOKEN || "vertigo-setup-temp-token-2026";
-const SUPABASE_REF = "tomlvgzwleolsxksiygs";
-const SUPABASE_DB_PASSWORD = "RebelbyteEra1-";
+const ADMIN_TOKEN = process.env.ADMIN_EXEC_TOKEN;
+const SUPABASE_DB_PASSWORD = process.env.SUPABASE_DB_PASSWORD;
+
+// Extraer SUPABASE_REF desde NEXT_PUBLIC_SUPABASE_URL (https://{ref}.supabase.co)
+function getSupabaseRef(): string | null {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!url) return null;
+  try {
+    const host = new URL(url).hostname; // "tomlvgzwleolsxksiygs.supabase.co"
+    const ref = host.split(".")[0];
+    return ref || null;
+  } catch {
+    return null;
+  }
+}
 
 const POOLER_REGIONS = [
   "us-east-1",
@@ -26,6 +38,13 @@ const POOLER_REGIONS = [
 ];
 
 async function tryConnect(): Promise<ReturnType<typeof postgres> | null> {
+  const SUPABASE_REF = getSupabaseRef();
+  if (!SUPABASE_REF || !SUPABASE_DB_PASSWORD) {
+    console.error(
+      "[exec-sql] Faltan env vars: NEXT_PUBLIC_SUPABASE_URL y/o SUPABASE_DB_PASSWORD"
+    );
+    return null;
+  }
   for (const region of POOLER_REGIONS) {
     for (const port of [5432, 6543]) {
       const host = `aws-0-${region}.pooler.supabase.com`;
@@ -51,6 +70,13 @@ async function tryConnect(): Promise<ReturnType<typeof postgres> | null> {
 
 export async function POST(req: NextRequest) {
   try {
+    if (!ADMIN_TOKEN) {
+      console.error("[exec-sql] ADMIN_EXEC_TOKEN no configurado");
+      return NextResponse.json(
+        { error: "Endpoint no configurado" },
+        { status: 503 }
+      );
+    }
     const token = req.headers.get("x-admin-token");
     if (token !== ADMIN_TOKEN) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
