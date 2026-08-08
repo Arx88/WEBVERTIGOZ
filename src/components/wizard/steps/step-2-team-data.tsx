@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import { useWizard } from "@/components/wizard/wizard-context";
 
 const REINOS = [
@@ -19,103 +20,255 @@ const REINOS = [
 
 export default function Step2TeamData() {
   const { data, updateData } = useWizard();
-  const selectedReino = REINOS.find(r => r.id === data.emblemId);
+  const [reinoIndex, setReinoIndex] = useState(0);
+
+  const selectedReino = REINOS[reinoIndex];
+  const isSelected = data.emblemId === selectedReino.id;
+
+  function goPrev() {
+    const next = reinoIndex === 0 ? REINOS.length - 1 : reinoIndex - 1;
+    setReinoIndex(next);
+  }
+
+  function goNext() {
+    const next = reinoIndex === REINOS.length - 1 ? 0 : reinoIndex + 1;
+    setReinoIndex(next);
+  }
+
+  function selectReino() {
+    updateData({ emblemId: selectedReino.id });
+  }
+
+  // Auto-seleccionar al navegar
+  function goPrevAndSelect() {
+    const next = reinoIndex === 0 ? REINOS.length - 1 : reinoIndex - 1;
+    setReinoIndex(next);
+    updateData({ emblemId: REINOS[next].id });
+  }
+
+  function goNextAndSelect() {
+    const next = reinoIndex === REINOS.length - 1 ? 0 : reinoIndex + 1;
+    setReinoIndex(next);
+    updateData({ emblemId: REINOS[next].id });
+  }
 
   return (
     <>
       <div className="field">
         <label htmlFor="teamName">Nombre de tu Reino</label>
-        <input id="teamName" type="text" placeholder="Ej: Reino de los Invencibles" value={data.teamName}
-          onChange={(e) => updateData({ teamName: e.target.value })} maxLength={60} />
+        <input
+          id="teamName"
+          type="text"
+          placeholder="Ej: Reino de los Invencibles"
+          value={data.teamName}
+          onChange={(e) => updateData({ teamName: e.target.value })}
+          maxLength={60}
+        />
       </div>
+
       <div className="field">
-        <label htmlFor="teamTagline">Lema del Reino <small>(opcional)</small></label>
-        <input id="teamTagline" type="text" placeholder="Ej: Honor et gloria" value={data.teamTagline}
-          onChange={(e) => updateData({ teamTagline: e.target.value })} maxLength={140} />
+        <label htmlFor="teamTagline">
+          Lema del Reino <small>(opcional)</small>
+        </label>
+        <input
+          id="teamTagline"
+          type="text"
+          placeholder="Ej: Honor et gloria"
+          value={data.teamTagline}
+          onChange={(e) => updateData({ teamTagline: e.target.value })}
+          maxLength={140}
+        />
       </div>
 
-      {/* Selector de escudo de reino — carrusel horizontal */}
-      <div className="chips-head">
-        <span className={`counter ${data.emblemId ? "full" : ""}`}>
-          {data.emblemId ? "✓ Escudo elegido" : "Elegí tu escudo"}
-        </span>
-      </div>
+      {/* Selector de escudo — una imagen grande con flechas */}
+      <div style={{ maxWidth: "560px" }}>
+        <div className="chips-head">
+          <span className={`counter ${isSelected ? "full" : ""}`}>
+            {isSelected ? "✓ Escudo elegido" : "Elegí tu escudo"}
+          </span>
+        </div>
 
-      {/* Carrusel horizontal con scroll */}
-      <div style={{
-        display: "flex",
-        gap: "12px",
-        overflowX: "auto",
-        padding: "8px 4px 16px",
-        maxWidth: "640px",
-        scrollbarWidth: "thin",
-        scrollbarColor: "var(--line) transparent",
-      }}
-      className="vertigo-scroll">
-        <style>{`
-          .vertigo-scroll::-webkit-scrollbar { height: 6px; }
-          .vertigo-scroll::-webkit-scrollbar-thumb { background: var(--line); border-radius: 6px; }
-          .vertigo-scroll::-webkit-scrollbar-track { background: transparent; }
-        `}</style>
-        {REINOS.map((reino) => {
-          const sel = data.emblemId === reino.id;
-          return (
-            <button
-              key={reino.id}
-              onClick={() => updateData({ emblemId: reino.id })}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "24px",
+            padding: "24px 0",
+          }}
+        >
+          {/* Flecha izquierda */}
+          <button
+            onClick={goPrevAndSelect}
+            style={{
+              width: "44px",
+              height: "44px",
+              borderRadius: "50%",
+              border: "1px solid var(--input-border)",
+              background: "var(--input-bg)",
+              color: "var(--muted)",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              transition: "all 0.2s var(--ease)",
+              flex: "none",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = "var(--purple)";
+              e.currentTarget.style.color = "var(--purple-pale)";
+              e.currentTarget.style.background = "rgba(124,58,237,0.06)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = "var(--input-border)";
+              e.currentTarget.style.color = "var(--muted)";
+              e.currentTarget.style.background = "var(--input-bg)";
+            }}
+            aria-label="Escudo anterior"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </button>
+
+          {/* Imagen grande del escudo */}
+          <div
+            key={selectedReino.id}
+            style={{
+              width: "200px",
+              height: "200px",
+              borderRadius: "16px",
+              overflow: "hidden",
+              border: `2px solid ${isSelected ? "var(--purple)" : "var(--input-border)"}`,
+              background: "var(--input-bg)",
+              boxShadow: isSelected
+                ? "0 0 0 1px var(--purple), 0 0 24px rgba(124,58,237,0.2), 0 8px 32px rgba(0,0,0,0.4)"
+                : "0 4px 16px rgba(0,0,0,0.3)",
+              transition: "all 0.3s var(--ease)",
+              animation: "reinoFadeIn 0.3s var(--ease)",
+              position: "relative",
+            }}
+          >
+            <style>{`
+              @keyframes reinoFadeIn {
+                from { opacity: 0; transform: scale(0.92); }
+                to { opacity: 1; transform: scale(1); }
+              }
+            `}</style>
+            <img
+              src={selectedReino.img}
+              alt={`Escudo ${reinoIndex + 1}`}
               style={{
-                flex: "none",
-                width: "72px",
-                height: "72px",
-                borderRadius: "12px",
-                overflow: "hidden",
-                border: `2px solid ${sel ? "var(--purple)" : "transparent"}`,
-                cursor: "pointer",
-                transition: "all 0.25s var(--ease)",
-                background: sel ? "rgba(124,58,237,0.12)" : "var(--input-bg)",
-                boxShadow: sel ? "0 0 0 3px rgba(124,58,237,0.12), 0 4px 18px rgba(124,58,237,0.22)" : "none",
-                padding: 0,
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
               }}
-            >
-              <img
-                src={reino.img}
-                alt={`Escudo ${reino.id}`}
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
-              />
-            </button>
-          );
-        })}
+            />
+          </div>
+
+          {/* Flecha derecha */}
+          <button
+            onClick={goNextAndSelect}
+            style={{
+              width: "44px",
+              height: "44px",
+              borderRadius: "50%",
+              border: "1px solid var(--input-border)",
+              background: "var(--input-bg)",
+              color: "var(--muted)",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              transition: "all 0.2s var(--ease)",
+              flex: "none",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = "var(--purple)";
+              e.currentTarget.style.color = "var(--purple-pale)";
+              e.currentTarget.style.background = "rgba(124,58,237,0.06)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = "var(--input-border)";
+              e.currentTarget.style.color = "var(--muted)";
+              e.currentTarget.style.background = "var(--input-bg)";
+            }}
+            aria-label="Escudo siguiente"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Counter */}
+        <div
+          style={{
+            textAlign: "center",
+            fontSize: "12px",
+            fontWeight: 600,
+            letterSpacing: "1.5px",
+            color: "var(--faint)",
+            fontFamily: "Inter, sans-serif",
+            marginBottom: "16px",
+          }}
+        >
+          {reinoIndex + 1} / {REINOS.length}
+        </div>
       </div>
 
-      {/* Preview del reino elegido */}
-      {selectedReino && data.teamName && (
-        <div style={{
-          marginTop: "20px",
-          padding: "20px",
-          background: "rgba(124,58,237,0.04)",
-          border: "1px solid rgba(124,58,237,0.15)",
-          borderRadius: "12px",
-          display: "flex",
-          alignItems: "center",
-          gap: "16px",
-          maxWidth: "560px",
-        }}>
-          <div style={{
-            width: "64px",
-            height: "64px",
+      {/* Preview del reino */}
+      {data.teamName && isSelected && (
+        <div
+          style={{
+            marginTop: "16px",
+            padding: "16px",
+            background: "rgba(124,58,237,0.04)",
+            border: "1px solid rgba(124,58,237,0.15)",
             borderRadius: "12px",
-            overflow: "hidden",
-            border: "1px solid rgba(124,58,237,0.3)",
-            flex: "none",
-          }}>
-            <img src={selectedReino.img} alt="Escudo" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            display: "flex",
+            alignItems: "center",
+            gap: "16px",
+            maxWidth: "560px",
+          }}
+        >
+          <div
+            style={{
+              width: "56px",
+              height: "56px",
+              borderRadius: "10px",
+              overflow: "hidden",
+              border: "1px solid rgba(124,58,237,0.3)",
+              flex: "none",
+            }}
+          >
+            <img
+              src={selectedReino.img}
+              alt="Escudo"
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
           </div>
           <div>
-            <div style={{ fontFamily: "Cinzel, serif", fontSize: "18px", fontWeight: 600, color: "var(--text)" }}>
+            <div
+              style={{
+                fontFamily: "Cinzel, serif",
+                fontSize: "17px",
+                fontWeight: 600,
+                color: "var(--text)",
+              }}
+            >
               {data.teamName}
             </div>
             {data.teamTagline && (
-              <div style={{ fontSize: "13px", color: "var(--muted)", fontStyle: "italic", marginTop: "4px" }}>
+              <div
+                style={{
+                  fontSize: "13px",
+                  color: "var(--muted)",
+                  fontStyle: "italic",
+                  marginTop: "2px",
+                  fontFamily: "Inter, sans-serif",
+                }}
+              >
                 &ldquo;{data.teamTagline}&rdquo;
               </div>
             )}
