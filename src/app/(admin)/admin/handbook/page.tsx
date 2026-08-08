@@ -1,28 +1,19 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
 export default function AdminHandbookPage() {
   return (
-    <div className="space-y-8">
-      <div>
-        <div className="label-premium text-gold/80 mb-2">HANDBOOK</div>
-        <h1 className="font-serif text-4xl">Subir PDF del reglamento</h1>
+    <div>
+      <span className="vertigo-kicker">HANDBOOK</span>
+      <h1 className="vertigo-title">Subir PDF del reglamento</h1>
+      <div className="vertigo-divider"><span></span><i></i><span></span></div>
+      <p className="vertigo-desc">Subí el PDF con el reglamento completo del torneo. Los equipos deberán descargarlo obligatoriamente antes de poder aceptar los términos y completar la inscripción.</p>
+      <div className="vertigo-card">
+        <div className="vertigo-empty">
+          <div className="vertigo-empty-title">Handbook actual</div>
+          <p className="vertigo-empty-desc" style={{ marginBottom: "16px" }}>Ya hay un handbook subido. Para reemplazarlo, subí un nuevo PDF.</p>
+          <a href="https://tomlvgzwleolsxksiygs.supabase.co/storage/v1/object/public/handbook/vertigo-handbook.pdf" target="_blank" rel="noopener noreferrer">
+            <button className="vertigo-btn vertigo-btn-ghost">Ver handbook actual →</button>
+          </a>
+        </div>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-xl">Cargar handbook</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-text-secondary text-sm font-light">
-            Subí el PDF con el reglamento completo del torneo. Los equipos
-            deberán descargarlo obligatoriamente antes de poder aceptar los
-            términos y completar la inscripción.
-          </p>
-          <p className="text-text-tertiary text-sm">
-            (Módulo en desarrollo — Fase 1 MVP)
-          </p>
-        </CardContent>
-      </Card>
     </div>
   );
 }

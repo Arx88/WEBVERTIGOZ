@@ -1,15 +1,16 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 export default function AdminAuditoriaPage() {
   return (
-    <div className="space-y-8">
-      <div>
-        <div className="label-premium text-gold/80 mb-2">AUDITORÍA</div>
-        <h1 className="font-serif text-4xl">Logs inmutables</h1>
+    <div>
+      <span className="vertigo-kicker">AUDITORÍA</span>
+      <h1 className="vertigo-title">Logs inmutables</h1>
+      <div className="vertigo-divider"><span></span><i></i><span></span></div>
+      <p className="vertigo-desc">Verificación criptográfica de cada sorteo. Hash commit-reveal SHA-256. Log append-only con hash encadenado.</p>
+      <div className="vertigo-card">
+        <div className="vertigo-empty">
+          <div className="vertigo-empty-title">Módulo en desarrollo</div>
+          <p className="vertigo-empty-desc">El sistema de auditoría de sorteos estará disponible en la Fase 2 (V1).</p>
+        </div>
       </div>
-      <Card><CardHeader><CardTitle className="text-xl">Sorteos auditados</CardTitle></CardHeader><CardContent>
-        <p className="text-text-secondary text-sm font-light">Verificación criptográfica de cada sorteo. Hash commit-reveal SHA-256. Log append-only con hash encadenado.</p>
-        <p className="text-text-tertiary text-sm mt-2">(Módulo en desarrollo — Fase 2 V1)</p>
-      </CardContent></Card>
     </div>
   );
 }

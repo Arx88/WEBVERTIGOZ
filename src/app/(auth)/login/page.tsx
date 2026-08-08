@@ -3,12 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Mail, Lock, Loader2, ChevronLeft } from "lucide-react";
-import Link from "next/link";
 import { toast } from "sonner";
+import Link from "next/link";
+import { Loader2 } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -20,22 +17,11 @@ export default function LoginPage() {
     e.preventDefault();
     if (!email || !password) return;
     setLoading(true);
-
     try {
       const supabase = getSupabaseBrowser();
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-
-      toast.success("¡Bienvenido!", {
-        description: `Sesión iniciada como ${data.user?.email}`,
-      });
-
-      // Redirigir según el rol
-      // TODO: obtener rol desde tabla account y redirigir a /admin o /mi-equipo
+      toast.success("¡Bienvenido!", { description: `Sesión iniciada como ${data.user?.email}` });
       router.push("/mi-equipo");
       router.refresh();
     } catch (err) {
@@ -48,90 +34,43 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center px-6 py-12 bg-[#0a0011]">
-      <div className="w-full max-w-md">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2 text-text-secondary hover:text-text-primary transition-colors mb-8 text-sm"
-        >
-          <ChevronLeft className="w-4 h-4" />
-          Volver al inicio
-        </Link>
-
-        <div className="text-center mb-10">
-          <div className="label-premium text-gold/80 mb-2">INGRESAR</div>
-          <h1 className="font-cinzel text-3xl mb-3 text-neon">
-            Iniciar sesión
-          </h1>
-          <p className="text-text-secondary text-sm font-light">
-            Accedé a tu cuenta para gestionar tu equipo, ver tus partidos y administrar el torneo.
-          </p>
+    <div className="vertigo-page" style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "28px" }}>
+      <div style={{ width: "100%", maxWidth: "440px" }}>
+        {/* Logo */}
+        <div style={{ textAlign: "center", marginBottom: "40px" }}>
+          <img src="/landing/logo.png" alt="VÉRTIGO Cup" style={{ width: "160px", margin: "0 auto", display: "block" }} />
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <div className="relative">
-              <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" strokeWidth={1.5} />
-              <Input
-                id="email"
-                type="email"
-                placeholder="tu@email.com"
-                className="pl-10"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
-                required
-                disabled={loading}
-              />
-            </div>
-          </div>
+        <span className="vertigo-kicker">INGRESAR</span>
+        <h1 className="vertigo-title" style={{ fontSize: "24px", marginBottom: "6px" }}>Iniciar sesión</h1>
+        <div className="vertigo-divider"><span></span><i></i><span></span></div>
+        <p className="vertigo-desc" style={{ marginBottom: "28px" }}>
+          Accedé a tu cuenta para gestionar tu equipo, ver tus partidos y administrar el torneo.
+        </p>
 
-          <div className="space-y-2">
-            <Label htmlFor="password">Contraseña</Label>
-            <div className="relative">
-              <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" strokeWidth={1.5} />
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                className="pl-10"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-                required
-                disabled={loading}
-              />
-            </div>
+        <form onSubmit={handleSubmit} className="vertigo-scroll" style={{ maxHeight: "none" }}>
+          <div className="vertigo-field">
+            <label htmlFor="email">Email</label>
+            <input id="email" type="email" placeholder="tu@email.com" value={email}
+              onChange={(e) => setEmail(e.target.value)} autoComplete="email" required disabled={loading} />
           </div>
-
-          <Button
-            type="submit"
-            variant="default"
-            size="lg"
-            className="w-full"
-            disabled={loading || !email || !password}
-          >
-            {loading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              "Ingresar"
-            )}
-          </Button>
+          <div className="vertigo-field">
+            <label htmlFor="password">Contraseña</label>
+            <input id="password" type="password" placeholder="••••••••" value={password}
+              onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required disabled={loading} />
+          </div>
+          <button type="submit" className="vertigo-btn vertigo-btn-primary" style={{ width: "100%", justifyContent: "center", marginTop: "8px" }} disabled={loading || !email || !password}>
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "INGRESAR"}
+          </button>
         </form>
 
-        <div className="mt-8 pt-6 border-t border-border-subtle text-center">
-          <p className="text-text-secondary text-sm font-light">
+        <div style={{ marginTop: "24px", paddingTop: "20px", borderTop: "1px solid var(--vertigo-line-soft)", textAlign: "center" }}>
+          <p style={{ fontSize: "13px", color: "var(--vertigo-muted)", fontFamily: "Inter, sans-serif" }}>
             ¿No tenés equipo inscripto?{" "}
-            <Link
-              href="/registro"
-              className="text-gold hover:text-gold-hover transition-colors underline-offset-4 hover:underline"
-            >
-              Inscríbete ahora
-            </Link>
+            <Link href="/registro" style={{ color: "var(--vertigo-purple-soft)", textDecoration: "none" }}>Inscríbete ahora →</Link>
           </p>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
