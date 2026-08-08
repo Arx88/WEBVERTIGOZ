@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useWizard } from "@/components/wizard/wizard-context";
 
-interface SearchResult { profileId: number; name: string; country?: string; clan?: string; verified?: boolean; }
+interface SearchResult { profileId: number; name: string; steamId?: string; country?: string; clan?: string; verified?: boolean; }
 
 export default function Step3Players() {
   const { data, updatePlayer } = useWizard();
@@ -36,6 +36,7 @@ export default function Step3Players() {
                 // Guardar datos básicos inmediatamente + marcar que ELO está cargando
                 updatePlayer(idx as 0 | 1 | 2, {
                   aoe2ProfileId: r.profileId, displayName: r.name,
+                  steamId: r.steamId, // ← fix bug #14: antes no se poblaba
                   country: r.country, clan: r.clan, isVerified: r.verified ?? false,
                   maxRatingRm1v1: null, // null = cargando, undefined = no cargado
                 });
