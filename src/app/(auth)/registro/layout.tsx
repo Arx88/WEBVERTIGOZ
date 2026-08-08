@@ -78,8 +78,8 @@ function WizardShell({ children }: { children: ReactNode }) {
 
           {/* SIDEBAR */}
           <aside className="sidebar">
-            <div className="logo" style={{ textAlign: "center", marginBottom: "32px" }}>
-              <img src="/landing/logo.png" alt="VÉRTIGO Cup" style={{ width: "140px", margin: "0 auto", display: "block" }} />
+            <div className="logo" style={{ textAlign: "center", marginBottom: "24px" }}>
+              <img src="/landing/logo.png" alt="VÉRTIGO Cup" style={{ width: "120px", margin: "0 auto", display: "block" }} />
             </div>
 
             <ol className="steps" id="steps">
