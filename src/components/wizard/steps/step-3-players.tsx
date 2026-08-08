@@ -33,10 +33,11 @@ export default function Step3Players() {
           ) : (
             <PlayerSearch
               onSelect={async (r) => {
-                // Guardar datos básicos inmediatamente
+                // Guardar datos básicos inmediatamente + marcar que ELO está cargando
                 updatePlayer(idx as 0 | 1 | 2, {
                   aoe2ProfileId: r.profileId, displayName: r.name,
                   country: r.country, clan: r.clan, isVerified: r.verified ?? false,
+                  maxRatingRm1v1: null, // null = cargando, undefined = no cargado
                 });
 
                 // Buscar el ELO real en AoE2 Companion
@@ -44,18 +45,25 @@ export default function Step3Players() {
                   const res = await fetch(`/api/aoe2/profile?id=${r.profileId}`);
                   if (res.ok) {
                     const data = await res.json();
-                    if (data.maxRating != null) {
-                      updatePlayer(idx as 0 | 1 | 2, { maxRatingRm1v1: data.maxRating });
-                    }
+                    // Siempre actualizar, incluso si maxRating es null (perfil oculto)
+                    updatePlayer(idx as 0 | 1 | 2, {
+                      maxRatingRm1v1: data.maxRating ?? 0, // 0 = no se pudo obtener
+                      ratingRm1v1Current: data.currentRating,
+                      isVerified: data.verificationStatus === "verified",
+                    });
+                  } else {
+                    // Si la API falla, marcar como 0 para que deje de cargar
+                    updatePlayer(idx as 0 | 1 | 2, { maxRatingRm1v1: 0 });
                   }
                 } catch (e) {
-                  // Si falla, el jugador queda cargado sin ELO
+                  // Si hay error de red, marcar como 0 para que deje de cargar
+                  updatePlayer(idx as 0 | 1 | 2, { maxRatingRm1v1: 0 });
                 }
               }}
             />
           )}
           {/* Mostrar ELO individual debajo del input */}
-          {player.aoe2ProfileId && player.maxRatingRm1v1 != null && (
+          {player.aoe2ProfileId && player.maxRatingRm1v1 != null && player.maxRatingRm1v1 > 0 && (
             <div style={{ fontSize: "12px", color: "var(--purple-pale)", marginTop: "6px", fontFamily: "Inter, sans-serif" }}>
               ELO máx RM 1v1: <strong>{player.maxRatingRm1v1}</strong>
               {player.country && <span style={{ color: "var(--faint)", marginLeft: "12px" }}>{player.country}</span>}
@@ -65,6 +73,11 @@ export default function Step3Players() {
           {player.aoe2ProfileId && player.maxRatingRm1v1 == null && (
             <div style={{ fontSize: "12px", color: "var(--faint)", marginTop: "6px", fontFamily: "Inter, sans-serif" }}>
               Cargando ELO...
+            </div>
+          )}
+          {player.aoe2ProfileId && player.maxRatingRm1v1 === 0 && (
+            <div style={{ fontSize: "12px", color: "var(--faint)", marginTop: "6px", fontFamily: "Inter, sans-serif" }}>
+              ELO no disponible (perfil oculto)
             </div>
           )}
         </div>
