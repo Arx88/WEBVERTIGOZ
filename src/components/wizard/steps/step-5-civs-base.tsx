@@ -28,9 +28,9 @@ export default function Step5CivsBase() {
   const { data, updateData } = useWizard();
   const sel = data.baseCivIds;
   const MAX = 9;
-  const toggle = (c: string) => {
-    if (sel.includes(c)) updateData({ baseCivIds: sel.filter((x) => x !== c) });
-    else if (sel.length < MAX) updateData({ baseCivIds: [...sel, c] });
+  const toggle = (civId: string) => {
+    if (sel.includes(civId)) updateData({ baseCivIds: sel.filter((x) => x !== civId) });
+    else if (sel.length < MAX) updateData({ baseCivIds: [...sel, civId] });
   };
   return (
     <>
@@ -42,7 +42,7 @@ export default function Step5CivsBase() {
           const isSelected = sel.includes(c.id);
           const order = sel.indexOf(c.id) + 1;
           return (
-            <button key={c.id} className={`chip ${isSelected ? "sel" : ""}`} onClick={() => toggle(c)}
+            <button key={c.id} className={`chip ${isSelected ? "sel" : ""}`} onClick={() => toggle(c.id)}
               disabled={!isSelected && sel.length >= MAX}
               style={{ opacity: !isSelected && sel.length >= MAX ? 0.3 : 1, padding: "10px 6px", display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", position: "relative" }}>
               {isSelected && (

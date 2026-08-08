@@ -29,10 +29,10 @@ export default function Step6CivsExtra() {
   const sel = data.extraCivIds;
   const base = data.baseCivIds;
   const MAX = 3;
-  const toggle = (c: string) => {
-    if (base.includes(c)) return;
-    if (sel.includes(c)) updateData({ extraCivIds: sel.filter((x) => x !== c) });
-    else if (sel.length < MAX) updateData({ extraCivIds: [...sel, c] });
+  const toggle = (civId: string) => {
+    if (base.includes(civId)) return;
+    if (sel.includes(civId)) updateData({ extraCivIds: sel.filter((x) => x !== civId) });
+    else if (sel.length < MAX) updateData({ extraCivIds: [...sel, civId] });
   };
   return (
     <>
