@@ -103,7 +103,7 @@ function WizardShell({ children }: { children: ReactNode }) {
 
           {/* ARTE */}
           <div className="art">
-            <img src="/landing/hero.webp" alt="Caballero contemplando el campo de batalla" />
+            <img src="/landing/wizard-art.webp" alt="Caballero contemplando el campo de batalla" />
           </div>
 
           {/* CONTENIDO */}
