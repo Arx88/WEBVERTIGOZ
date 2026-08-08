@@ -1,0 +1,567 @@
+/* ============================================================
+   VÉRTIGO — Design System interno
+   Paleta y estética del wizard aplicada a todo el sitio interno.
+   Landing NO se toca.
+   ============================================================ */
+
+:root {
+  /* Paleta púrpura del wizard */
+  --vertigo-bg: #070310;
+  --vertigo-modal: #0d0913;
+  --vertigo-side: #0a0711;
+  --vertigo-line: #241d2f;
+  --vertigo-line-soft: #1a1424;
+  --vertigo-purple: #7c3aed;
+  --vertigo-purple-deep: #5b21b6;
+  --vertigo-purple-soft: #a78bfa;
+  --vertigo-purple-pale: #c4b5fd;
+  --vertigo-text: #f2eef7;
+  --vertigo-muted: #9a92a6;
+  --vertigo-faint: #6b6378;
+  --vertigo-input-bg: #130f1b;
+  --vertigo-input-border: #2a2334;
+  --vertigo-danger: #fb7185;
+  --vertigo-success: #22c55e;
+  --vertigo-ease: cubic-bezier(.22, 1, .36, 1);
+}
+
+/* Reset del body para páginas internas (no landing, no registro) */
+body:has(.vertigo-page) {
+  background: var(--vertigo-bg) !important;
+  background-image:
+    radial-gradient(900px 520px at 12% 8%, rgba(88, 28, 175, .16), transparent 60%),
+    radial-gradient(800px 500px at 88% 85%, rgba(124, 58, 237, .10), transparent 60%),
+    radial-gradient(1400px 900px at 50% 50%, rgba(20, 8, 40, .5), transparent 75%) !important;
+  animation: vertigoBgPulse 9s ease-in-out infinite alternate !important;
+  margin: 0 !important;
+  color: var(--vertigo-text) !important;
+  font-family: Inter, system-ui, sans-serif !important;
+}
+
+html:has(.vertigo-page) {
+  background: var(--vertigo-bg) !important;
+}
+
+@keyframes vertigoBgPulse {
+  from { background-position: 0 0, 0 0, 0 0; }
+  to { background-position: 30px -20px, -30px 20px, 0 0; }
+}
+
+/* ============================================================
+   LAYOUT: shell interno con header sticky
+   ============================================================ */
+
+.vertigo-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  color: var(--vertigo-text);
+  font-family: Inter, system-ui, sans-serif;
+}
+
+/* Header sticky */
+.vertigo-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(7, 3, 16, 0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--vertigo-line-soft);
+  padding: 14px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.vertigo-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.vertigo-logo {
+  font-family: Cinzel, serif;
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--vertigo-purple-soft);
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 10px rgba(124, 58, 237, 0.4);
+  text-decoration: none;
+}
+
+.vertigo-logo:hover {
+  color: var(--vertigo-purple-pale);
+}
+
+.vertigo-section-tag {
+  font-size: 10px;
+  color: var(--vertigo-faint);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+
+.vertigo-header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.vertigo-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.vertigo-nav a {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--vertigo-faint);
+  text-decoration: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  transition: all 0.3s var(--vertigo-ease);
+}
+
+.vertigo-nav a:hover {
+  color: var(--vertigo-text);
+  background: rgba(124, 58, 237, 0.06);
+}
+
+.vertigo-nav a.active {
+  color: var(--vertigo-purple-pale);
+  background: rgba(124, 58, 237, 0.1);
+  box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.2);
+}
+
+/* Contenido */
+.vertigo-content {
+  flex: 1;
+  padding: 40px 32px;
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* ============================================================
+   TIPOGRAFÍA
+   ============================================================ */
+
+.vertigo-kicker {
+  display: inline-block;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 2.4px;
+  color: var(--vertigo-purple);
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+.vertigo-title {
+  font-family: Cinzel, serif;
+  font-weight: 700;
+  font-size: 28px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--vertigo-text);
+  margin-bottom: 8px;
+}
+
+.vertigo-desc {
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--vertigo-muted);
+  max-width: 560px;
+  margin-bottom: 32px;
+  font-family: Inter, system-ui, sans-serif;
+  font-weight: 400;
+}
+
+.vertigo-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 20px 0 22px;
+  max-width: 660px;
+}
+
+.vertigo-divider span {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #3a2f4a);
+}
+
+.vertigo-divider span:last-child {
+  background: linear-gradient(90deg, #3a2f4a, transparent);
+}
+
+.vertigo-divider i {
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--vertigo-purple-soft);
+  transform: rotate(45deg);
+  animation: vertigoDiamond 3s ease-in-out infinite;
+}
+
+@keyframes vertigoDiamond {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(167, 139, 250, 0.4); }
+  50% { box-shadow: 0 0 8px 2px rgba(167, 139, 250, 0.25); }
+}
+
+/* ============================================================
+   CARDS
+   ============================================================ */
+
+.vertigo-card {
+  background: rgba(13, 9, 19, 0.8);
+  border: 1px solid var(--vertigo-line-soft);
+  border-radius: 12px;
+  padding: 24px;
+  transition: border-color 0.3s var(--vertigo-ease);
+}
+
+.vertigo-card:hover {
+  border-color: var(--vertigo-line);
+}
+
+.vertigo-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--vertigo-line-soft);
+}
+
+.vertigo-card-title {
+  font-family: Cinzel, serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--vertigo-text);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+/* ============================================================
+   FORM ELEMENTS
+   ============================================================ */
+
+.vertigo-field {
+  max-width: 560px;
+  margin-bottom: 24px;
+}
+
+.vertigo-field label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.7px;
+  text-transform: uppercase;
+  color: #b5adc4;
+  margin-bottom: 10px;
+  transition: color 0.3s;
+  font-family: Inter, system-ui, sans-serif;
+}
+
+.vertigo-field input,
+.vertigo-field select,
+.vertigo-field textarea {
+  width: 100%;
+  height: 48px;
+  padding: 0 16px;
+  font: 400 14px Inter, system-ui, sans-serif;
+  color: var(--vertigo-text);
+  caret-color: var(--vertigo-purple-soft);
+  background: var(--vertigo-input-bg);
+  border: 1px solid var(--vertigo-input-border);
+  border-radius: 9px;
+  outline: none;
+  transition: border-color 0.3s, box-shadow 0.3s, background 0.3s;
+}
+
+.vertigo-field input::placeholder {
+  color: #5f5870;
+}
+
+.vertigo-field input:hover {
+  border-color: #3a3049;
+}
+
+.vertigo-field input:focus {
+  border-color: var(--vertigo-purple);
+  background: #161122;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.14), 0 4px 22px rgba(124, 58, 237, 0.12);
+}
+
+.vertigo-field:focus-within label {
+  color: var(--vertigo-purple-pale);
+}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+
+.vertigo-btn {
+  font: 600 12px Inter, system-ui, sans-serif;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  border-radius: 9px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.3s var(--vertigo-ease);
+  border: none;
+  font-family: Inter, system-ui, sans-serif;
+}
+
+.vertigo-btn-ghost {
+  padding: 13px 24px;
+  background: transparent;
+  border: 1px solid #322a3e;
+  color: #b7b0c2;
+}
+
+.vertigo-btn-ghost:hover {
+  border-color: #4a3f60;
+  color: var(--vertigo-text);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.vertigo-btn-primary {
+  position: relative;
+  overflow: hidden;
+  padding: 14px 30px;
+  color: #fff;
+  background: linear-gradient(180deg, #6d28d9, #5b21b6);
+  box-shadow: 0 6px 26px rgba(109, 40, 217, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.vertigo-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 32px rgba(109, 40, 217, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.vertigo-btn-primary:active {
+  transform: translateY(0);
+}
+
+.vertigo-btn-danger {
+  padding: 13px 24px;
+  background: rgba(251, 113, 133, 0.1);
+  border: 1px solid rgba(251, 113, 133, 0.3);
+  color: var(--vertigo-danger);
+}
+
+.vertigo-btn-danger:hover {
+  background: rgba(251, 113, 133, 0.15);
+  border-color: var(--vertigo-danger);
+}
+
+.vertigo-btn-success {
+  padding: 13px 24px;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: var(--vertigo-success);
+}
+
+.vertigo-btn-success:hover {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: var(--vertigo-success);
+}
+
+/* ============================================================
+   BADGES / CHIPS
+   ============================================================ */
+
+.vertigo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-family: Inter, system-ui, sans-serif;
+}
+
+.vertigo-badge-purple {
+  color: var(--vertigo-purple-pale);
+  border: 1px solid rgba(124, 58, 237, 0.45);
+  background: rgba(124, 58, 237, 0.08);
+}
+
+.vertigo-badge-success {
+  color: var(--vertigo-success);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.vertigo-badge-danger {
+  color: var(--vertigo-danger);
+  border: 1px solid rgba(251, 113, 133, 0.35);
+  background: rgba(251, 113, 133, 0.08);
+}
+
+.vertigo-badge-warning {
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  background: rgba(251, 191, 36, 0.08);
+}
+
+/* ============================================================
+   TABLES
+   ============================================================ */
+
+.vertigo-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: Inter, system-ui, sans-serif;
+}
+
+.vertigo-table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.7px;
+  text-transform: uppercase;
+  color: var(--vertigo-faint);
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--vertigo-line);
+}
+
+.vertigo-table td {
+  font-size: 13.5px;
+  color: var(--vertigo-text);
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--vertigo-line-soft);
+}
+
+.vertigo-table tr:hover td {
+  background: rgba(124, 58, 237, 0.03);
+}
+
+/* ============================================================
+   STATS GRID
+   ============================================================ */
+
+.vertigo-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.vertigo-stat {
+  background: rgba(13, 9, 19, 0.8);
+  border: 1px solid var(--vertigo-line-soft);
+  border-radius: 9px;
+  padding: 18px;
+}
+
+.vertigo-stat-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.7px;
+  text-transform: uppercase;
+  color: var(--vertigo-faint);
+}
+
+.vertigo-stat-value {
+  font-family: Cinzel, serif;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--vertigo-purple-pale);
+  margin-top: 4px;
+}
+
+.vertigo-stat-sub {
+  font-size: 11px;
+  color: var(--vertigo-faint);
+  margin-top: 2px;
+}
+
+/* ============================================================
+   EMPTY STATE
+   ============================================================ */
+
+.vertigo-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--vertigo-faint);
+}
+
+.vertigo-empty-title {
+  font-family: Cinzel, serif;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--vertigo-muted);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.vertigo-empty-desc {
+  font-size: 13px;
+  color: var(--vertigo-faint);
+  line-height: 1.5;
+}
+
+/* ============================================================
+   SCROLLBAR
+   ============================================================ */
+
+.vertigo-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.vertigo-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.vertigo-scroll::-webkit-scrollbar-thumb {
+  background: var(--vertigo-line);
+  border-radius: 8px;
+}
+
+.vertigo-scroll::-webkit-scrollbar-thumb:hover {
+  background: #372c4a;
+}
+
+.vertigo-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--vertigo-line) transparent;
+}
+
+/* ============================================================
+   ANIMATIONS
+   ============================================================ */
+
+@keyframes vertigoFadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+.vertigo-fade-in {
+  animation: vertigoFadeUp 0.5s var(--vertigo-ease) both;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+@media (max-width: 840px) {
+  .vertigo-header {
+    padding: 12px 16px;
+  }
+  .vertigo-nav {
+    display: none;
+  }
+  .vertigo-content {
+    padding: 24px 16px;
+  }
+}
