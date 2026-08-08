@@ -59,7 +59,7 @@ export async function submitWizard(data: WizardData) {
     if (!user) return { ok: false as const, error: "No autenticado." };
 
     // 1. Buscar o crear account
-    const { data: accountRow } = await supabase
+    const { data: accountRow, error: accErr } = await supabase
       .from("account")
       .select("id")
       .eq("supabase_auth_id", user.id)
@@ -67,7 +67,7 @@ export async function submitWizard(data: WizardData) {
 
     let accountId: string;
     if (!accountRow) {
-      const { data: newAcc } = await supabase
+      const { data: newAcc, error: insertAccErr } = await supabase
         .from("account")
         .insert({
           supabase_auth_id: user.id,
@@ -78,32 +78,32 @@ export async function submitWizard(data: WizardData) {
         })
         .select("id")
         .single();
+      if (insertAccErr || !newAcc) return { ok: false as const, error: `Error creando account: ${insertAccErr?.message ?? "desconocido"}` };
       accountId = newAcc.id;
     } else {
       accountId = accountRow.id;
     }
 
     // 2. Buscar edition
-    const { data: edition } = await supabase
+    const { data: edition, error: edErr } = await supabase
       .from("tournament_edition")
       .select("id, civs_base, civs_extra_finalist, elo_cap, elo_tolerance")
       .eq("slug", "vertigo-2026-1")
       .single();
-    if (!edition) return { ok: false as const, error: "Edición no encontrada." };
+    if (edErr || !edition) return { ok: false as const, error: `Edición no encontrada: ${edErr?.message ?? "desconocido"}` };
 
     // 3. Crear team_account
-    // emblemId del wizard es "r1", "r2", etc — guardarlo como string por ahora
-    // (cuando tengas emblemas reales en DB, mapear a UUID)
-    const { data: team } = await supabase
+    const { data: team, error: teamErr } = await supabase
       .from("team_account")
       .insert({
         ownerId: accountId,
         name: data.teamName,
         tagline: data.teamTagline || null,
-        emblemId: null, // null por ahora, el escudo se guarda como metadato
+        emblemId: null,
       })
       .select("id")
       .single();
+    if (teamErr || !team) return { ok: false as const, error: `Error creando equipo: ${teamErr?.message ?? "desconocido"}` };
 
     // 4. Validaciones
     const totalElo = data.players.reduce((s, p) => s + (p.maxRatingRm1v1 ?? 0), 0);
@@ -130,7 +130,7 @@ export async function submitWizard(data: WizardData) {
     }
 
     // 5. Crear team_registration
-    const { data: reg } = await supabase
+    const { data: reg, error: regErr } = await supabase
       .from("team_registration")
       .insert({
         teamAccountId: team.id,
@@ -147,9 +147,10 @@ export async function submitWizard(data: WizardData) {
       })
       .select("id")
       .single();
+    if (regErr || !reg) return { ok: false as const, error: `Error creando inscripción: ${regErr?.message ?? "desconocido"}` };
 
     // 6. Insertar jugadores
-    await supabase.from("player_registration").insert(
+    const { error: playersErr } = await supabase.from("player_registration").insert(
       data.players.map((p) => ({
         teamRegistrationId: reg.id,
         aoe2ProfileId: p.aoe2ProfileId!,
@@ -165,6 +166,7 @@ export async function submitWizard(data: WizardData) {
         verificationPayload: null,
       }))
     );
+    if (playersErr) return { ok: false as const, error: `Error cargando jugadores: ${playersErr.message}` };
 
     revalidatePath("/mi-equipo");
     return { ok: true as const, teamRegistrationId: reg.id };
