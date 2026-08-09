@@ -551,17 +551,387 @@ html:has(.vertigo-page) {
 }
 
 /* ============================================================
+   ADMIN SIDEBAR LAYOUT
+   ============================================================ */
+
+.vertigo-admin-shell {
+  display: flex;
+  min-height: 100vh;
+  background: var(--vertigo-bg);
+  background-image:
+    radial-gradient(900px 520px at 12% 8%, rgba(88, 28, 175, .16), transparent 60%),
+    radial-gradient(800px 500px at 88% 85%, rgba(124, 58, 237, .10), transparent 60%);
+  color: var(--vertigo-text);
+  font-family: Inter, system-ui, sans-serif;
+}
+
+/* Sidebar */
+.vertigo-sidebar {
+  width: 240px;
+  flex: none;
+  background: rgba(10, 7, 17, 0.95);
+  backdrop-filter: blur(12px);
+  border-right: 1px solid var(--vertigo-line-soft);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--vertigo-line) transparent;
+}
+
+.vertigo-sidebar::-webkit-scrollbar { width: 6px; }
+.vertigo-sidebar::-webkit-scrollbar-thumb { background: var(--vertigo-line); border-radius: 6px; }
+
+.vertigo-sidebar-header {
+  padding: 28px 24px 20px;
+  border-bottom: 1px solid var(--vertigo-line-soft);
+  text-align: center;
+}
+
+.vertigo-sidebar-logo {
+  font-family: Cinzel, serif;
+  font-weight: 700;
+  font-size: 22px;
+  color: var(--vertigo-purple-soft);
+  letter-spacing: 2px;
+  text-shadow: 0 0 12px rgba(124, 58, 237, 0.4);
+  text-decoration: none;
+  display: block;
+}
+
+.vertigo-sidebar-tag {
+  font-size: 9px;
+  color: var(--vertigo-faint);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+.vertigo-sidebar-nav {
+  flex: 1;
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.vertigo-sidebar-nav a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--vertigo-faint);
+  text-decoration: none;
+  transition: all 0.3s var(--vertigo-ease);
+  position: relative;
+}
+
+.vertigo-sidebar-nav a svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 1.5;
+  flex: none;
+  opacity: 0.7;
+  transition: all 0.3s var(--vertigo-ease);
+}
+
+.vertigo-sidebar-nav a:hover {
+  color: var(--vertigo-text);
+  background: rgba(124, 58, 237, 0.06);
+}
+
+.vertigo-sidebar-nav a:hover svg {
+  opacity: 1;
+  color: var(--vertigo-purple-soft);
+}
+
+.vertigo-sidebar-nav a.active {
+  color: var(--vertigo-purple-pale);
+  background: rgba(124, 58, 237, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(124, 58, 237, 0.2);
+}
+
+.vertigo-sidebar-nav a.active svg {
+  opacity: 1;
+  color: var(--vertigo-purple-soft);
+}
+
+.vertigo-sidebar-nav a.active::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 24px;
+  background: var(--vertigo-purple);
+  border-radius: 0 3px 3px 0;
+  box-shadow: 0 0 12px rgba(124, 58, 237, 0.5);
+}
+
+.vertigo-sidebar-footer {
+  padding: 16px 12px;
+  border-top: 1px solid var(--vertigo-line-soft);
+}
+
+.vertigo-sidebar-user {
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.vertigo-sidebar-user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(124, 58, 237, 0.15);
+  border: 1px solid rgba(124, 58, 237, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: Cinzel, serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--vertigo-purple-soft);
+  flex: none;
+}
+
+.vertigo-sidebar-user-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.vertigo-sidebar-user-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--vertigo-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vertigo-sidebar-user-role {
+  font-size: 9px;
+  color: var(--vertigo-faint);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+/* Main content area */
+.vertigo-admin-main {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  height: 100vh;
+  scrollbar-width: thin;
+  scrollbar-color: var(--vertigo-line) transparent;
+}
+
+.vertigo-admin-main::-webkit-scrollbar { width: 8px; }
+.vertigo-admin-main::-webkit-scrollbar-thumb { background: var(--vertigo-line); border-radius: 8px; }
+
+.vertigo-admin-content {
+  padding: 40px 48px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* ============================================================
+   SECTION SUBTITLE
+   ============================================================ */
+
+.vertigo-subtitle {
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--vertigo-purple-soft);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vertigo-subtitle::before {
+  content: '';
+  width: 3px;
+  height: 14px;
+  background: var(--vertigo-purple);
+  border-radius: 2px;
+}
+
+/* ============================================================
+   INFO CARD (small data display)
+   ============================================================ */
+
+.vertigo-info-card {
+  padding: 14px 18px;
+  background: rgba(13, 9, 19, 0.6);
+  border: 1px solid var(--vertigo-line-soft);
+  border-radius: 10px;
+  transition: border-color 0.3s var(--vertigo-ease);
+}
+
+.vertigo-info-card:hover {
+  border-color: var(--vertigo-line);
+}
+
+.vertigo-info-card-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--vertigo-faint);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vertigo-info-card-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--vertigo-text);
+  margin-top: 4px;
+  font-family: Inter, system-ui, sans-serif;
+}
+
+/* ============================================================
+   STATUS BADGE (for match statuses)
+   ============================================================ */
+
+.vertigo-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-family: Inter, system-ui, sans-serif;
+  white-space: nowrap;
+}
+
+.vertigo-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: none;
+}
+
+/* ============================================================
+   ACTION BAR (horizontal button row)
+   ============================================================ */
+
+.vertigo-action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+/* ============================================================
+   LINK CARD (clickable card with hover)
+   ============================================================ */
+
+.vertigo-link-card {
+  display: block;
+  padding: 22px;
+  background: rgba(13, 9, 19, 0.6);
+  border: 1px solid var(--vertigo-line-soft);
+  border-radius: 12px;
+  text-decoration: none;
+  color: var(--vertigo-text);
+  transition: all 0.3s var(--vertigo-ease);
+  height: 100%;
+}
+
+.vertigo-link-card:hover {
+  border-color: var(--vertigo-purple);
+  background: rgba(124, 58, 237, 0.04);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(124, 58, 237, 0.1);
+}
+
+.vertigo-link-card-icon {
+  width: 28px;
+  height: 28px;
+  color: var(--vertigo-purple-soft);
+  stroke-width: 1.25;
+  margin-bottom: 14px;
+}
+
+.vertigo-link-card-title {
+  font-family: Cinzel, serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--vertigo-text);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.vertigo-link-card-desc {
+  font-size: 13px;
+  color: var(--vertigo-muted);
+  line-height: 1.5;
+  font-family: Inter, system-ui, sans-serif;
+}
+
+/* ============================================================
    RESPONSIVE
    ============================================================ */
 
-@media (max-width: 840px) {
-  .vertigo-header {
-    padding: 12px 16px;
+@media (max-width: 1024px) {
+  .vertigo-sidebar {
+    width: 200px;
   }
-  .vertigo-nav {
+  .vertigo-admin-content {
+    padding: 32px 24px;
+  }
+}
+
+@media (max-width: 768px) {
+  .vertigo-admin-shell {
+    flex-direction: column;
+  }
+  .vertigo-sidebar {
+    width: 100%;
+    height: auto;
+    position: relative;
+    border-right: none;
+    border-bottom: 1px solid var(--vertigo-line-soft);
+  }
+  .vertigo-sidebar-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 8px;
+  }
+  .vertigo-sidebar-nav a {
+    white-space: nowrap;
+    padding: 8px 14px;
+  }
+  .vertigo-sidebar-nav a.active::before {
     display: none;
   }
-  .vertigo-content {
+  .vertigo-sidebar-footer {
+    display: none;
+  }
+  .vertigo-admin-main {
+    height: auto;
+  }
+  .vertigo-admin-content {
     padding: 24px 16px;
   }
 }
