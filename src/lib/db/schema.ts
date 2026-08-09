@@ -433,6 +433,31 @@ export const drawAuditLog = pgTable("draw_audit_log", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * Sorteo inicial del bracket (asignación de seeds 1-32 a los equipos).
+ * Usa commit-reveal igual que roulette_draw, pero para el sorteo de bracket completo.
+ */
+export const seedingDraw = pgTable("seeding_draw", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  bracketId: uuid("bracket_id").notNull().references(() => bracket.id, { onDelete: "cascade" }),
+  tournamentEditionId: uuid("tournament_edition_id").notNull().references(() => tournamentEdition.id),
+  // Commit-reveal (fairness)
+  commitHash: varchar("commit_hash", { length: 80 }).notNull(),
+  revealedSeed: varchar("revealed_seed", { length: 80 }),
+  publicInputs: jsonb("public_inputs").notNull(), // { teamIds: [...], bracketSize: 32 }
+  // Resultado: array de { seed, teamId }
+  result: jsonb("result"), // [{ seed: 1, teamRegistrationId: "..." }, ...]
+  // Estado
+  status: drawStatus("status").notNull().default("committed"),
+  // Auditoría
+  adminId: uuid("admin_id").notNull().references(() => account.id),
+  committedAt: timestamp("committed_at", { withTimezone: true }).notNull().defaultNow(),
+  spinningAt: timestamp("spinning_at", { withTimezone: true }),
+  revealedAt: timestamp("revealed_at", { withTimezone: true }),
+  publishedAt: timestamp("published_at", { withTimezone: true }),
+  cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+});
+
 // ============================================================
 // COMODINES
 // ============================================================
@@ -604,6 +629,12 @@ export const rouletteDrawRelations = relations(rouletteDraw, ({ many, one }) => 
 export const drawAuditLogRelations = relations(drawAuditLog, ({ one }) => ({
   draw: one(rouletteDraw, { fields: [drawAuditLog.drawId], references: [rouletteDraw.id] }),
   actor: one(account, { fields: [drawAuditLog.actorAccountId], references: [account.id] }),
+}));
+
+export const seedingDrawRelations = relations(seedingDraw, ({ one }) => ({
+  bracket: one(bracket, { fields: [seedingDraw.bracketId], references: [bracket.id] }),
+  tournamentEdition: one(tournamentEdition, { fields: [seedingDraw.tournamentEditionId], references: [tournamentEdition.id] }),
+  admin: one(account, { fields: [seedingDraw.adminId], references: [account.id] }),
 }));
 
 export const comodinInventoryRelations = relations(comodinInventory, ({ one, many }) => ({
