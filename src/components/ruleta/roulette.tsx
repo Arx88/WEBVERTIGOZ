@@ -16,8 +16,13 @@ interface ResolvedMap { key: string; map: ConfigMap; stepNumber: number; }
  * - Scope: en vez de document.body.classList.toggle, usa un wrapper con className propio
  * - Imports: usa @/lib/ruleta/* en vez de @/lib/*
  * - No afecta al resto del sitio (CSS scoping en ruleta.css)
+ * - Props opcionales: onResult se llama cuando termina el sorteo (modo integrado)
  */
-export function Roulette() {
+export interface RouletteProps {
+  onResult?: (resolved: ResolvedStep[], resolvedMap: ResolvedMap | null) => void;
+}
+
+export function Roulette(props: RouletteProps = {}) {
   const { config } = useConfig();
   const GAME_MODES = config.gameModes, ANTIMETA_MODES = config.antimetaModes, PLAYER_MODES = config.playerModes, MAP_MODES = config.mapModes, LLAVE_MODES = config.llaveModes, firstRound = config.firstRound;
   const soundsEnabled = config.sounds.enabled, soundsVolume = config.sounds.volume;
@@ -550,6 +555,19 @@ export function Roulette() {
     setVOn(false);
     mapStateRef.current.pos=0;
   },[s,initialGameModeIndex,GAME_MODES]);
+
+  // Llamar onResult cuando el sorteo termina (phase=final y showResults=true)
+  const onResultRef = useRef(props.onResult);
+  onResultRef.current = props.onResult;
+  useEffect(() => {
+    if (phase === "final" && showResults && onResultRef.current) {
+      // Esperar 2.5s para que el usuario vea los resultados en la ruleta antes de avanzar
+      const timer = setTimeout(() => {
+        onResultRef.current?.(resolved, resolvedMap);
+      }, 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [phase, showResults, resolved, resolvedMap]);
 
   return (
     <div
