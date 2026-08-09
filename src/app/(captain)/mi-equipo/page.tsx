@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSupabaseServer } from "@/lib/supabase/server";
-import { logoutAction } from "@/server/actions/auth";
-import { Crown, Users, Calendar, Swords, LogOut, Shield, Check, X } from "lucide-react";
+import { CaptainHeader } from "@/components/captain/captain-header";
+import { Crown, Users, Calendar, Swords, Shield, Check, X } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -50,18 +50,19 @@ export default async function MiEquipoPage() {
   if (!team) {
     return (
       <div className="vertigo-page vertigo-shell">
-        <header className="vertigo-header">
-          <div className="vertigo-header-left">
-            <Link href="/" className="vertigo-logo">VÉRTIGO</Link>
-            <span className="vertigo-section-tag">MI REINO</span>
-          </div>
-          <form action={logoutAction}><button type="submit" className="vertigo-btn vertigo-btn-ghost" style={{ padding: "8px 16px", fontSize: "11px" }}>Salir</button></form>
-        </header>
-        <main className="vertigo-content">
-          <div className="vertigo-empty">
-            <div className="vertigo-empty-title">No tenés reino todavía</div>
-            <p className="vertigo-empty-desc" style={{ marginBottom: "24px" }}>Para acceder a esta página necesitás inscribir primero tu reino en el torneo.</p>
-            <Link href="/registro"><button className="vertigo-btn vertigo-btn-primary">Inscribir mi reino →</button></Link>
+        <CaptainHeader active="reino" />
+        <main className="vertigo-content vertigo-scroll vertigo-fade-in">
+          <span className="vertigo-kicker">MI REINO</span>
+          <h1 className="vertigo-title">Sin reino</h1>
+          <div className="vertigo-divider"><span></span><i></i><span></span></div>
+
+          <div className="vertigo-card">
+            <div className="vertigo-empty">
+              <Shield className="mx-auto mb-4" style={{ width: 48, height: 48, color: "var(--vertigo-faint)" }} strokeWidth={1} />
+              <div className="vertigo-empty-title">No tenés reino todavía</div>
+              <p className="vertigo-empty-desc" style={{ marginBottom: "24px" }}>Para acceder a esta página necesitás inscribir primero tu reino en el torneo.</p>
+              <Link href="/registro"><button className="vertigo-btn vertigo-btn-primary">Inscribir mi reino →</button></Link>
+            </div>
           </div>
         </main>
       </div>
@@ -78,6 +79,7 @@ export default async function MiEquipoPage() {
   const latestReg = regs?.[0];
   let edition: any = null;
   let players: any[] = [];
+  let upcomingMatch: any = null;
 
   if (latestReg) {
     // 4. Edition — query separada
@@ -97,6 +99,17 @@ export default async function MiEquipoPage() {
       .eq("team_registration_id", latestReg.id)
       .order("is_captain", { ascending: false })) as { data: any };
     players = pd ?? [];
+
+    // 6. Próximo partido — query directa (match donde el equipo es A o B y está programado)
+    const { data: matches } = (await supabase
+      .from("match")
+      .select("id, status, scheduled_at_start, jornada_label, format, team_a_id, team_b_id, score_a, score_b")
+      .or(`team_a_id.eq.${latestReg.id},team_b_id.eq.${latestReg.id}`)
+      .in("status", ["scheduled", "ready", "in_progress"])
+      .order("scheduled_at_start", { ascending: true })
+      .limit(1)
+      .maybeSingle()) as { data: any };
+    upcomingMatch = matches;
   }
 
   const totalElo = players.reduce((s: number, p: any) => s + (p.max_rating_rm_1v1 ?? 0), 0);
@@ -105,41 +118,39 @@ export default async function MiEquipoPage() {
   const extraCivs = (latestReg?.extra_civ_ids as string[]) ?? [];
   const status = latestReg?.status ?? "pending";
 
+  const statusBadge = (() => {
+    if (status === "approved") return { cls: "vertigo-badge-success", label: "APROBADO" };
+    if (status === "rejected") return { cls: "vertigo-badge-danger", label: "RECHAZADO" };
+    return { cls: "vertigo-badge-warning", label: "PENDIENTE" };
+  })();
+
+  const verificationLabel = (() => {
+    switch (latestReg?.elo_verification_status) {
+      case "verified": return "✓ OK";
+      case "pending": return "Pendiente";
+      default: return "—";
+    }
+  })();
+
   return (
     <div className="vertigo-page vertigo-shell">
-      <header className="vertigo-header">
-        <div className="vertigo-header-left">
-          <Link href="/" className="vertigo-logo">VÉRTIGO</Link>
-          <span className="vertigo-section-tag">MI REINO</span>
-        </div>
-        <form action={logoutAction}>
-          <button type="submit" className="vertigo-btn vertigo-btn-ghost" style={{ padding: "8px 16px", fontSize: "11px" }}>
-            <LogOut style={{ width: "14px", height: "14px" }} />Salir
-          </button>
-        </form>
-      </header>
+      <CaptainHeader active="reino" teamTag={team.tagline ?? undefined} />
 
-      <main className="vertigo-content vertigo-scroll">
+      <main className="vertigo-content vertigo-scroll vertigo-fade-in">
         {/* HEADER DEL REINO */}
-        <div style={{ display: "flex", alignItems: "center", gap: "20px", marginBottom: "32px" }}>
-          <div style={{
-            width: "72px", height: "72px", borderRadius: "14px", overflow: "hidden",
-            border: "1px solid var(--vertigo-line)", flex: "none",
-            background: "var(--vertigo-input-bg)",
-          }}>
-            <img src="/reinos/reino-1.webp" alt="Escudo" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        <div className="flex items-center gap-5 mb-6">
+          <div className="flex-none rounded-[14px] overflow-hidden border border-[var(--vertigo-line)] bg-[var(--vertigo-input-bg)]" style={{ width: 72, height: 72 }}>
+            <img src="/reinos/reino-1.webp" alt="Escudo" className="w-full h-full object-cover" />
           </div>
-          <div style={{ flex: 1 }}>
-            <span className="vertigo-kicker">REINO</span>
+          <div className="flex-1 min-w-0">
+            <span className="vertigo-kicker">MI REINO</span>
             <h1 className="vertigo-title" style={{ marginBottom: "4px" }}>{team.name}</h1>
-            {team.tagline && <p style={{ fontSize: "14px", color: "var(--vertigo-muted)", fontStyle: "italic" }}>&ldquo;{team.tagline}&rdquo;</p>}
+            {team.tagline && <p className="text-sm italic text-[var(--vertigo-muted)]">&ldquo;{team.tagline}&rdquo;</p>}
           </div>
-          <div>
-            <span className={`vertigo-badge ${status === "approved" ? "vertigo-badge-success" : status === "rejected" ? "vertigo-badge-danger" : "vertigo-badge-warning"}`}>
-              {status === "approved" ? "APROBADO" : status === "rejected" ? "RECHAZADO" : "PENDIENTE"}
-            </span>
-          </div>
+          <span className={`vertigo-badge ${statusBadge.cls}`}>{statusBadge.label}</span>
         </div>
+
+        <div className="vertigo-divider"><span></span><i></i><span></span></div>
 
         {/* STATS */}
         <div className="vertigo-stats">
@@ -150,169 +161,177 @@ export default async function MiEquipoPage() {
           </div>
           <div className="vertigo-stat">
             <div className="vertigo-stat-label">VERIFICACIÓN</div>
-            <div className="vertigo-stat-value" style={{ fontSize: "14px" }}>
-              {latestReg?.elo_verification_status === "verified" ? "✓ OK" : latestReg?.elo_verification_status === "pending" ? "Pendiente" : "—"}
-            </div>
+            <div className="vertigo-stat-value" style={{ fontSize: "18px" }}>{verificationLabel}</div>
+          </div>
+          <div className="vertigo-stat">
+            <div className="vertigo-stat-label">JUGADORES</div>
+            <div className="vertigo-stat-value">{players.length}</div>
+            <div className="vertigo-stat-sub">de 3</div>
+          </div>
+          <div className="vertigo-stat">
+            <div className="vertigo-stat-label">CIVS</div>
+            <div className="vertigo-stat-value">{baseCivs.length + extraCivs.length}</div>
+            <div className="vertigo-stat-sub">/ 12</div>
           </div>
           <div className="vertigo-stat">
             <div className="vertigo-stat-label">EDICIÓN</div>
-            <div className="vertigo-stat-value" style={{ fontSize: "12px" }}>{edition?.name ?? "—"}</div>
-          </div>
-          <div className="vertigo-stat">
-            <div className="vertigo-stat-label">ENVIADO</div>
-            <div className="vertigo-stat-value" style={{ fontSize: "12px" }}>
-              {latestReg?.submitted_at ? new Date(latestReg.submitted_at).toLocaleDateString("es-AR") : "—"}
-            </div>
+            <div className="vertigo-stat-value" style={{ fontSize: "13px" }}>{edition?.name ?? "—"}</div>
           </div>
         </div>
 
         {/* JUGADORES */}
         {players.length > 0 && (
-          <div className="vertigo-card" style={{ marginBottom: "16px" }}>
-            <div className="vertigo-card-header">
-              <div className="vertigo-card-title">
-                <Users style={{ width: "16px", height: "16px", display: "inline", marginRight: "8px", color: "var(--vertigo-purple-soft)" }} />
-                Jugadores
-              </div>
-              <span style={{ fontSize: "11px", color: "var(--vertigo-faint)" }}>{players.length} de 3</span>
+          <section className="mb-6">
+            <div className="vertigo-subtitle">
+              <Users style={{ width: 14, height: 14 }} />
+              Jugadores
+              <span className="vertigo-badge vertigo-badge-purple ml-1">{players.length} / 3</span>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              {players.map((p: any, idx: number) => (
-                <div key={p.id} style={{
-                  display: "flex", alignItems: "center", gap: "16px", padding: "16px",
-                  borderRadius: "9px", border: `1px solid ${p.is_captain ? "var(--vertigo-purple)" : "var(--vertigo-line-soft)"}`,
-                  background: p.is_captain ? "rgba(124,58,237,0.06)" : "transparent",
-                }}>
+            <div className="flex flex-col gap-2">
+              {players.map((p: any) => (
+                <div
+                  key={p.id}
+                  className={`vertigo-info-card flex items-center gap-4 ${p.is_captain ? "border-[var(--vertigo-purple)]" : ""}`}
+                  style={p.is_captain ? { background: "rgba(124,58,237,0.06)" } : undefined}
+                >
                   {/* Avatar */}
-                  <div style={{
-                    width: "48px", height: "48px", borderRadius: "50%",
-                    border: `2px solid ${p.is_captain ? "var(--vertigo-purple)" : "var(--vertigo-line)"}`,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    color: p.is_captain ? "var(--vertigo-purple-pale)" : "var(--vertigo-faint)",
-                    fontSize: "20px", fontWeight: 700, fontFamily: "Cinzel, serif", flex: "none",
-                  }}>
+                  <div
+                    className="flex-none rounded-full flex items-center justify-center font-[Cinzel,serif] font-bold"
+                    style={{
+                      width: 48, height: 48, fontSize: 20,
+                      border: `2px solid ${p.is_captain ? "var(--vertigo-purple)" : "var(--vertigo-line)"}`,
+                      color: p.is_captain ? "var(--vertigo-purple-pale)" : "var(--vertigo-faint)",
+                    }}
+                  >
                     {p.display_name?.charAt(0).toUpperCase() || "?"}
                   </div>
                   {/* Info */}
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: "15px", fontWeight: 600, color: "var(--vertigo-text)", fontFamily: "Inter, sans-serif" }}>
-                      {p.display_name}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[15px] font-semibold text-[var(--vertigo-text)]">{p.display_name}</span>
+                      {p.is_captain && <Crown style={{ width: 13, height: 13, color: "var(--vertigo-purple-soft)" }} />}
+                      {p.is_verified && <Check style={{ width: 13, height: 13, color: "var(--vertigo-success)" }} strokeWidth={2.5} />}
                     </div>
-                    <div style={{ fontSize: "12px", color: "var(--vertigo-faint)", marginTop: "2px" }}>
-                      {p.country || "?"} {p.clan && `· ${p.clan}`}
+                    <div className="text-[12px] text-[var(--vertigo-faint)] mt-1">
+                      {p.country || "?"}
+                      {p.clan && ` · ${p.clan}`}
                       {p.is_captain && " · Capitán"}
                     </div>
                   </div>
                   {/* ELO */}
-                  <div style={{ textAlign: "right" }}>
+                  <div className="text-right flex-none">
                     {p.max_rating_rm_1v1 != null ? (
                       <>
-                        <div style={{ fontFamily: "Cinzel, serif", fontSize: "22px", fontWeight: 700, color: "var(--vertigo-purple-soft)" }}>
+                        <div className="font-[Cinzel,serif] text-[22px] font-bold leading-none text-[var(--vertigo-purple-soft)]">
                           {p.max_rating_rm_1v1}
                         </div>
-                        <div style={{ fontSize: "9px", color: "var(--vertigo-faint)", letterSpacing: "1.5px", textTransform: "uppercase" }}>
+                        <div className="text-[9px] tracking-[1.5px] uppercase text-[var(--vertigo-faint)] mt-1">
                           ELO máx
                         </div>
                       </>
                     ) : (
-                      <div style={{ fontSize: "11px", color: "var(--vertigo-faint)" }}>—</div>
+                      <div className="text-[11px] text-[var(--vertigo-faint)]">—</div>
                     )}
                   </div>
                 </div>
               ))}
             </div>
-          </div>
+          </section>
         )}
 
         {/* CIVILIZACIONES */}
-        {baseCivs.length > 0 && (
-          <div className="vertigo-card" style={{ marginBottom: "16px" }}>
-            <div className="vertigo-card-header">
-              <div className="vertigo-card-title">
-                <Swords style={{ width: "16px", height: "16px", display: "inline", marginRight: "8px", color: "var(--vertigo-purple-soft)" }} />
-                Civilizaciones
-              </div>
-              <span style={{ fontSize: "11px", color: "var(--vertigo-faint)" }}>{baseCivs.length + extraCivs.length} / 12</span>
+        {(baseCivs.length > 0 || extraCivs.length > 0) && (
+          <section className="mb-6">
+            <div className="vertigo-subtitle">
+              <Swords style={{ width: 14, height: 14 }} />
+              Civilizaciones
+              <span className="vertigo-badge vertigo-badge-purple ml-1">{baseCivs.length + extraCivs.length} / 12</span>
             </div>
-
-            {/* Civs base */}
-            <div style={{ marginBottom: "16px" }}>
-              <div style={{ fontSize: "10px", color: "var(--vertigo-faint)", letterSpacing: "1.7px", textTransform: "uppercase", marginBottom: "10px" }}>
-                Civs base ({baseCivs.length})
-              </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                {baseCivs.map((civId: string, idx: number) => (
-                  <div key={civId} style={{
-                    display: "flex", alignItems: "center", gap: "8px",
-                    padding: "8px 12px", borderRadius: "9px",
-                    background: "rgba(124,58,237,0.08)", border: "1px solid rgba(124,58,237,0.2)",
-                  }}>
-                    <img src={`/civs/${civId}.webp`} alt={civId} style={{ width: "28px", height: "28px", objectFit: "contain" }} />
-                    <span style={{ fontSize: "12px", color: "var(--vertigo-text)", fontFamily: "Inter, sans-serif" }}>
+            <div className="vertigo-card">
+              {/* Civs base */}
+              <div className="mb-4">
+                <div className="text-[10px] text-[var(--vertigo-faint)] tracking-[1.7px] uppercase mb-3">
+                  Civs base ({baseCivs.length})
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {baseCivs.map((civId: string) => (
+                    <span key={civId} className="vertigo-badge vertigo-badge-purple" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                      <img src={`/civs/${civId}.webp`} alt={civId} className="w-7 h-7 object-contain" />
                       {CIV_NAMES[civId] ?? civId}
                     </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Civs extra */}
-            {extraCivs.length > 0 && (
-              <div>
-                <div style={{ fontSize: "10px", color: "var(--vertigo-faint)", letterSpacing: "1.7px", textTransform: "uppercase", marginBottom: "10px" }}>
-                  Civs extra ({extraCivs.length})
+                  ))}
+                  {baseCivs.length === 0 && (
+                    <span className="text-[12px] text-[var(--vertigo-faint)]">Sin civs base asignadas.</span>
+                  )}
                 </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                  {extraCivs.map((civId: string, idx: number) => (
-                    <div key={civId} style={{
-                      display: "flex", alignItems: "center", gap: "8px",
-                      padding: "8px 12px", borderRadius: "9px",
-                      background: "var(--vertigo-input-bg)", border: "1px solid var(--vertigo-line)",
-                    }}>
-                      <img src={`/civs/${civId}.webp`} alt={civId} style={{ width: "28px", height: "28px", objectFit: "contain" }} />
-                      <span style={{ fontSize: "12px", color: "var(--vertigo-muted)", fontFamily: "Inter, sans-serif" }}>
+              </div>
+
+              {/* Civs extra */}
+              {extraCivs.length > 0 && (
+                <div>
+                  <div className="text-[10px] text-[var(--vertigo-faint)] tracking-[1.7px] uppercase mb-3">
+                    Civs extra ({extraCivs.length})
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {extraCivs.map((civId: string) => (
+                      <span key={civId} className="vertigo-badge" style={{ padding: "8px 12px", fontSize: "12px", color: "var(--vertigo-purple-pale)", border: "1px solid var(--vertigo-line)", background: "var(--vertigo-input-bg)" }}>
+                        <img src={`/civs/${civId}.webp`} alt={civId} className="w-7 h-7 object-contain" />
                         {CIV_NAMES[civId] ?? civId}
                       </span>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          </section>
         )}
 
         {/* CONFIRMACIONES */}
-        <div className="vertigo-card" style={{ marginBottom: "16px" }}>
-          <div className="vertigo-card-header">
-            <div className="vertigo-card-title">
-              <Shield style={{ width: "16px", height: "16px", display: "inline", marginRight: "8px", color: "var(--vertigo-purple-soft)" }} />
-              Estado de inscripción
+        <section className="mb-6">
+          <div className="vertigo-subtitle">
+            <Shield style={{ width: 14, height: 14 }} />
+            Estado de inscripción
+          </div>
+          <div className="vertigo-card">
+            <div className="flex flex-col gap-3">
+              <ConfirmItem ok={!!latestReg?.handbook_downloaded_at} label="Handbook descargado" />
+              <ConfirmItem ok={!!latestReg?.restream_accepted} label="Permiso de transmisión" />
+              <ConfirmItem ok={!!latestReg?.terms_accepted_at} label="Términos aceptados" />
+              <ConfirmItem ok={players.filter((p: any) => p.is_captain).length === 1} label="Capitán designado" />
             </div>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            <ConfirmItem ok={!!latestReg?.handbook_downloaded_at} label="Handbook descargado" />
-            <ConfirmItem ok={!!latestReg?.restream_accepted} label="Permiso de transmisión" />
-            <ConfirmItem ok={!!latestReg?.terms_accepted_at} label="Términos aceptados" />
-            <ConfirmItem ok={players.filter((p: any) => p.is_captain).length === 1} label="Capitán designado" />
-          </div>
-        </div>
+        </section>
 
-        {/* PRÓXIMOS PARTIDOS */}
-        <div className="vertigo-card">
-          <div className="vertigo-card-header">
-            <div className="vertigo-card-title">
-              <Calendar style={{ width: "16px", height: "16px", display: "inline", marginRight: "8px", color: "var(--vertigo-purple-soft)" }} />
-              Próximos partidos
+        {/* PRÓXIMA PARTIDA */}
+        <section>
+          <div className="vertigo-subtitle">
+            <Calendar style={{ width: 14, height: 14 }} />
+            Próxima partida
+          </div>
+          {upcomingMatch ? (
+            <Link href={`/mis-partidos`} className="vertigo-link-card block">
+              <div className="vertigo-link-card-title">{upcomingMatch.jornada_label ?? "Partido programado"}</div>
+              <div className="vertigo-link-card-desc">
+                {upcomingMatch.scheduled_at_start
+                  ? new Date(upcomingMatch.scheduled_at_start).toLocaleString("es-AR", { dateStyle: "long", timeStyle: "short" })
+                  : "Horario a confirmar"}
+                {upcomingMatch.format && ` · Formato ${upcomingMatch.format}`}
+              </div>
+            </Link>
+          ) : (
+            <div className="vertigo-card">
+              <div className="vertigo-empty">
+                <Calendar className="mx-auto mb-3" style={{ width: 36, height: 36, color: "var(--vertigo-faint)" }} strokeWidth={1} />
+                <div className="vertigo-empty-title">Sin partidos programados</div>
+                <p className="vertigo-empty-desc">
+                  {status === "approved"
+                    ? "Cuando el bracket esté generado, van a aparecer acá."
+                    : "Tu inscripción está pendiente de aprobación. Una vez aprobada, podrás ver tus partidos acá."}
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="vertigo-empty">
-            <p className="vertigo-empty-desc">
-              {status === "approved"
-                ? "No tenés partidos programados aún. Cuando el bracket esté generado, van a aparecer acá."
-                : "Tu inscripción está pendiente de aprobación. Una vez aprobada, podrás ver tus partidos acá."}
-            </p>
-          </div>
-        </div>
+          )}
+        </section>
       </main>
     </div>
   );
@@ -320,18 +339,19 @@ export default async function MiEquipoPage() {
 
 function ConfirmItem({ ok, label }: { ok: boolean; label: string }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-      <div style={{
-        width: "20px", height: "20px", borderRadius: "50%",
-        background: ok ? "rgba(34,197,94,0.1)" : "rgba(251,113,133,0.1)",
-        border: `1px solid ${ok ? "rgba(34,197,94,0.3)" : "rgba(251,113,133,0.3)"}`,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        color: ok ? "var(--vertigo-success)" : "var(--vertigo-danger)",
-        fontSize: "11px", fontWeight: 700,
-      }}>
-        {ok ? <Check style={{ width: "12px", height: "12px" }} /> : <X style={{ width: "12px", height: "12px" }} />}
+    <div className="flex items-center gap-3">
+      <div
+        className="flex-none rounded-full flex items-center justify-center"
+        style={{
+          width: 20, height: 20,
+          background: ok ? "rgba(34,197,94,0.1)" : "rgba(251,113,133,0.1)",
+          border: `1px solid ${ok ? "rgba(34,197,94,0.3)" : "rgba(251,113,133,0.3)"}`,
+          color: ok ? "var(--vertigo-success)" : "var(--vertigo-danger)",
+        }}
+      >
+        {ok ? <Check style={{ width: 12, height: 12 }} /> : <X style={{ width: 12, height: 12 }} />}
       </div>
-      <span style={{ fontSize: "13px", color: ok ? "var(--vertigo-text)" : "var(--vertigo-muted)", fontFamily: "Inter, sans-serif" }}>
+      <span className={`text-[13px] ${ok ? "text-[var(--vertigo-text)]" : "text-[var(--vertigo-muted)]"}`}>
         {label}
       </span>
     </div>
