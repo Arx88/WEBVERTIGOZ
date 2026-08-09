@@ -170,3 +170,243 @@ export function getNextMatch(
   const nextSlot = Math.floor(slotIndex / 2);
   return nextRound.matches[nextSlot];
 }
+
+// ============================================================
+// ASIGNACIÓN DE SEEDS A EQUIPOS
+// ============================================================
+
+/**
+ * Match con estado (extiende GeneratedMatch con teams asignados y resultado).
+ */
+export interface MatchState extends GeneratedMatch {
+  teamAId: string | null;
+  teamBId: string | null;
+  winnerTeamId: string | null;
+  status: string;
+}
+
+/**
+ * Asignación de seed a team_registration_id.
+ */
+export interface SeedAssignment {
+  seed: number;
+  teamRegistrationId: string;
+}
+
+/**
+ * Dado un bracket generado y un array de asignaciones seed→team,
+ * devuelve los matches de R1 con los teams asignados a sus slots.
+ *
+ * Los matches de R>1 quedan con teamAId/teamBId = null (se llenan al avanzar ganadores).
+ *
+ * @param bracket Bracket generado por generateBracket()
+ * @param assignments Array de { seed, teamRegistrationId } (debe tener bracketSize elementos)
+ */
+export function assignSeedsToTeams(
+  bracket: GeneratedBracket,
+  assignments: SeedAssignment[]
+): MatchState[] {
+  if (assignments.length !== bracket.bracketSize) {
+    throw new Error(
+      `Esperaba ${bracket.bracketSize} asignaciones, recibí ${assignments.length}`
+    );
+  }
+
+  // Mapa seed → teamRegistrationId
+  const seedToTeam = new Map<number, string>();
+  for (const a of assignments) {
+    seedToTeam.set(a.seed, a.teamRegistrationId);
+  }
+
+  // Validar que todos los seeds 1..bracketSize estén presentes
+  for (let s = 1; s <= bracket.bracketSize; s++) {
+    if (!seedToTeam.has(s)) {
+      throw new Error(`Falta asignar el seed ${s}`);
+    }
+  }
+
+  const allMatches: MatchState[] = [];
+
+  for (const round of bracket.rounds) {
+    for (const m of round.matches) {
+      const state: MatchState = {
+        ...m,
+        teamAId: m.seedA !== null ? seedToTeam.get(m.seedA) ?? null : null,
+        teamBId: m.seedB !== null ? seedToTeam.get(m.seedB) ?? null : null,
+        winnerTeamId: null,
+        status: "scheduled",
+      };
+      allMatches.push(state);
+    }
+  }
+
+  return allMatches;
+}
+
+// ============================================================
+// AVANCE DE GANADOR
+// ============================================================
+
+/**
+ * Dado el estado actual de todos los matches y el ID de un match que terminó,
+ * devuelve el nuevo estado con el ganador escrito en el próximo match.
+ *
+ * Reglas:
+ * - Si el match es la Final (roundIndex === rounds.length - 1), no hay próximo match.
+ * - El ganador va al slot A del próximo match si slotIndex del match actual es par,
+ *   al slot B si es impar.
+ * - El próximo match solo se puede "abrir" (status=scheduled → open) cuando AMBOS
+ *   padres ya tienen ganador. Esta lógica de status la maneja el server action,
+ *   no esta función pura.
+ *
+ * @param matches Estado actual de todos los matches
+ * @param finishedMatchTempId tempId del match que terminó
+ * @param winnerTeamId ID del equipo ganador
+ * @returns Nuevo array de matches con el ganador avanzado
+ */
+export function advanceWinner(
+  matches: MatchState[],
+  finishedMatchTempId: string,
+  winnerTeamId: string
+): MatchState[] {
+  const finishedMatch = matches.find((m) => m.tempId === finishedMatchTempId);
+  if (!finishedMatch) {
+    throw new Error(`Match ${finishedMatchTempId} no encontrado`);
+  }
+
+  // Validar que el ganador sea uno de los dos equipos del match
+  if (
+    winnerTeamId !== finishedMatch.teamAId &&
+    winnerTeamId !== finishedMatch.teamBId
+  ) {
+    throw new Error(
+      `El ganador ${winnerTeamId} no es uno de los equipos del match (A=${finishedMatch.teamAId}, B=${finishedMatch.teamBId})`
+    );
+  }
+
+  // Marcar el match como finished con su ganador
+  const updatedMatches = matches.map((m) => {
+    if (m.tempId === finishedMatchTempId) {
+      return { ...m, winnerTeamId, status: "finished" };
+    }
+    return m;
+  });
+
+  // Encontrar el próximo match por parentMatchAId o parentMatchBId.
+  // Si no hay próximo match, era la final y no hay nada que avanzar.
+  const nextMatch = updatedMatches.find(
+    (m) =>
+      m.parentMatchAId === finishedMatchTempId ||
+      m.parentMatchBId === finishedMatchTempId
+  );
+
+  if (!nextMatch) {
+    // Era la final, no hay próximo match
+    return updatedMatches;
+  }
+
+  // Determinar si el ganador va al slot A o B
+  const goesToSlotA = nextMatch.parentMatchAId === finishedMatchTempId;
+
+  return updatedMatches.map((m) => {
+    if (m.tempId === nextMatch.tempId) {
+      if (goesToSlotA) {
+        return { ...m, teamAId: winnerTeamId };
+      } else {
+        return { ...m, teamBId: winnerTeamId };
+      }
+    }
+    return m;
+  });
+}
+
+/**
+ * Verifica si un match está listo para ser "abierto" (status: scheduled → open).
+ * Solo se puede abrir cuando AMBOS matches padres tienen ganador (o son de R1
+ * con teams asignados).
+ */
+export function canOpenMatch(match: MatchState, allMatches: MatchState[]): boolean {
+  if (match.status !== "scheduled") return false;
+  // R1: se puede abrir si tiene ambos teams asignados
+  if (match.parentMatchAId === null && match.parentMatchBId === null) {
+    return match.teamAId !== null && match.teamBId !== null;
+  }
+  // R>1: se puede abrir si ambos padres terminaron
+  const parentA = allMatches.find((m) => m.tempId === match.parentMatchAId);
+  const parentB = allMatches.find((m) => m.tempId === match.parentMatchBId);
+  return parentA?.winnerTeamId != null && parentB?.winnerTeamId != null;
+}
+
+// ============================================================
+// SORTEO DE SEEDS (para commit-reveal)
+// ============================================================
+
+/**
+ * Genera una permutación aleatoria de seeds 1..N para los teamIds dados.
+ *
+ * Esta función NO usa commit-reveal (es random puro). El server action
+ * drawBracketSeeds la usa COMO FALLBACK cuando no hay commit-reveal.
+ * En producción, el sorteo real usa deterministicIndices() de lib/crypto.ts.
+ *
+ * @param teamIds Array de team_registration_id (debe tener 32 elementos)
+ * @returns Array de { seed, teamRegistrationId }
+ */
+export function shuffleSeeds(teamIds: string[]): SeedAssignment[] {
+  if (teamIds.length !== BRACKET_SIZE) {
+    throw new Error(
+      `Esperaba ${BRACKET_SIZE} teamIds, recibí ${teamIds.length}`
+    );
+  }
+
+  // Fisher-Yates shuffle
+  const shuffled = [...teamIds];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
+  // Asignar seeds 1..32 según el orden del shuffle
+  return shuffled.map((teamRegistrationId, seed) => ({
+    seed: seed + 1,
+    teamRegistrationId,
+  }));
+}
+
+/**
+ * Genera asignaciones de seeds deterministas usando un array de índices
+ * pre-computados (de deterministicIndices en lib/crypto.ts).
+ *
+ * @param teamIds Array de team_registration_id (32 elementos, orden original)
+ * @param indices Array de 32 índices (0-31) pre-computados con HMAC-SHA256
+ * @returns Array de { seed, teamRegistrationId }
+ */
+export function assignSeedsFromIndices(
+  teamIds: string[],
+  indices: number[]
+): SeedAssignment[] {
+  if (teamIds.length !== BRACKET_SIZE) {
+    throw new Error(`Esperaba ${BRACKET_SIZE} teamIds`);
+  }
+  if (indices.length !== BRACKET_SIZE) {
+    throw new Error(`Esperaba ${BRACKET_SIZE} índices`);
+  }
+
+  // Para cada seed (1..32), el teamRegistrationId es teamIds[indices[seed-1]]
+  const assignments: SeedAssignment[] = [];
+  const usedIndices = new Set<number>();
+
+  for (let seed = 1; seed <= BRACKET_SIZE; seed++) {
+    let idx = indices[seed - 1] % BRACKET_SIZE;
+    // Evitar duplicados: si el índice ya fue usado, buscar el siguiente libre
+    while (usedIndices.has(idx)) {
+      idx = (idx + 1) % BRACKET_SIZE;
+    }
+    usedIndices.add(idx);
+    assignments.push({
+      seed,
+      teamRegistrationId: teamIds[idx],
+    });
+  }
+
+  return assignments;
+}
