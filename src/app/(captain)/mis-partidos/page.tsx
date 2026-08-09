@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { CaptainHeader } from "@/components/captain/captain-header";
-import { Dices, Ban, Target, UserPlus, Calendar, History, ArrowRight, Clock } from "lucide-react";
+import { confirmReadyAction } from "@/server/actions/ready";
+import { Dices, Ban, Target, UserPlus, Calendar, History, ArrowRight, Clock, CheckCircle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -111,9 +112,9 @@ export default async function MisPartidosPage() {
   if (latestReg?.id) {
     const { data: um } = (await supabase
       .from("match")
-      .select("id, status, scheduled_at_start, scheduled_at_end, jornada_label, format, score_a, score_b, team_a_id, team_b_id")
+      .select("id, status, scheduled_at_start, scheduled_at_end, jornada_label, format, score_a, score_b, team_a_id, team_b_id, ready_a_at, ready_b_at")
       .or(`team_a_id.eq.${latestReg.id},team_b_id.eq.${latestReg.id}`)
-      .in("status", ["scheduled", "ready", "in_progress"])
+      .in("status", ["scheduled", "open", "drawing", "lineup", "comodin_window", "in_progress"])
       .order("scheduled_at_start", { ascending: true })
       .limit(10)) as { data: any };
     upcomingMatches = um ?? [];
@@ -227,6 +228,11 @@ export default async function MisPartidosPage() {
                 const rivalId = isTeamA ? m.team_b_id : m.team_a_id;
                 const rivalName = rivalId ? (rivalNames[rivalId] ?? "Rival") : "Por definir";
                 const statusInfo = matchStatusInfo(m.status);
+                const myReady = isTeamA ? m.ready_a_at : m.ready_b_at;
+                const rivalReady = isTeamA ? m.ready_b_at : m.ready_a_at;
+                const isScheduled = m.status === "scheduled";
+                const isOpen = m.status === "open";
+                const isComodinWindow = m.status === "comodin_window";
                 return (
                   <div key={m.id} className="vertigo-card">
                     <div className="vertigo-card-header">
@@ -264,17 +270,87 @@ export default async function MisPartidosPage() {
                       </div>
                     </div>
 
-                    {/* Botones de comodines */}
-                    <div className="vertigo-action-bar">
-                      <button className="vertigo-btn vertigo-btn-ghost" disabled>
-                        <Dices style={{ width: 13, height: 13 }} />Re-girar
-                      </button>
-                      <button className="vertigo-btn vertigo-btn-ghost" disabled>
-                        <Ban style={{ width: 13, height: 13 }} />Anular
-                      </button>
-                      <button className="vertigo-btn vertigo-btn-ghost" disabled>
-                        <Target style={{ width: 13, height: 13 }} />Elegir rival
-                      </button>
+                    {/* Estado de READY */}
+                    {isScheduled && (
+                      <div style={{
+                        padding: "12px 16px",
+                        background: myReady ? "rgba(34,197,94,0.08)" : "rgba(251,191,36,0.08)",
+                        border: `1px solid ${myReady ? "rgba(34,197,94,0.3)" : "rgba(251,191,36,0.3)"}`,
+                        borderRadius: "10px",
+                        marginBottom: "12px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "12px",
+                      }}>
+                        <div style={{ fontSize: "12px", color: "#9a92a6" }}>
+                          {myReady ? (
+                            <span style={{ color: "#22c55e" }}>✓ Estás listo{rivalReady ? " — Rival también listo" : " — Esperando al rival"}</span>
+                          ) : rivalReady ? (
+                            <span style={{ color: "#fbbf24" }}>⚠ El rival está listo — Confirmá tu participación</span>
+                          ) : (
+                            <span style={{ color: "#fbbf24" }}>Confirmá tu participación para habilitar el sorteo</span>
+                          )}
+                        </div>
+                        {!myReady && (
+                          <form action={confirmReadyAction.bind(null, m.id)}>
+                            <button type="submit" className="vertigo-btn vertigo-btn-success" style={{ fontSize: "11px", padding: "8px 16px" }}>
+                              <CheckCircle style={{ width: 13, height: 13 }} />
+                              ESTOY LISTO
+                            </button>
+                          </form>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Si está habilitada (open) */}
+                    {isOpen && (
+                      <div style={{
+                        padding: "12px 16px",
+                        background: "rgba(34,197,94,0.08)",
+                        border: "1px solid rgba(34,197,94,0.3)",
+                        borderRadius: "10px",
+                        marginBottom: "12px",
+                        fontSize: "13px",
+                        color: "#22c55e",
+                        fontWeight: 600,
+                      }}>
+                        ✓ LLAVE HABILITADA — El admin puede sortear ahora
+                      </div>
+                    )}
+
+                    {/* Si está en ventana de comodines */}
+                    {isComodinWindow && (
+                      <div style={{
+                        padding: "12px 16px",
+                        background: "rgba(251,191,36,0.08)",
+                        border: "1px solid rgba(251,191,36,0.3)",
+                        borderRadius: "10px",
+                        marginBottom: "12px",
+                        fontSize: "13px",
+                        color: "#fbbf24",
+                        fontWeight: 600,
+                      }}>
+                        ⚡ VENTANA DE COMODINES ABIERTA — Usá tus comodines ahora
+                      </div>
+                    )}
+
+                    {/* Botones de comodines (solo en comodin_window) */}
+                    {isComodinWindow && (
+                      <div className="vertigo-action-bar">
+                        <button className="vertigo-btn vertigo-btn-ghost" disabled={comodinQty("reroll") === 0}>
+                          <Dices style={{ width: 13, height: 13 }} />Re-girar ({comodinQty("reroll")})
+                        </button>
+                        <button className="vertigo-btn vertigo-btn-ghost" disabled={comodinQty("anular") === 0}>
+                          <Ban style={{ width: 13, height: 13 }} />Anular ({comodinQty("anular")})
+                        </button>
+                        <button className="vertigo-btn vertigo-btn-ghost" disabled={comodinQty("elegir_rival") === 0}>
+                          <Target style={{ width: 13, height: 13 }} />Elegir rival ({comodinQty("elegir_rival")})
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="vertigo-action-bar mt-3">
                       <Link href={`/partido/${m.id}`} className="vertigo-btn vertigo-btn-primary ml-auto">
                         Ver partido <ArrowRight style={{ width: 13, height: 13 }} />
                       </Link>
