@@ -40,6 +40,7 @@ export const metadata: Metadata = {
     "Plataforma del torneo VÉRTIGO de Age of Empires II. 32 equipos, 3 jugadores cada uno, partidas sorteadas con ruleta 15 minutos antes.",
   keywords: ["Age of Empires II", "AoE2", "tournament", "torneo", "VERTIGO", "esports"],
   authors: [{ name: "VERTIGO Cup Staff" }],
+  manifest: "/manifest.json",
   openGraph: {
     title: "VÉRTIGO Cup — Age of Empires II Tournament",
     description: "El azar decide tu destino. 32 equipos. 15 minutos. Una ruleta.",
