@@ -1,71 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import dynamic from "next/dynamic";
-import { ConfigProvider } from "@/lib/ruleta/config";
+import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { ALL_REINOS } from "@/lib/constants/emblems";
 import { CIV_NAMES, civName } from "@/lib/constants/civs";
-import Link from "next/link";
-
-// Cargar la ruleta real dinámicamente (sin SSR)
-const Roulette = dynamic(
-  () => import("@/components/ruleta/roulette").then((m) => m.Roulette),
-  { ssr: false }
-) as React.ComponentType<any>;
 
 // ============================================================
-// TIPOS
-// ============================================================
-
-interface DemoTeam {
-  id: string;
-  name: string;
-  tagline: string;
-  emblemId: string;
-  emblemUrl: string;
-  elo: number;
-  players: { name: string; elo: number; isCaptain: boolean }[];
-  civPool: string[];
-}
-
-interface DemoMatch {
-  id: string;
-  roundIndex: number;
-  roundName: string;
-  slotIndex: number;
-  teamA: DemoTeam | null;
-  teamB: DemoTeam | null;
-  winner: DemoTeam | null;
-  status: "scheduled" | "open" | "drawing" | "lineup" | "comodin" | "playing" | "finished";
-  sorteo?: {
-    gameMode: string;
-    antimeta?: string;
-    playerMode: string;
-    map: string;
-    llaveFormat: string;
-    civsA: string[];
-    civsB: string[];
-  };
-  comodinesUsed?: { type: string; team: string; target?: string }[];
-  scoreA: number;
-  scoreB: number;
-}
-
-type DemoPhase =
-  | "intro"
-  | "seeding"
-  | "bracket_ready"
-  | "match_intro"
-  | "match_roulette"
-  | "match_sorteo_result"
-  | "match_comodines"
-  | "match_playing"
-  | "match_result"
-  | "round_complete"
-  | "champion";
-
-// ============================================================
-// DATA GENERATION
+// DATA
 // ============================================================
 
 const TEAM_NAMES = [
@@ -104,12 +45,48 @@ const PLAYER_NAMES = [
   "PhoenixRising", "DragonSlayer", "HydraHead", "ChimeraEye", "GriffinClaw", "BasiliskGaze",
 ];
 
-const GAME_MODES = ["ANTIMETA", "GUERRAS IMPERIALES", "MUERTE SÚBITA", "REGICIDA"];
-const ANTIMETAS = ["500 POP", "BARCOS", "FEUDAL", "MESOAMÉRICA", "REY DE LA COLINA", "UNIDADES ÚNICAS"];
-const PLAYER_MODES = ["1 VS 1", "2 VS 2", "3 VS 3", "TEAM"];
-const MAPS = ["ARABIA", "ARENA", "ATACAMA", "CRÁTER", "CRESTA MONTAÑOSA", "CUATRO LAGOS", "CUENCA DEL ORO", "MIGRACIÓN", "TORMENTA DE POLVO"];
-const LLAVE_FORMATS = ["DEATHMATCH", "BO3"];
+const GAME_MODES = [
+  { name: "ANTIMETA", color: "#ff2e7e", img: "/modes/game-mode/antimeta.webp" },
+  { name: "GUERRAS IMPERIALES", color: "#d8a13f", img: "/modes/game-mode/guerras-imperiales.webp" },
+  { name: "MUERTE SÚBITA", color: "#22e5c2", img: "/modes/game-mode/muerte-subdita.webp" },
+  { name: "REGICIDA", color: "#b06bff", img: "/modes/game-mode/regicida.webp" },
+];
+
+const ANTIMETAS = [
+  { name: "500 POP", color: "#ff2e7e", img: "/modes/game-mode/antimeta/500pop.webp" },
+  { name: "BARCOS", color: "#22e5c2", img: "/modes/game-mode/antimeta/barcos.webp" },
+  { name: "FEUDAL", color: "#ff6b00", img: "/modes/game-mode/antimeta/feudal.webp" },
+  { name: "MESOAMÉRICA", color: "#d8a13f", img: "/modes/game-mode/antimeta/mesoamerica.webp" },
+  { name: "REY DE LA COLINA", color: "#b06bff", img: "/modes/game-mode/antimeta/rey-de-la-colina.webp" },
+  { name: "UNIDADES ÚNICAS", color: "#ff5aa5", img: "/modes/game-mode/antimeta/unidades-unicas.webp" },
+];
+
+const PLAYER_MODES = [
+  { name: "1 VS 1", color: "#ff2e7e", img: "/modes/player-mode/1vs1.webp" },
+  { name: "2 VS 2", color: "#22e5c2", img: "/modes/player-mode/2vs2.webp" },
+  { name: "3 VS 3", color: "#d8a13f", img: "/modes/player-mode/3vs3.webp" },
+  { name: "TEAM", color: "#b06bff", img: "/modes/player-mode/team.webp" },
+];
+
+const MAPS = [
+  { name: "ARABIA", color: "#22e5c2", img: "/modes/maps/arabia.webp" },
+  { name: "ARENA", color: "#ff2e7e", img: "/modes/maps/arena.webp" },
+  { name: "ATACAMA", color: "#d8a13f", img: "/modes/maps/atacama.webp" },
+  { name: "CRÁTER", color: "#ff6b00", img: "/modes/maps/crater.webp" },
+  { name: "CRESTA MONTAÑOSA", color: "#b06bff", img: "/modes/maps/cresta-montanosa.webp" },
+  { name: "CUATRO LAGOS", color: "#22e5c2", img: "/modes/maps/cuatro-lagos.webp" },
+  { name: "CUENCA DEL ORO", color: "#d8a13f", img: "/modes/maps/cuenca-del-oro.webp" },
+  { name: "MIGRACIÓN", color: "#ff5aa5", img: "/modes/maps/migracion.webp" },
+  { name: "TORMENTA DE POLVO", color: "#ff6b00", img: "/modes/maps/tormenta-de-polvo.webp" },
+];
+
+const LLAVE_FORMATS = [
+  { name: "DEATHMATCH", color: "#ff2e7e", img: "/modes/llave/deathmatch.webp" },
+  { name: "BO3", color: "#22e5c2", img: "/modes/llave/bo3.webp" },
+];
+
 const CIV_KEYS = Object.keys(CIV_NAMES);
+const ROUND_NAMES = ["Ronda 1", "Octavos", "Cuartos", "Semifinal", "Final"];
 
 function randomFrom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
@@ -126,11 +103,20 @@ function randomCivs(count: number, pool?: string[]): string[] {
   return result;
 }
 
+interface DemoTeam {
+  id: string;
+  name: string;
+  tagline: string;
+  emblemUrl: string;
+  elo: number;
+  players: { name: string; elo: number; isCaptain: boolean }[];
+  civPool: string[];
+}
+
 function generateTeams(): DemoTeam[] {
   return TEAM_NAMES.map((name, i) => {
     const reino = ALL_REINOS[i % ALL_REINOS.length];
-    const playerCount = 3;
-    const players = Array.from({ length: playerCount }, (_, j) => {
+    const players = Array.from({ length: 3 }, (_, j) => {
       const nameIdx = (i * 3 + j) % PLAYER_NAMES.length;
       return {
         name: PLAYER_NAMES[nameIdx],
@@ -138,550 +124,377 @@ function generateTeams(): DemoTeam[] {
         isCaptain: j === 0,
       };
     });
-    const totalElo = players.reduce((s, p) => s + p.elo, 0);
     return {
       id: `team-${i + 1}`,
       name,
       tagline: randomFrom(TAGLINES),
-      emblemId: reino.id,
       emblemUrl: reino.img,
-      elo: totalElo,
+      elo: players.reduce((s, p) => s + p.elo, 0),
       players,
       civPool: randomCivs(9),
     };
   });
 }
 
-function generateSorteo(teamA: DemoTeam, teamB: DemoTeam) {
-  const gameMode = randomFrom(GAME_MODES);
-  const antimeta = gameMode === "ANTIMETA" ? randomFrom(ANTIMETAS) : undefined;
-  const playerMode = randomFrom(PLAYER_MODES);
-  const map = randomFrom(MAPS);
-  const llaveFormat = randomFrom(LLAVE_FORMATS);
-
-  // Civs según playerMode
-  let civCount = 1;
-  if (playerMode === "2 VS 2") civCount = 2;
-  else if (playerMode === "3 VS 3") civCount = 3;
-  else if (playerMode === "TEAM") civCount = 1; // fusión: 1 civ compartida
-
-  return {
-    gameMode,
-    antimeta,
-    playerMode,
-    map,
-    llaveFormat,
-    civsA: randomCivs(civCount, teamA.civPool),
-    civsB: randomCivs(civCount, teamB.civPool),
-  };
-}
-
 // ============================================================
-// BRACKET GENERATION (simplified for demo)
+// FASES DEL DEMO
 // ============================================================
 
-const ROUND_NAMES = ["Ronda 1", "Octavos de Final", "Cuartos de Final", "Semifinal", "Final"];
-
-function generateBracket(teams: DemoTeam[]): DemoMatch[][] {
-  // Shuffle teams for seeding
-  const shuffled = [...teams].sort(() => Math.random() - 0.5);
-  const rounds: DemoMatch[][] = [];
-
-  // R1: 16 matches
-  const r1: DemoMatch[] = [];
-  for (let i = 0; i < 16; i++) {
-    r1.push({
-      id: `r0-s${i}`,
-      roundIndex: 0,
-      roundName: ROUND_NAMES[0],
-      slotIndex: i,
-      teamA: shuffled[i * 2],
-      teamB: shuffled[i * 2 + 1],
-      winner: null,
-      status: "scheduled",
-      scoreA: 0,
-      scoreB: 0,
-    });
-  }
-  rounds.push(r1);
-
-  // R2-R5: empty, filled as we go
-  for (let r = 1; r < 5; r++) {
-    const count = 16 / Math.pow(2, r);
-    const matches: DemoMatch[] = [];
-    for (let i = 0; i < count; i++) {
-      matches.push({
-        id: `r${r}-s${i}`,
-        roundIndex: r,
-        roundName: ROUND_NAMES[r],
-        slotIndex: i,
-        teamA: null,
-        teamB: null,
-        winner: null,
-        status: "scheduled",
-        scoreA: 0,
-        scoreB: 0,
-      });
-    }
-    rounds.push(matches);
-  }
-
-  return rounds;
-}
-
-// ============================================================
-// COMPONENT
-// ============================================================
+type Phase = "intro" | "teams" | "seeding" | "bracket" | "match_intro" | "sorteo" | "comodines" | "resultado" | "campeon";
 
 export default function DemoClient() {
-  const [phase, setPhase] = useState<DemoPhase>("intro");
+  const [phase, setPhase] = useState<Phase>("intro");
   const [teams] = useState<DemoTeam[]>(() => generateTeams());
-  const [bracket, setBracket] = useState<DemoMatch[][]>([]);
-  const [currentRound, setCurrentRound] = useState(0);
-  const [currentMatchIdx, setCurrentMatchIdx] = useState(0);
-  const [champion, setChampion] = useState<DemoTeam | null>(null);
-  const [sorteo, setSorteo] = useState<any>(null);
+  const [sorteoStep, setSorteoStep] = useState(0); // 0=modo, 1=antimeta, 2=formato, 3=mapa, 4=civs, 5=llave, 6=done
+  const [sorteoData, setSorteoData] = useState<any>(null);
   const [comodinEvent, setComodinEvent] = useState<string | null>(null);
-  const [showRoulette, setShowRoulette] = useState(false);
-  const [matchCounter, setMatchCounter] = useState(0);
-  const [completedMatches, setCompletedMatches] = useState(0);
+  const [winner, setWinner] = useState<DemoTeam | null>(null);
 
-  // Iniciar bracket
-  const startTournament = useCallback(() => {
-    const b = generateBracket(teams);
-    setBracket(b);
-    setCurrentRound(0);
-    setCurrentMatchIdx(0);
-    setMatchCounter(0);
-    setCompletedMatches(0);
-    setPhase("seeding");
-  }, [teams]);
+  // Sorteo paso a paso
+  const startSorteo = () => {
+    const teamA = teams[0];
+    const teamB = teams[1];
+    const gameMode = randomFrom(GAME_MODES);
+    const antimeta = gameMode.name === "ANTIMETA" ? randomFrom(ANTIMETAS) : null;
+    const playerMode = randomFrom(PLAYER_MODES);
+    const map = randomFrom(MAPS);
+    const llaveFormat = randomFrom(LLAVE_FORMATS);
 
-  // Avanzar al siguiente match
-  const goToNextMatch = useCallback(() => {
-    const round = bracket[currentRound];
-    if (!round) return;
+    let civCount = 1;
+    if (playerMode.name === "2 VS 2") civCount = 2;
+    else if (playerMode.name === "3 VS 3") civCount = 3;
 
-    const nextIdx = currentMatchIdx + 1;
-    if (nextIdx < round.length) {
-      setCurrentMatchIdx(nextIdx);
-      setPhase("match_intro");
+    setSorteoData({
+      teamA, teamB, gameMode, antimeta, playerMode, map, llaveFormat,
+      civsA: randomCivs(civCount, teamA.civPool),
+      civsB: randomCivs(civCount, teamB.civPool),
+    });
+    setSorteoStep(0);
+    setPhase("sorteo");
+  };
+
+  // Avanzar paso del sorteo
+  const nextSorteoStep = () => {
+    if (sorteoStep < 6) {
+      setSorteoStep(s => s + 1);
     } else {
-      // Ronda completa
-      if (currentRound < 4) {
-        setPhase("round_complete");
-      } else {
-        // Torneo terminado
-        const finalMatch = bracket[4][0];
-        if (finalMatch?.winner) {
-          setChampion(finalMatch.winner);
-          setPhase("champion");
-        }
-      }
+      setPhase("comodines");
     }
-  }, [bracket, currentRound, currentMatchIdx]);
+  };
 
-  // Avanzar a la siguiente ronda
-  const advanceToNextRound = useCallback(() => {
-    const nextRound = currentRound + 1;
-    if (nextRound < 5) {
-      setCurrentRound(nextRound);
-      setCurrentMatchIdx(0);
-      setPhase("match_intro");
-    }
-  }, [currentRound]);
-
-  // Iniciar sorteo del match actual
-  const startRoulette = useCallback(() => {
-    const match = bracket[currentRound]?.[currentMatchIdx];
-    if (!match?.teamA || !match?.teamB) return;
-
-    const s = generateSorteo(match.teamA, match.teamB);
-    setSorteo(s);
-    setShowRoulette(true);
-    setPhase("match_roulette");
-  }, [bracket, currentRound, currentMatchIdx]);
-
-  // Cuando la ruleta termina
-  const onRouletteResult = useCallback(() => {
-    setShowRoulette(false);
-    setPhase("match_sorteo_result");
-  }, []);
-
-  // Simular uso de comodín (aleatorio, ~30% chance)
-  const simulateComodines = useCallback(() => {
-    const match = bracket[currentRound]?.[currentMatchIdx];
-    if (!match?.teamA || !match?.teamB) return;
-
-    const useComodin = Math.random() < 0.35;
+  // Simular comodín
+  const simulateComodin = () => {
+    const useComodin = Math.random() < 0.5;
     if (useComodin) {
-      const comodinTypes = [
-        { type: "Re-girar", desc: "re-sortea el mapa", effect: () => {
-          if (sorteo) {
-            const newMap = randomFrom(MAPS.filter(m => m !== sorteo.map));
-            setSorteo({ ...sorteo, map: newMap });
-          }
-        }},
-        { type: "Anular jugador", desc: `obliga a ${match.teamB.name} a sacar a un jugador`, effect: () => {} },
-        { type: "Elegir rival", desc: `${match.teamA.name} elige quién juega del rival`, effect: () => {} },
+      const types = [
+        `${sorteoData.teamA.name} usa RE-GIRAR — el mapa cambia a ${randomFrom(MAPS.filter(m => m.name !== sorteoData.map.name)).name}`,
+        `${sorteoData.teamB.name} usa ANULAR JUGADOR — obliga al rival a sacar a un jugador`,
+        `${sorteoData.teamA.name} usa ELEGIR RIVAL — elige quién juega del rival`,
       ];
-      const chosen = randomFrom(comodinTypes);
-      const team = Math.random() < 0.5 ? match.teamA.name : match.teamB.name;
-      setComodinEvent(`${team} usa: ${chosen.type} — ${chosen.desc}`);
-      chosen.effect();
+      setComodinEvent(randomFrom(types));
     } else {
       setComodinEvent(null);
     }
-    setPhase("match_comodines");
-  }, [bracket, currentRound, currentMatchIdx, sorteo]);
+    setPhase("resultado");
+  };
 
-  // Simular resultado del match
-  const simulateResult = useCallback(() => {
-    const match = bracket[currentRound]?.[currentMatchIdx];
-    if (!match?.teamA || !match?.teamB) return;
-
-    // Resultado aleatorio (con leve ventaja para ELO más alto)
-    const eloDiff = match.teamA.elo - match.teamB.elo;
-    const advantageA = Math.max(0, Math.min(0.3, eloDiff / 3000));
-    const teamAWins = Math.random() < (0.5 + advantageA);
-
-    const winner = teamAWins ? match.teamA : match.teamB;
-    const loser = teamAWins ? match.teamB : match.teamA;
-
-    // Score según formato
-    let scoreA: number, scoreB: number;
-    if (sorteo?.llaveFormat === "BO3") {
-      // BO3: 2-0 o 2-1
-      const sweep = Math.random() < 0.4;
-      if (teamAWins) {
-        scoreA = 2;
-        scoreB = sweep ? 0 : 1;
-      } else {
-        scoreA = sweep ? 0 : 1;
-        scoreB = 2;
-      }
-    } else {
-      // Deathmatch: 1-0
-      scoreA = teamAWins ? 1 : 0;
-      scoreB = teamAWins ? 0 : 1;
-    }
-
-    // Actualizar bracket
-    setBracket(prev => {
-      const updated = [...prev];
-      const m = { ...updated[currentRound][currentMatchIdx] };
-      m.winner = winner;
-      m.status = "finished";
-      m.scoreA = scoreA;
-      m.scoreB = scoreB;
-      m.sorteo = sorteo;
-      updated[currentRound][currentMatchIdx] = m;
-
-      // Avanzar ganador al próximo round
-      if (currentRound < 4) {
-        const nextSlot = Math.floor(currentMatchIdx / 2);
-        const nextMatch = { ...updated[currentRound + 1][nextSlot] };
-        if (currentMatchIdx % 2 === 0) {
-          nextMatch.teamA = winner;
-        } else {
-          nextMatch.teamB = winner;
-        }
-        updated[currentRound + 1][nextSlot] = nextMatch;
-      }
-
-      return updated;
-    });
-
-    setCompletedMatches(prev => prev + 1);
-    setPhase("match_result");
-  }, [bracket, currentRound, currentMatchIdx, sorteo]);
-
-  // Match actual
-  const currentMatch = bracket[currentRound]?.[currentMatchIdx];
+  // Determinar ganador
+  const finishMatch = () => {
+    const teamAWins = Math.random() < 0.5;
+    const w = teamAWins ? sorteoData.teamA : sorteoData.teamB;
+    setWinner(w);
+    setPhase("campeon");
+  };
 
   // ============================================================
   // RENDER
   // ============================================================
 
   return (
-    <ConfigProvider>
-      <div style={{
-        minHeight: "100vh",
-        background: "#070310",
-        backgroundImage: `
-          radial-gradient(900px 520px at 12% 8%, rgba(88, 28, 175, .16), transparent 60%),
-          radial-gradient(800px 500px at 88% 85%, rgba(124, 58, 237, .10), transparent 60%),
-          radial-gradient(1400px 900px at 50% 50%, rgba(20, 8, 40, .5), transparent 75%)
-        `,
-        color: "#f2eef7",
-        fontFamily: "Inter, system-ui, sans-serif",
-        overflow: "hidden",
-      }}>
-        {/* ============================================================ */}
-        {/* INTRO */}
-        {/* ============================================================ */}
-        {phase === "intro" && (
-          <IntroScreen onStart={startTournament} />
-        )}
-
-        {/* ============================================================ */}
-        {/* SEEDING — Sorteo inicial del bracket */}
-        {/* ============================================================ */}
-        {phase === "seeding" && (
-          <SeedingScreen teams={teams} onDone={() => setPhase("bracket_ready")} />
-        )}
-
-        {/* ============================================================ */}
-        {/* BRACKET READY — muestra bracket completo antes de empezar */}
-        {/* ============================================================ */}
-        {phase === "bracket_ready" && (
-          <BracketReadyScreen
-            bracket={bracket}
-            currentRound={currentRound}
-            onStart={() => setPhase("match_intro")}
-          />
-        )}
-
-        {/* ============================================================ */}
-        {/* MATCH INTRO — presenta el match que viene */}
-        {/* ============================================================ */}
-        {phase === "match_intro" && currentMatch && (
-          <MatchIntroScreen
-            match={currentMatch}
-            matchNumber={completedMatches + 1}
-            totalMatches={31}
-            onContinue={startRoulette}
-          />
-        )}
-
-        {/* ============================================================ */}
-        {/* MATCH ROULETTE — la ruleta gira */}
-        {/* ============================================================ */}
-        {phase === "match_roulette" && showRoulette && currentMatch && (
-          <RouletteScreen
-            match={currentMatch}
-            onResult={onRouletteResult}
-          />
-        )}
-
-        {/* ============================================================ */}
-        {/* MATCH SORTEO RESULT — muestra qué salió */}
-        {/* ============================================================ */}
-        {phase === "match_sorteo_result" && currentMatch && sorteo && (
-          <SorteoResultScreen
-            match={currentMatch}
-            sorteo={sorteo}
-            onContinue={simulateComodines}
-          />
-        )}
-
-        {/* ============================================================ */}
-        {/* MATCH COMODINES — ventana de comodines */}
-        {/* ============================================================ */}
-        {phase === "match_comodines" && currentMatch && sorteo && (
-          <ComodinScreen
-            match={currentMatch}
-            sorteo={sorteo}
-            comodinEvent={comodinEvent}
-            onContinue={simulateResult}
-          />
-        )}
-
-        {/* ============================================================ */}
-        {/* MATCH RESULT — resultado final del match */}
-        {/* ============================================================ */}
-        {phase === "match_result" && currentMatch && sorteo && (
-          <MatchResultScreen
-            match={currentMatch}
-            sorteo={sorteo}
-            onContinue={goToNextMatch}
-          />
-        )}
-
-        {/* ============================================================ */}
-        {/* ROUND COMPLETE — ronda terminada */}
-        {/* ============================================================ */}
-        {phase === "round_complete" && (
-          <RoundCompleteScreen
-            round={currentRound}
-            bracket={bracket}
-            onContinue={advanceToNextRound}
-          />
-        )}
-
-        {/* ============================================================ */}
-        {/* CHAMPION — campeón del torneo */}
-        {/* ============================================================ */}
-        {phase === "champion" && champion && (
-          <ChampionScreen champion={champion} onRestart={() => {
-            setPhase("intro");
-            setBracket([]);
-            setChampion(null);
-          }} />
-        )}
-
-        {/* Progress bar fijo arriba */}
-        {phase !== "intro" && phase !== "seeding" && (
-          <DemoProgressBar
-            phase={phase}
-            currentRound={currentRound}
-            currentMatchIdx={currentMatchIdx}
-            completedMatches={completedMatches}
-            bracket={bracket}
-          />
-        )}
-      </div>
-    </ConfigProvider>
-  );
-}
-
-// ============================================================
-// SUB-COMPONENTS
-// ============================================================
-
-function IntroScreen({ onStart }: { onStart: () => void }) {
-  return (
     <div style={{
       minHeight: "100vh",
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "40px",
-      textAlign: "center",
+      background: "#070310",
+      backgroundImage: `
+        radial-gradient(900px 520px at 12% 8%, rgba(88, 28, 175, .16), transparent 60%),
+        radial-gradient(800px 500px at 88% 85%, rgba(124, 58, 237, .10), transparent 60%)
+      `,
+      color: "#f2eef7",
+      fontFamily: "Inter, system-ui, sans-serif",
+      overflowX: "hidden",
     }}>
-      <img src="/landing/logo.png" alt="VÉRTIGO Cup" style={{ width: "120px", marginBottom: "32px" }} />
-      <span style={{
-        fontSize: "12px",
-        fontWeight: 700,
-        letterSpacing: "3px",
-        color: "#7c3aed",
-        textTransform: "uppercase",
-        marginBottom: "16px",
-      }}>
-        Demo Interactiva
-      </span>
-      <h1 style={{
-        fontFamily: "Cinzel, serif",
-        fontSize: "48px",
-        fontWeight: 700,
-        letterSpacing: "2px",
-        textTransform: "uppercase",
-        marginBottom: "16px",
-        textShadow: "0 0 30px rgba(124, 58, 237, 0.4)",
-      }}>
-        VÉRTIGO Cup
-      </h1>
-      <div style={{ display: "flex", alignItems: "center", gap: "10px", margin: "16px 0 24px" }}>
-        <span style={{ flex: 1, height: 1, background: "linear-gradient(90deg, transparent, #3a2f4a)" }} />
-        <span style={{ width: 7, height: 7, border: "1px solid #a78bfa", transform: "rotate(45deg)" }} />
-        <span style={{ flex: 1, height: 1, background: "linear-gradient(90deg, #3a2f4a, transparent)" }} />
-      </div>
-      <p style={{
-        fontSize: "16px",
-        color: "#9a92a6",
-        maxWidth: "560px",
-        lineHeight: 1.7,
-        marginBottom: "32px",
-      }}>
-        Recorré el torneo completo de punta a punta: 32 equipos, 31 partidas, 5 rondas.
-        Sorteo inicial, ruleta en cada match, comodines, resultados y coronación del campeón.
-        Así se vería en el stream.
-      </p>
-      <button
-        onClick={onStart}
-        style={{
-          padding: "18px 40px",
-          background: "linear-gradient(180deg, #6d28d9, #5b21b6)",
-          color: "#fff",
-          border: "none",
-          borderRadius: "10px",
-          fontSize: "14px",
-          fontWeight: 700,
-          letterSpacing: "2px",
-          textTransform: "uppercase",
-          cursor: "pointer",
-          boxShadow: "0 8px 32px rgba(109, 40, 217, 0.4)",
-          transition: "all 0.3s cubic-bezier(.22,1,.36,1)",
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.transform = "translateY(-2px)";
-          e.currentTarget.style.boxShadow = "0 12px 40px rgba(109, 40, 217, 0.6)";
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = "none";
-          e.currentTarget.style.boxShadow = "0 8px 32px rgba(109, 40, 217, 0.4)";
-        }}
-      >
-        Iniciar Demo →
-      </button>
-      <Link href="/" style={{
-        marginTop: "20px",
-        fontSize: "12px",
-        color: "#6b6378",
-        textDecoration: "none",
-      }}>
-        ← Volver al inicio
-      </Link>
+      {/* INTRO */}
+      {phase === "intro" && (
+        <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px", textAlign: "center" }}>
+          <img src="/landing/logo.png" alt="VÉRTIGO" style={{ width: "100px", marginBottom: "24px" }} />
+          <span style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "3px", color: "#7c3aed", textTransform: "uppercase", marginBottom: "12px" }}>DEMO INTERACTIVA</span>
+          <h1 style={{ fontFamily: "Cinzel, serif", fontSize: "42px", fontWeight: 700, letterSpacing: "2px", textTransform: "uppercase", marginBottom: "12px", textShadow: "0 0 30px rgba(124,58,237,.4)" }}>VÉRTIGO Cup</h1>
+          <Divider />
+          <p style={{ fontSize: "15px", color: "#9a92a6", maxWidth: "500px", lineHeight: 1.7, marginBottom: "28px" }}>
+            Así se vería el torneo en stream: 32 equipos, sorteo con ruleta, comodines, bracket y campeón.
+          </p>
+          <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "center" }}>
+            <button onClick={() => setPhase("teams")} style={btnPrimary}>Ver Demo →</button>
+            <Link href="/ruleta/demo" style={btnGhost}>Ver Ruleta Real</Link>
+          </div>
+          <Link href="/" style={{ marginTop: "20px", fontSize: "12px", color: "#6b6378", textDecoration: "none" }}>← Volver</Link>
+        </div>
+      )}
+
+      {/* EQUIPOS */}
+      {phase === "teams" && (
+        <div style={{ minHeight: "100vh", padding: "40px" }}>
+          <Kicker label="EQUIPOS" />
+          <Title>32 Equipos inscriptos</Title>
+          <Divider />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "12px", maxWidth: "900px", margin: "0 auto" }}>
+            {teams.map((t, i) => (
+              <div key={t.id} style={{
+                padding: "14px",
+                background: "rgba(13,9,19,.6)",
+                border: "1px solid #1a1424",
+                borderRadius: "10px",
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                animation: `fadeUp .4s cubic-bezier(.22,1,.36,1) both`,
+                animationDelay: `${i * 0.03}s`,
+              }}>
+                <img src={t.emblemUrl} alt="" style={{ width: "36px", height: "36px", objectFit: "contain", flex: "none" }} />
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: "12px", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.name}</div>
+                  <div style={{ fontSize: "10px", color: "#6b6378" }}>ELO {t.elo}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{ textAlign: "center", marginTop: "32px" }}>
+            <button onClick={() => setPhase("seeding")} style={btnPrimary}>Sortear Bracket →</button>
+          </div>
+        </div>
+      )}
+
+      {/* SEEDING */}
+      {phase === "seeding" && (
+        <SeedingAnimation teams={teams} onDone={() => setPhase("bracket")} />
+      )}
+
+      {/* BRACKET */}
+      {phase === "bracket" && (
+        <div style={{ minHeight: "100vh", padding: "40px" }}>
+          <Kicker label="BRACKET" />
+          <Title>Bracket generado</Title>
+          <Divider />
+          <BracketView teams={teams} />
+          <div style={{ textAlign: "center", marginTop: "32px" }}>
+            <button onClick={() => setPhase("match_intro")} style={btnPrimary}>Ver primer match →</button>
+          </div>
+        </div>
+      )}
+
+      {/* MATCH INTRO */}
+      {phase === "match_intro" && (
+        <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px" }}>
+          <Kicker label="RONDA 1 · MATCH 1" />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: "40px", alignItems: "center", maxWidth: "700px", width: "100%" }}>
+            <TeamBig team={teams[0]} side="left" />
+            <div style={{ fontFamily: "Cinzel, serif", fontSize: "48px", fontWeight: 700, color: "#7c3aed", textShadow: "0 0 20px rgba(124,58,237,.4)" }}>VS</div>
+            <TeamBig team={teams[1]} side="right" />
+          </div>
+          <button onClick={startSorteo} style={{ ...btnPrimary, marginTop: "48px", fontSize: "14px" }}>🎰 Tirar Ruleta</button>
+        </div>
+      )}
+
+      {/* SORTEO — paso a paso, replicando la estética de la ruleta */}
+      {phase === "sorteo" && sorteoData && (
+        <SorteoStepByStep
+          data={sorteoData}
+          step={sorteoStep}
+          onNext={nextSorteoStep}
+        />
+      )}
+
+      {/* COMODINES */}
+      {phase === "comodines" && sorteoData && (
+        <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px" }}>
+          <Kicker label="⚡ VENTANA DE COMODINES" />
+          <Title>T-05:00 restantes</Title>
+          <Divider />
+          <div style={{ padding: "24px", background: "rgba(251,191,36,.08)", border: "1px solid rgba(251,191,36,.3)", borderRadius: "12px", maxWidth: "460px", textAlign: "center", marginBottom: "32px" }}>
+            <div style={{ fontSize: "32px", marginBottom: "8px" }}>🎴</div>
+            <div style={{ fontSize: "14px", color: "#fbbf24", fontWeight: 600 }}>
+              Los capitanes pueden usar comodines:<br />Re-girar, Anular jugador, Elegir rival
+            </div>
+          </div>
+          <button onClick={simulateComodin} style={btnPrimary}>Simular comodines →</button>
+        </div>
+      )}
+
+      {/* RESULTADO */}
+      {phase === "resultado" && sorteoData && (
+        <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px" }}>
+          <Kicker label="PARTIDA FINALIZADA" />
+          {comodinEvent && (
+            <div style={{ padding: "12px 20px", background: "rgba(251,191,36,.08)", border: "1px solid rgba(251,191,36,.3)", borderRadius: "10px", marginBottom: "20px", fontSize: "13px", color: "#fbbf24" }}>
+              🎴 {comodinEvent}
+            </div>
+          )}
+          {/* Scoreboard */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: "32px", alignItems: "center", maxWidth: "700px", width: "100%" }}>
+            <div style={{ textAlign: "center" }}>
+              <img src={sorteoData.teamA.emblemUrl} alt="" style={{ width: "64px", height: "64px", objectFit: "contain", marginBottom: "8px" }} />
+              <div style={{ fontFamily: "Cinzel, serif", fontSize: "16px", fontWeight: 700 }}>{sorteoData.teamA.name}</div>
+            </div>
+            <div style={{ fontFamily: "Cinzel, serif", fontSize: "48px", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+              {sorteoData.llaveFormat.name === "BO3" ? "2-1" : "1-0"}
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <img src={sorteoData.teamB.emblemUrl} alt="" style={{ width: "64px", height: "64px", objectFit: "contain", marginBottom: "8px" }} />
+              <div style={{ fontFamily: "Cinzel, serif", fontSize: "16px", fontWeight: 700 }}>{sorteoData.teamB.name}</div>
+            </div>
+          </div>
+          <button onClick={finishMatch} style={{ ...btnPrimary, marginTop: "40px" }}>Ver Campeón →</button>
+        </div>
+      )}
+
+      {/* CAMPEÓN */}
+      {phase === "campeon" && winner && (
+        <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px", position: "relative" }}>
+          <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "500px", height: "500px", background: "radial-gradient(circle, rgba(251,191,36,.12), transparent 70%)", pointerEvents: "none" }} />
+          <span style={{ fontSize: "12px", fontWeight: 700, letterSpacing: "4px", color: "#fbbf24", textTransform: "uppercase", marginBottom: "16px", zIndex: 1 }}>🏆 CAMPEÓN 🏆</span>
+          <img src={winner.emblemUrl} alt="" style={{ width: "100px", height: "100px", objectFit: "contain", marginBottom: "16px", filter: "drop-shadow(0 0 25px rgba(251,191,36,.4))", zIndex: 1 }} />
+          <h1 style={{ fontFamily: "Cinzel, serif", fontSize: "36px", fontWeight: 700, letterSpacing: "2px", textTransform: "uppercase", marginBottom: "8px", textShadow: "0 0 25px rgba(251,191,36,.3)", zIndex: 1 }}>{winner.name}</h1>
+          <div style={{ fontSize: "13px", color: "#a78bfa", fontStyle: "italic", marginBottom: "20px", zIndex: 1 }}>"{winner.tagline}"</div>
+          <div style={{ display: "flex", gap: "10px", marginBottom: "28px", zIndex: 1 }}>
+            {winner.players.map(p => (
+              <span key={p.name} style={{ padding: "6px 14px", background: "rgba(124,58,237,.08)", border: "1px solid rgba(124,58,237,.2)", borderRadius: "999px", fontSize: "12px", color: "#c4b5fd" }}>
+                {p.isCaptain && "★ "}{p.name}
+              </span>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: "12px", zIndex: 1 }}>
+            <button onClick={() => { setPhase("intro"); setWinner(null); }} style={btnPrimary}>↻ Nueva Demo</button>
+            <Link href="/ruleta/demo" style={btnGhost}>Ver Ruleta</Link>
+            <Link href="/" style={btnGhost}>Inicio</Link>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function SeedingScreen({ teams, onDone }: { teams: DemoTeam[]; onDone: () => void }) {
+// ============================================================
+// SUB-COMPONENTES
+// ============================================================
+
+const btnPrimary: React.CSSProperties = {
+  padding: "16px 36px",
+  background: "linear-gradient(180deg, #6d28d9, #5b21b6)",
+  color: "#fff",
+  border: "none",
+  borderRadius: "10px",
+  fontSize: "13px",
+  fontWeight: 700,
+  letterSpacing: "2px",
+  textTransform: "uppercase",
+  cursor: "pointer",
+  boxShadow: "0 6px 26px rgba(109,40,217,.35)",
+  textDecoration: "none",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "8px",
+};
+
+const btnGhost: React.CSSProperties = {
+  padding: "16px 28px",
+  background: "transparent",
+  color: "#b7b0c2",
+  border: "1px solid #322a3e",
+  borderRadius: "10px",
+  fontSize: "13px",
+  fontWeight: 700,
+  letterSpacing: "2px",
+  textTransform: "uppercase",
+  cursor: "pointer",
+  textDecoration: "none",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "8px",
+};
+
+function Kicker({ label }: { label: string }) {
+  return <span style={{ display: "block", fontSize: "11px", fontWeight: 700, letterSpacing: "3px", color: "#7c3aed", textTransform: "uppercase", marginBottom: "8px", textAlign: "center" }}>{label}</span>;
+}
+
+function Title({ children }: { children: React.ReactNode }) {
+  return <h1 style={{ fontFamily: "Cinzel, serif", fontSize: "28px", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", textAlign: "center", marginBottom: "8px" }}>{children}</h1>;
+}
+
+function Divider() {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", margin: "12px 0 24px" }}>
+      <span style={{ width: 100, height: 1, background: "linear-gradient(90deg, transparent, #3a2f4a)" }} />
+      <span style={{ width: 7, height: 7, border: "1px solid #a78bfa", transform: "rotate(45deg)" }} />
+      <span style={{ width: 100, height: 1, background: "linear-gradient(90deg, #3a2f4a, transparent)" }} />
+    </div>
+  );
+}
+
+function TeamBig({ team, side }: { team: DemoTeam; side: "left" | "right" }) {
+  return (
+    <div style={{ textAlign: side === "left" ? "right" : "left" }}>
+      <img src={team.emblemUrl} alt="" style={{ width: "80px", height: "80px", objectFit: "contain", marginBottom: "12px", marginLeft: side === "right" ? "auto" : "0", marginRight: side === "left" ? "auto" : "0", display: "block", filter: "drop-shadow(0 4px 12px rgba(124,58,237,.2))" }} />
+      <div style={{ fontSize: "11px", color: "#a78bfa", fontWeight: 700 }}>ELO {team.elo}</div>
+      <h2 style={{ fontFamily: "Cinzel, serif", fontSize: "20px", fontWeight: 700, marginTop: "4px" }}>{team.name}</h2>
+      <div style={{ fontSize: "12px", color: "#6b6378", fontStyle: "italic" }}>"{team.tagline}"</div>
+      <div style={{ fontSize: "11px", color: "#9a92a6", marginTop: "8px" }}>{team.players.map(p => p.name).join(" · ")}</div>
+    </div>
+  );
+}
+
+// ============================================================
+// SEEDING ANIMATION
+// ============================================================
+
+function SeedingAnimation({ teams, onDone }: { teams: DemoTeam[]; onDone: () => void }) {
   const [revealed, setRevealed] = useState(0);
   const [done, setDone] = useState(false);
 
   useEffect(() => {
     if (revealed >= 32) {
       setDone(true);
-      setTimeout(onDone, 2000);
-      return;
+      const t = setTimeout(onDone, 1500);
+      return () => clearTimeout(t);
     }
-    const timer = setTimeout(() => setRevealed(r => r + 1), 80);
-    return () => clearTimeout(timer);
+    const t = setTimeout(() => setRevealed(r => r + 1), 60);
+    return () => clearTimeout(t);
   }, [revealed, onDone]);
 
   return (
     <div style={{ minHeight: "100vh", padding: "40px", display: "flex", flexDirection: "column", alignItems: "center" }}>
-      <span style={{ fontSize: "12px", fontWeight: 700, letterSpacing: "3px", color: "#7c3aed", textTransform: "uppercase", marginBottom: "12px" }}>
-        SORTEO INICIAL
-      </span>
-      <h1 style={{ fontFamily: "Cinzel, serif", fontSize: "32px", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", marginBottom: "8px" }}>
-        Asignando seeds...
-      </h1>
-      <div style={{ display: "flex", alignItems: "center", gap: "10px", margin: "12px 0 32px" }}>
-        <span style={{ flex: 1, height: 1, background: "linear-gradient(90deg, transparent, #3a2f4a)", maxWidth: "200px" }} />
-        <span style={{ width: 7, height: 7, border: "1px solid #a78bfa", transform: "rotate(45deg)" }} />
-        <span style={{ flex: 1, height: 1, background: "linear-gradient(90deg, #3a2f4a, transparent)", maxWidth: "200px" }} />
-      </div>
-
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
-        gap: "12px",
-        maxWidth: "900px",
-        width: "100%",
-      }}>
-        {teams.map((team, i) => {
+      <Kicker label="SORTEO INICIAL" />
+      <Title>Asignando seeds...</Title>
+      <Divider />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: "10px", maxWidth: "850px", width: "100%" }}>
+        {teams.map((t, i) => {
           const isRevealed = i < revealed;
           return (
-            <div key={team.id} style={{
-              padding: "14px",
-              background: isRevealed ? "rgba(124, 58, 237, 0.08)" : "rgba(13, 9, 19, 0.4)",
-              border: `1px solid ${isRevealed ? "rgba(124, 58, 237, 0.3)" : "#1a1424"}`,
+            <div key={t.id} style={{
+              padding: "12px",
+              background: isRevealed ? "rgba(124,58,237,.08)" : "rgba(13,9,19,.4)",
+              border: `1px solid ${isRevealed ? "rgba(124,58,237,.3)" : "#1a1424"}`,
               borderRadius: "10px",
               display: "flex",
               alignItems: "center",
               gap: "10px",
               opacity: isRevealed ? 1 : 0.3,
-              transition: "all 0.3s cubic-bezier(.22,1,.36,1)",
+              transition: "all .3s",
             }}>
               {isRevealed ? (
                 <>
-                  <img src={team.emblemUrl} alt="" style={{ width: "32px", height: "32px", objectFit: "contain", flex: "none" }} />
+                  <img src={t.emblemUrl} alt="" style={{ width: "30px", height: "30px", objectFit: "contain" }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: "10px", color: "#a78bfa", fontWeight: 700 }}>SEED #{i + 1}</div>
-                    <div style={{ fontSize: "12px", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{team.name}</div>
+                    <div style={{ fontSize: "12px", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.name}</div>
                   </div>
                 </>
               ) : (
@@ -691,819 +504,212 @@ function SeedingScreen({ teams, onDone }: { teams: DemoTeam[]; onDone: () => voi
           );
         })}
       </div>
-
-      {done && (
-        <div style={{ marginTop: "32px", fontSize: "14px", color: "#22c55e", fontWeight: 700, letterSpacing: "1px" }}>
-          ✓ SEEDS ASIGNADOS — Generando bracket...
-        </div>
-      )}
+      {done && <div style={{ marginTop: "24px", color: "#22c55e", fontWeight: 700 }}>✓ Seeds asignados</div>}
     </div>
   );
 }
 
-function BracketReadyScreen({ bracket, currentRound, onStart }: { bracket: DemoMatch[][]; currentRound: number; onStart: () => void }) {
+// ============================================================
+// BRACKET VIEW (solo R1 visible)
+// ============================================================
+
+function BracketView({ teams }: { teams: DemoTeam[] }) {
+  // Mostrar R1 con los primeros 32 teams en orden de seed
+  const r1 = Array.from({ length: 16 }, (_, i) => ({
+    teamA: teams[i * 2],
+    teamB: teams[i * 2 + 1],
+  }));
+
   return (
-    <div style={{ minHeight: "100vh", padding: "40px", display: "flex", flexDirection: "column", alignItems: "center" }}>
-      <span style={{ fontSize: "12px", fontWeight: 700, letterSpacing: "3px", color: "#7c3aed", textTransform: "uppercase", marginBottom: "12px" }}>
-        BRACKET GENERADO
-      </span>
-      <h1 style={{ fontFamily: "Cinzel, serif", fontSize: "32px", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", marginBottom: "8px" }}>
-        32 Equipos · 31 Partidas
-      </h1>
-      <div style={{ display: "flex", alignItems: "center", gap: "10px", margin: "12px 0 32px" }}>
-        <span style={{ flex: 1, height: 1, background: "linear-gradient(90deg, transparent, #3a2f4a)", maxWidth: "200px" }} />
-        <span style={{ width: 7, height: 7, border: "1px solid #a78bfa", transform: "rotate(45deg)" }} />
-        <span style={{ flex: 1, height: 1, background: "linear-gradient(90deg, #3a2f4a, transparent)", maxWidth: "200px" }} />
+    <div style={{ overflowX: "auto", paddingBottom: "16px" }}>
+      <div style={{ display: "flex", gap: "20px", minWidth: "max-content", justifyContent: "center" }}>
+        {/* R1 */}
+        <div style={{ minWidth: "200px" }}>
+          <div style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "1.5px", textTransform: "uppercase", color: "#a78bfa", marginBottom: "10px", borderBottom: "1px solid #241d2f", paddingBottom: "6px" }}>Ronda 1</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            {r1.map((m, i) => (
+              <div key={i} style={{ padding: "8px 10px", background: "rgba(13,9,19,.6)", border: "1px solid #1a1424", borderRadius: "8px", fontSize: "11px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <img src={m.teamA.emblemUrl} alt="" style={{ width: "16px", height: "16px", objectFit: "contain" }} />
+                  <span style={{ color: "#9a92a6", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{m.teamA.name}</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px" }}>
+                  <img src={m.teamB.emblemUrl} alt="" style={{ width: "16px", height: "16px", objectFit: "contain" }} />
+                  <span style={{ color: "#9a92a6", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{m.teamB.name}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* R2-R5 vacíos */}
+        {[1, 2, 3, 4].map(r => (
+          <div key={r} style={{ minWidth: "180px" }}>
+            <div style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "1.5px", textTransform: "uppercase", color: "#6b6378", marginBottom: "10px", borderBottom: "1px solid #1a1424", paddingBottom: "6px" }}>{ROUND_NAMES[r]}</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              {Array.from({ length: 16 / Math.pow(2, r) }).map((_, i) => (
+                <div key={i} style={{ padding: "8px 10px", background: "rgba(13,9,19,.3)", border: "1px solid #1a1424", borderRadius: "8px", fontSize: "11px", color: "#3a3049", textAlign: "center" }}>
+                  Por definir
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// SORTEO PASO A PASO — replica la estética de la ruleta
+// ============================================================
+
+function SorteoStepByStep({ data, step, onNext }: { data: any; step: number; onNext: () => void }) {
+  const steps = [
+    { label: "MODO DE JUEGO", item: data.gameMode, show: true },
+    { label: "ANTIMETA", item: data.antimeta, show: data.antimeta != null },
+    { label: "FORMATO", item: data.playerMode, show: true },
+    { label: "MAPA", item: data.map, show: true },
+    { label: "CIVILIZACIONES", item: { civsA: data.civsA, civsB: data.civsB }, show: true, isCivs: true },
+    { label: "FORMATO DE LLAVE", item: data.llaveFormat, show: true },
+  ];
+
+  // Filtrar pasos que no aplican (antimeta solo si gameMode es ANTIMETA)
+  const visibleSteps = steps.filter(s => s.show);
+  const currentStepData = visibleSteps[step];
+
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px" }}>
+      {/* Header del match */}
+      <div style={{
+        position: "fixed", top: 0, left: 0, right: 0, zIndex: 50,
+        padding: "12px 24px", background: "rgba(7,3,16,.85)", backdropFilter: "blur(12px)",
+        borderBottom: "1px solid #1a1424",
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <img src={data.teamA.emblemUrl} alt="" style={{ width: "24px", height: "24px", objectFit: "contain" }} />
+          <span style={{ fontSize: "13px", fontWeight: 600 }}>{data.teamA.name}</span>
+        </div>
+        <span style={{ fontSize: "12px", fontWeight: 700, letterSpacing: "2px", color: "#fbbf24", textTransform: "uppercase", animation: "pulse 1.5s infinite" }}>
+          🎰 SORTEANDO...
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <span style={{ fontSize: "13px", fontWeight: 600 }}>{data.teamB.name}</span>
+          <img src={data.teamB.emblemUrl} alt="" style={{ width: "24px", height: "24px", objectFit: "contain" }} />
+        </div>
       </div>
 
-      {/* Bracket visual compacto */}
-      <div style={{ overflowX: "auto", maxWidth: "100%", paddingBottom: "16px" }}>
-        <div style={{ display: "flex", gap: "16px", minWidth: "max-content" }}>
-          {bracket.map((round, ri) => (
-            <div key={ri} style={{ minWidth: "180px" }}>
-              <div style={{
-                fontSize: "10px",
-                fontWeight: 700,
-                letterSpacing: "1.5px",
-                textTransform: "uppercase",
-                color: "#a78bfa",
-                marginBottom: "10px",
-                paddingBottom: "6px",
-                borderBottom: "1px solid #241d2f",
-              }}>
-                {ROUND_NAMES[ri]}
+      {/* Paso actual */}
+      {currentStepData && !currentStepData.isCivs && currentStepData.item && (
+        <div style={{ textAlign: "center", animation: "fadeUp .5s cubic-bezier(.22,1,.36,1) both" }}>
+          <div style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "3px", color: "#7c3aed", textTransform: "uppercase", marginBottom: "20px" }}>
+            {currentStepData.label}
+          </div>
+          <img
+            src={currentStepData.item.img}
+            alt={currentStepData.item.name}
+            style={{
+              width: "200px", height: "200px", objectFit: "contain", marginBottom: "20px",
+              filter: `drop-shadow(0 8px 30px ${currentStepData.item.color}44)`,
+              animation: "cardLand .6s cubic-bezier(.22,1,.36,1) both",
+            }}
+          />
+          <h2 style={{
+            fontFamily: "Cinzel, serif", fontSize: "32px", fontWeight: 700,
+            letterSpacing: "2px", textTransform: "uppercase",
+            color: currentStepData.item.color,
+            textShadow: `0 0 20px ${currentStepData.item.color}44`,
+          }}>
+            {currentStepData.item.name}
+          </h2>
+        </div>
+      )}
+
+      {/* Civs */}
+      {currentStepData?.isCivs && (
+        <div style={{ textAlign: "center", animation: "fadeUp .5s cubic-bezier(.22,1,.36,1) both" }}>
+          <div style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "3px", color: "#7c3aed", textTransform: "uppercase", marginBottom: "20px" }}>CIVILIZACIONES</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px", maxWidth: "600px" }}>
+            <div>
+              <div style={{ fontSize: "12px", color: "#9a92a6", marginBottom: "10px" }}>{data.teamA.name}</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                {data.civsA.map((c: string, i: number) => (
+                  <div key={c} style={{
+                    display: "flex", alignItems: "center", gap: "8px",
+                    padding: "8px 12px", background: "rgba(124,58,237,.08)",
+                    border: "1px solid rgba(124,58,237,.2)", borderRadius: "8px",
+                    animation: `fadeUp .4s cubic-bezier(.22,1,.36,1) both`,
+                    animationDelay: `${i * 0.1}s`,
+                  }}>
+                    <img src={`/civs/${c}.webp`} alt="" style={{ width: "28px", height: "28px", objectFit: "contain" }} />
+                    <span style={{ fontSize: "13px", fontWeight: 600 }}>{civName(c)}</span>
+                  </div>
+                ))}
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                {round.map((match) => {
-                  const hasTeams = match.teamA && match.teamB;
-                  const isFinished = match.status === "finished";
-                  return (
-                    <div key={match.id} style={{
-                      padding: "8px 10px",
-                      background: isFinished ? "rgba(34, 197, 94, 0.05)" : "rgba(13, 9, 19, 0.6)",
-                      border: `1px solid ${isFinished ? "rgba(34, 197, 94, 0.2)" : "#1a1424"}`,
-                      borderRadius: "8px",
-                      opacity: hasTeams ? 1 : 0.4,
-                      fontSize: "11px",
-                    }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{
-                          color: match.winner === match.teamA ? "#22c55e" : "#9a92a6",
-                          fontWeight: match.winner === match.teamA ? 700 : 400,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                          flex: 1,
-                        }}>
-                          {match.teamA ? match.teamA.name : "—"}
-                        </span>
-                        {isFinished && <span style={{ color: match.winner === match.teamA ? "#22c55e" : "#6b6378", fontFamily: "monospace" }}>{match.scoreA}</span>}
-                      </div>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "2px" }}>
-                        <span style={{
-                          color: match.winner === match.teamB ? "#22c55e" : "#9a92a6",
-                          fontWeight: match.winner === match.teamB ? 700 : 400,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                          flex: 1,
-                        }}>
-                          {match.teamB ? match.teamB.name : "—"}
-                        </span>
-                        {isFinished && <span style={{ color: match.winner === match.teamB ? "#22c55e" : "#6b6378", fontFamily: "monospace" }}>{match.scoreB}</span>}
-                      </div>
-                    </div>
-                  );
-                })}
+            </div>
+            <div>
+              <div style={{ fontSize: "12px", color: "#9a92a6", marginBottom: "10px" }}>{data.teamB.name}</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                {data.civsB.map((c: string, i: number) => (
+                  <div key={c} style={{
+                    display: "flex", alignItems: "center", gap: "8px",
+                    padding: "8px 12px", background: "rgba(124,58,237,.08)",
+                    border: "1px solid rgba(124,58,237,.2)", borderRadius: "8px",
+                    animation: `fadeUp .4s cubic-bezier(.22,1,.36,1) both`,
+                    animationDelay: `${i * 0.1}s`,
+                  }}>
+                    <img src={`/civs/${c}.webp`} alt="" style={{ width: "28px", height: "28px", objectFit: "contain" }} />
+                    <span style={{ fontSize: "13px", fontWeight: 600 }}>{civName(c)}</span>
+                  </div>
+                ))}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Resultados anteriores (mini) */}
+      {step > 0 && (
+        <div style={{
+          display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center",
+          marginTop: "32px", maxWidth: "600px",
+        }}>
+          {visibleSteps.slice(0, step).map((s, i) => (
+            <div key={i} style={{
+              padding: "6px 12px", background: "rgba(13,9,19,.6)",
+              border: "1px solid #1a1424", borderRadius: "8px",
+              fontSize: "11px", display: "flex", alignItems: "center", gap: "6px",
+            }}>
+              <span style={{ color: "#6b6378" }}>{s.label}:</span>
+              <span style={{ color: s.item?.color ?? "#9a92a6", fontWeight: 600 }}>
+                {s.isCivs ? `${s.item.civsA.length} civs` : s.item?.name}
+              </span>
             </div>
           ))}
         </div>
-      </div>
-
-      <button
-        onClick={onStart}
-        style={{
-          marginTop: "32px",
-          padding: "16px 36px",
-          background: "linear-gradient(180deg, #6d28d9, #5b21b6)",
-          color: "#fff",
-          border: "none",
-          borderRadius: "10px",
-          fontSize: "13px",
-          fontWeight: 700,
-          letterSpacing: "2px",
-          textTransform: "uppercase",
-          cursor: "pointer",
-          boxShadow: "0 6px 26px rgba(109, 40, 217, 0.35)",
-        }}
-      >
-        Comenzar Ronda 1 →
-      </button>
-    </div>
-  );
-}
-
-function MatchIntroScreen({ match, matchNumber, totalMatches, onContinue }: { match: DemoMatch; matchNumber: number; totalMatches: number; onContinue: () => void }) {
-  return (
-    <div style={{
-      minHeight: "100vh",
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "40px",
-    }}>
-      <span style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "3px", color: "#7c3aed", textTransform: "uppercase", marginBottom: "8px" }}>
-        {match.roundName} · Match {matchNumber} de {totalMatches}
-      </span>
-
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "1fr auto 1fr",
-        gap: "40px",
-        alignItems: "center",
-        marginTop: "32px",
-        maxWidth: "800px",
-        width: "100%",
-      }}>
-        {/* Team A */}
-        <TeamPresentation team={match.teamA} side="left" />
-
-        {/* VS */}
-        <div style={{ textAlign: "center" }}>
-          <div style={{
-            fontFamily: "Cinzel, serif",
-            fontSize: "48px",
-            fontWeight: 700,
-            color: "#7c3aed",
-            textShadow: "0 0 20px rgba(124, 58, 237, 0.4)",
-          }}>
-            VS
-          </div>
-        </div>
-
-        {/* Team B */}
-        <TeamPresentation team={match.teamB} side="right" />
-      </div>
-
-      <button
-        onClick={onContinue}
-        style={{
-          marginTop: "48px",
-          padding: "16px 36px",
-          background: "linear-gradient(180deg, #6d28d9, #5b21b6)",
-          color: "#fff",
-          border: "none",
-          borderRadius: "10px",
-          fontSize: "13px",
-          fontWeight: 700,
-          letterSpacing: "2px",
-          textTransform: "uppercase",
-          cursor: "pointer",
-          boxShadow: "0 6px 26px rgba(109, 40, 217, 0.35)",
-        }}
-      >
-        🎰 Tirar Ruleta
-      </button>
-    </div>
-  );
-}
-
-function TeamPresentation({ team, side }: { team: DemoTeam | null; side: "left" | "right" }) {
-  if (!team) {
-    return <div style={{ textAlign: side === "left" ? "right" : "left", opacity: 0.3 }}>
-      <div style={{ fontSize: "14px", color: "#6b6378" }}>Por definir</div>
-    </div>;
-  }
-  return (
-    <div style={{ textAlign: side === "left" ? "right" : "left" }}>
-      <img
-        src={team.emblemUrl}
-        alt={team.name}
-        style={{
-          width: "80px",
-          height: "80px",
-          objectFit: "contain",
-          marginBottom: "12px",
-          marginLeft: side === "right" ? "auto" : "0",
-          marginRight: side === "left" ? "auto" : "0",
-          display: "block",
-          filter: "drop-shadow(0 4px 12px rgba(124, 58, 237, 0.2))",
-        }}
-      />
-      <div style={{ fontSize: "11px", color: "#a78bfa", fontWeight: 700, letterSpacing: "1px" }}>ELO {team.elo}</div>
-      <h2 style={{
-        fontFamily: "Cinzel, serif",
-        fontSize: "20px",
-        fontWeight: 700,
-        marginTop: "4px",
-        marginBottom: "4px",
-      }}>
-        {team.name}
-      </h2>
-      <div style={{ fontSize: "12px", color: "#6b6378", fontStyle: "italic" }}>"{team.tagline}"</div>
-      <div style={{ fontSize: "11px", color: "#9a92a6", marginTop: "8px" }}>
-        {team.players.map(p => p.name).join(" · ")}
-      </div>
-    </div>
-  );
-}
-
-function RouletteScreen({ match, onResult }: { match: DemoMatch; onResult: () => void }) {
-  // La ruleta real del componente Roulette
-  // En modo demo (sin props), funciona con random puro
-  // Después de que termina (phase="final"), llamamos onResult
-
-  return (
-    <div style={{ minHeight: "100vh", position: "relative" }}>
-      {/* Header del match */}
-      <div style={{
-        position: "absolute",
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 60,
-        padding: "16px 32px",
-        background: "rgba(7, 3, 16, 0.85)",
-        backdropFilter: "blur(12px)",
-        borderBottom: "1px solid #1a1424",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <img src={match.teamA?.emblemUrl} alt="" style={{ width: "28px", height: "28px", objectFit: "contain" }} />
-          <span style={{ fontSize: "14px", fontWeight: 600 }}>{match.teamA?.name}</span>
-        </div>
-        <span style={{
-          fontSize: "12px",
-          fontWeight: 700,
-          letterSpacing: "2px",
-          color: "#fbbf24",
-          textTransform: "uppercase",
-          animation: "pulse 1.5s ease-in-out infinite",
-        }}>
-          🎰 SORTEANDO...
-        </span>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <span style={{ fontSize: "14px", fontWeight: 600 }}>{match.teamB?.name}</span>
-          <img src={match.teamB?.emblemUrl} alt="" style={{ width: "28px", height: "28px", objectFit: "contain" }} />
-        </div>
-      </div>
-
-      {/* La ruleta real */}
-      <Roulette onResult={async () => {
-        // Esperar 2 segundos para que el usuario vea los resultados en la ruleta
-        setTimeout(onResult, 3000);
-      }} />
-
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
-        }
-      `}</style>
-    </div>
-  );
-}
-
-function SorteoResultScreen({ match, sorteo, onContinue }: { match: DemoMatch; sorteo: any; onContinue: () => void }) {
-  const items = [
-    { label: "Modo de Juego", value: sorteo.gameMode, icon: "⚔️" },
-    ...(sorteo.antimeta ? [{ label: "Antimeta", value: sorteo.antimeta, icon: "🌀" }] : []),
-    { label: "Formato", value: sorteo.playerMode, icon: "👥" },
-    { label: "Mapa", value: sorteo.map, icon: "🗺️" },
-    { label: "Llave", value: sorteo.llaveFormat, icon: "🔑" },
-  ];
-
-  return (
-    <div style={{
-      minHeight: "100vh",
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "40px",
-    }}>
-      <span style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "3px", color: "#7c3aed", textTransform: "uppercase", marginBottom: "8px" }}>
-        RESULTADO DEL SORTEO
-      </span>
-      <h1 style={{ fontFamily: "Cinzel, serif", fontSize: "28px", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", marginBottom: "24px" }}>
-        {match.teamA?.name} vs {match.teamB?.name}
-      </h1>
-
-      {/* Grid de resultados */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-        gap: "12px",
-        maxWidth: "700px",
-        width: "100%",
-        marginBottom: "24px",
-      }}>
-        {items.map((item, i) => (
-          <div key={i} style={{
-            padding: "16px",
-            background: "rgba(124, 58, 237, 0.06)",
-            border: "1px solid rgba(124, 58, 237, 0.2)",
-            borderRadius: "10px",
-            textAlign: "center",
-            animation: `fadeUp 0.4s cubic-bezier(.22,1,.36,1) both`,
-            animationDelay: `${i * 0.1}s`,
-          }}>
-            <div style={{ fontSize: "20px", marginBottom: "6px" }}>{item.icon}</div>
-            <div style={{ fontSize: "10px", color: "#6b6378", letterSpacing: "1px", textTransform: "uppercase", marginBottom: "4px" }}>{item.label}</div>
-            <div style={{ fontSize: "14px", fontWeight: 700, color: "#c4b5fd" }}>{item.value}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Civs */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px", maxWidth: "700px", width: "100%", marginBottom: "32px" }}>
-        <div>
-          <div style={{ fontSize: "11px", color: "#9a92a6", marginBottom: "8px" }}>Civs {match.teamA?.name}</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-            {sorteo.civsA.map((c: string) => (
-              <span key={c} style={{
-                padding: "6px 12px",
-                background: "rgba(13, 9, 19, 0.8)",
-                border: "1px solid #2a2334",
-                borderRadius: "999px",
-                fontSize: "12px",
-                color: "#f2eef7",
-              }}>
-                {civName(c)}
-              </span>
-            ))}
-          </div>
-        </div>
-        <div>
-          <div style={{ fontSize: "11px", color: "#9a92a6", marginBottom: "8px" }}>Civs {match.teamB?.name}</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-            {sorteo.civsB.map((c: string) => (
-              <span key={c} style={{
-                padding: "6px 12px",
-                background: "rgba(13, 9, 19, 0.8)",
-                border: "1px solid #2a2334",
-                borderRadius: "999px",
-                fontSize: "12px",
-                color: "#f2eef7",
-              }}>
-                {civName(c)}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <button
-        onClick={onContinue}
-        style={{
-          padding: "14px 32px",
-          background: "linear-gradient(180deg, #6d28d9, #5b21b6)",
-          color: "#fff",
-          border: "none",
-          borderRadius: "10px",
-          fontSize: "13px",
-          fontWeight: 700,
-          letterSpacing: "2px",
-          textTransform: "uppercase",
-          cursor: "pointer",
-          boxShadow: "0 6px 26px rgba(109, 40, 217, 0.35)",
-        }}
-      >
-        Ventana de Comodines →
-      </button>
-
-      <style>{`@keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }`}</style>
-    </div>
-  );
-}
-
-function ComodinScreen({ match, sorteo, comodinEvent, onContinue }: { match: DemoMatch; sorteo: any; comodinEvent: string | null; onContinue: () => void }) {
-  return (
-    <div style={{
-      minHeight: "100vh",
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "40px",
-    }}>
-      <span style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "3px", color: "#fbbf24", textTransform: "uppercase", marginBottom: "8px" }}>
-        ⚡ VENTANA DE COMODINES
-      </span>
-      <h1 style={{ fontFamily: "Cinzel, serif", fontSize: "28px", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", marginBottom: "24px" }}>
-        T-05:00 restantes
-      </h1>
-
-      {/* Comodín usado o "sin comodines" */}
-      {comodinEvent ? (
-        <div style={{
-          padding: "24px",
-          background: "rgba(251, 191, 36, 0.08)",
-          border: "1px solid rgba(251, 191, 36, 0.3)",
-          borderRadius: "12px",
-          maxWidth: "500px",
-          textAlign: "center",
-          marginBottom: "32px",
-          animation: "fadeUp 0.4s cubic-bezier(.22,1,.36,1) both",
-        }}>
-          <div style={{ fontSize: "32px", marginBottom: "12px" }}>🎴</div>
-          <div style={{ fontSize: "15px", color: "#fbbf24", fontWeight: 700, lineHeight: 1.5 }}>
-            {comodinEvent}
-          </div>
-          {sorteo.map && (
-            <div style={{ marginTop: "12px", fontSize: "12px", color: "#9a92a6" }}>
-              {sorteo.playerMode} · {sorteo.map} · {sorteo.llaveFormat}
-            </div>
-          )}
-        </div>
-      ) : (
-        <div style={{
-          padding: "24px",
-          background: "rgba(13, 9, 19, 0.6)",
-          border: "1px solid #241d2f",
-          borderRadius: "12px",
-          maxWidth: "500px",
-          textAlign: "center",
-          marginBottom: "32px",
-        }}>
-          <div style={{ fontSize: "14px", color: "#9a92a6" }}>
-            Ningún equipo usó comodines en esta ventana.
-          </div>
-        </div>
       )}
 
-      <button
-        onClick={onContinue}
-        style={{
-          padding: "14px 32px",
-          background: "linear-gradient(180deg, #6d28d9, #5b21b6)",
-          color: "#fff",
-          border: "none",
-          borderRadius: "10px",
-          fontSize: "13px",
-          fontWeight: 700,
-          letterSpacing: "2px",
-          textTransform: "uppercase",
-          cursor: "pointer",
-          boxShadow: "0 6px 26px rgba(109, 40, 217, 0.35)",
-        }}
-      >
-        Iniciar Partida →
+      {/* Botón continuar */}
+      <button onClick={onNext} style={{ ...btnPrimary, marginTop: "32px" }}>
+        {step < visibleSteps.length - 1 ? "Siguiente →" : "Continuar →"}
       </button>
 
-      <style>{`@keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }`}</style>
-    </div>
-  );
-}
-
-function MatchResultScreen({ match, sorteo, onContinue }: { match: DemoMatch; sorteo: any; onContinue: () => void }) {
-  const winner = match.winner;
-  const loser = match.winner === match.teamA ? match.teamB : match.teamA;
-
-  return (
-    <div style={{
-      minHeight: "100vh",
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "40px",
-    }}>
-      <span style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "3px", color: "#22c55e", textTransform: "uppercase", marginBottom: "8px" }}>
-        PARTIDA FINALIZADA
-      </span>
-
-      {/* Scoreboard grande */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "1fr auto 1fr",
-        gap: "32px",
-        alignItems: "center",
-        marginTop: "24px",
-        maxWidth: "800px",
-        width: "100%",
-      }}>
-        {/* Team A */}
-        <div style={{ textAlign: "center", opacity: winner === match.teamA ? 1 : 0.4 }}>
-          <img src={match.teamA?.emblemUrl} alt="" style={{ width: "72px", height: "72px", objectFit: "contain", marginBottom: "8px", filter: winner === match.teamA ? "drop-shadow(0 4px 16px rgba(34, 197, 94, 0.3))" : "grayscale(0.5)" }} />
-          <div style={{ fontFamily: "Cinzel, serif", fontSize: "18px", fontWeight: 700, color: winner === match.teamA ? "#22c55e" : "#6b6378" }}>
-            {match.teamA?.name}
-          </div>
-        </div>
-
-        {/* Score */}
-        <div style={{ textAlign: "center" }}>
-          <div style={{
-            fontFamily: "Cinzel, serif",
-            fontSize: "64px",
-            fontWeight: 700,
-            color: "#f2eef7",
-            fontVariantNumeric: "tabular-nums",
-          }}>
-            {match.scoreA}<span style={{ color: "#6b6378", margin: "0 8px" }}>-</span>{match.scoreB}
-          </div>
-          <div style={{ fontSize: "12px", color: "#9a92a6", marginTop: "8px" }}>
-            {sorteo.llaveFormat} · {sorteo.map}
-          </div>
-        </div>
-
-        {/* Team B */}
-        <div style={{ textAlign: "center", opacity: winner === match.teamB ? 1 : 0.4 }}>
-          <img src={match.teamB?.emblemUrl} alt="" style={{ width: "72px", height: "72px", objectFit: "contain", marginBottom: "8px", filter: winner === match.teamB ? "drop-shadow(0 4px 16px rgba(34, 197, 94, 0.3))" : "grayscale(0.5)" }} />
-          <div style={{ fontFamily: "Cinzel, serif", fontSize: "18px", fontWeight: 700, color: winner === match.teamB ? "#22c55e" : "#6b6378" }}>
-            {match.teamB?.name}
-          </div>
-        </div>
-      </div>
-
-      {/* Ganador destacado */}
-      <div style={{
-        marginTop: "32px",
-        padding: "16px 32px",
-        background: "rgba(34, 197, 94, 0.08)",
-        border: "1px solid rgba(34, 197, 94, 0.3)",
-        borderRadius: "12px",
-        display: "flex",
-        alignItems: "center",
-        gap: "12px",
-      }}>
-        <span style={{ fontSize: "24px" }}>🏆</span>
-        <span style={{ fontFamily: "Cinzel, serif", fontSize: "18px", fontWeight: 700, color: "#22c55e" }}>
-          {winner?.name} avanza a la siguiente ronda
-        </span>
-      </div>
-
-      <button
-        onClick={onContinue}
-        style={{
-          marginTop: "32px",
-          padding: "14px 32px",
-          background: "linear-gradient(180deg, #6d28d9, #5b21b6)",
-          color: "#fff",
-          border: "none",
-          borderRadius: "10px",
-          fontSize: "13px",
-          fontWeight: 700,
-          letterSpacing: "2px",
-          textTransform: "uppercase",
-          cursor: "pointer",
-          boxShadow: "0 6px 26px rgba(109, 40, 217, 0.35)",
-        }}
-      >
-        Continuar →
-      </button>
-    </div>
-  );
-}
-
-function RoundCompleteScreen({ round, bracket, onContinue }: { round: number; bracket: DemoMatch[][]; onContinue: () => void }) {
-  const completedRound = bracket[round];
-  const nextRoundName = ROUND_NAMES[round + 1];
-
-  return (
-    <div style={{
-      minHeight: "100vh",
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "40px",
-    }}>
-      <span style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "3px", color: "#22c55e", textTransform: "uppercase", marginBottom: "8px" }}>
-        RONDA COMPLETADA
-      </span>
-      <h1 style={{ fontFamily: "Cinzel, serif", fontSize: "32px", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", marginBottom: "24px" }}>
-        {ROUND_NAMES[round]} ✓
-      </h1>
-
-      {/* Ganadores de la ronda */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-        gap: "10px",
-        maxWidth: "700px",
-        width: "100%",
-        marginBottom: "32px",
-      }}>
-        {completedRound.map((match, i) => (
+      {/* Progress dots */}
+      <div style={{ display: "flex", gap: "6px", marginTop: "20px" }}>
+        {visibleSteps.map((_, i) => (
           <div key={i} style={{
-            padding: "12px",
-            background: "rgba(34, 197, 94, 0.05)",
-            border: "1px solid rgba(34, 197, 94, 0.15)",
-            borderRadius: "10px",
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-          }}>
-            <img src={match.winner?.emblemUrl} alt="" style={{ width: "28px", height: "28px", objectFit: "contain" }} />
-            <span style={{ fontSize: "13px", fontWeight: 600, color: "#22c55e" }}>
-              {match.winner?.name}
-            </span>
-          </div>
+            width: 8, height: 8, borderRadius: "50%",
+            background: i <= step ? "#7c3aed" : "#241d2f",
+            transition: "all .3s",
+          }} />
         ))}
       </div>
-
-      <div style={{ fontSize: "14px", color: "#a78bfa", marginBottom: "24px" }}>
-        {completedRound.length} equipos avanzan a <strong>{nextRoundName}</strong>
-      </div>
-
-      <button
-        onClick={onContinue}
-        style={{
-          padding: "16px 36px",
-          background: "linear-gradient(180deg, #6d28d9, #5b21b6)",
-          color: "#fff",
-          border: "none",
-          borderRadius: "10px",
-          fontSize: "13px",
-          fontWeight: 700,
-          letterSpacing: "2px",
-          textTransform: "uppercase",
-          cursor: "pointer",
-          boxShadow: "0 6px 26px rgba(109, 40, 217, 0.35)",
-        }}
-      >
-        Comenzar {nextRoundName} →
-      </button>
-    </div>
-  );
-}
-
-function ChampionScreen({ champion, onRestart }: { champion: DemoTeam; onRestart: () => void }) {
-  return (
-    <div style={{
-      minHeight: "100vh",
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "40px",
-      position: "relative",
-    }}>
-      {/* Glow de fondo */}
-      <div style={{
-        position: "absolute",
-        top: "50%",
-        left: "50%",
-        transform: "translate(-50%, -50%)",
-        width: "600px",
-        height: "600px",
-        background: "radial-gradient(circle, rgba(124, 58, 237, 0.15), transparent 70%)",
-        pointerEvents: "none",
-      }} />
-
-      <span style={{
-        fontSize: "12px",
-        fontWeight: 700,
-        letterSpacing: "4px",
-        color: "#fbbf24",
-        textTransform: "uppercase",
-        marginBottom: "16px",
-        zIndex: 1,
-      }}>
-        🏆 CAMPEÓN DEL TORNEO 🏆
-      </span>
-
-      <img
-        src={champion.emblemUrl}
-        alt={champion.name}
-        style={{
-          width: "120px",
-          height: "120px",
-          objectFit: "contain",
-          marginBottom: "20px",
-          filter: "drop-shadow(0 0 30px rgba(251, 191, 36, 0.4))",
-          zIndex: 1,
-          animation: "championIn 0.8s cubic-bezier(.22,1,.36,1) both",
-        }}
-      />
-
-      <h1 style={{
-        fontFamily: "Cinzel, serif",
-        fontSize: "42px",
-        fontWeight: 700,
-        letterSpacing: "2px",
-        textTransform: "uppercase",
-        marginBottom: "8px",
-        textShadow: "0 0 30px rgba(251, 191, 36, 0.3)",
-        zIndex: 1,
-        animation: "championIn 0.8s 0.2s cubic-bezier(.22,1,.36,1) both",
-      }}>
-        {champion.name}
-      </h1>
-
-      <div style={{ fontSize: "14px", color: "#a78bfa", fontStyle: "italic", marginBottom: "24px", zIndex: 1 }}>
-        "{champion.tagline}"
-      </div>
-
-      <div style={{
-        display: "flex",
-        gap: "20px",
-        marginBottom: "32px",
-        zIndex: 1,
-      }}>
-        {champion.players.map(p => (
-          <div key={p.name} style={{
-            padding: "8px 16px",
-            background: "rgba(124, 58, 237, 0.08)",
-            border: "1px solid rgba(124, 58, 237, 0.2)",
-            borderRadius: "999px",
-            fontSize: "12px",
-            color: "#c4b5fd",
-          }}>
-            {p.isCaptain && "★ "}{p.name}
-          </div>
-        ))}
-      </div>
-
-      <div style={{ fontSize: "13px", color: "#9a92a6", marginBottom: "24px", zIndex: 1 }}>
-        ELO: {champion.elo} · 31 partidas jugadas · 5 rondas superadas
-      </div>
-
-      <button
-        onClick={onRestart}
-        style={{
-          padding: "14px 32px",
-          background: "linear-gradient(180deg, #6d28d9, #5b21b6)",
-          color: "#fff",
-          border: "none",
-          borderRadius: "10px",
-          fontSize: "13px",
-          fontWeight: 700,
-          letterSpacing: "2px",
-          textTransform: "uppercase",
-          cursor: "pointer",
-          boxShadow: "0 6px 26px rgba(109, 40, 217, 0.35)",
-          zIndex: 1,
-        }}
-      >
-        ↻ Nueva Demo
-      </button>
-
-      <Link href="/" style={{
-        marginTop: "16px",
-        fontSize: "12px",
-        color: "#6b6378",
-        textDecoration: "none",
-        zIndex: 1,
-      }}>
-        ← Volver al inicio
-      </Link>
 
       <style>{`
-        @keyframes championIn {
-          from { opacity: 0; transform: scale(0.8) translateY(20px); }
-          to { opacity: 1; transform: none; }
-        }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: none; } }
+        @keyframes cardLand { 0% { opacity: 0; transform: scale(.8) translateY(-20px); } 60% { transform: scale(1.05) translateY(0); } 100% { opacity: 1; transform: scale(1); } }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .5; } }
       `}</style>
-    </div>
-  );
-}
-
-function DemoProgressBar({ phase, currentRound, currentMatchIdx, completedMatches, bracket }: any) {
-  const roundMatches = bracket[currentRound] ?? [];
-  const totalInRound = roundMatches.length;
-  const completedInRound = roundMatches.filter((m: DemoMatch) => m.status === "finished").length;
-
-  return (
-    <div style={{
-      position: "fixed",
-      bottom: 0,
-      left: 0,
-      right: 0,
-      zIndex: 100,
-      background: "rgba(7, 3, 16, 0.92)",
-      backdropFilter: "blur(12px)",
-      borderTop: "1px solid #1a1424",
-      padding: "10px 24px",
-      display: "flex",
-      alignItems: "center",
-      gap: "16px",
-      fontSize: "11px",
-    }}>
-      <span style={{ color: "#7c3aed", fontWeight: 700, letterSpacing: "1px" }}>
-        VÉRTIGO DEMO
-      </span>
-      <span style={{ color: "#6b6378" }}>·</span>
-      <span style={{ color: "#9a92a6" }}>
-        {ROUND_NAMES[currentRound] ?? "—"}
-      </span>
-      <span style={{ color: "#6b6378" }}>·</span>
-      <span style={{ color: "#9a92a6" }}>
-        Match {completedInRound}/{totalInRound}
-      </span>
-      <span style={{ color: "#6b6378" }}>·</span>
-      <span style={{ color: "#9a92a6" }}>
-        Total: {completedMatches}/31
-      </span>
-      <div style={{ flex: 1 }} />
-      <span style={{ color: "#a78bfa", fontWeight: 600, textTransform: "uppercase", letterSpacing: "1px" }}>
-        {phase.replace(/_/g, " ")}
-      </span>
     </div>
   );
 }
