@@ -2,12 +2,39 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type Mode, hexToRgba } from "@/lib/ruleta/modes";
 import { useConfig, type ConfigMode, type ConfigMap } from "@/lib/ruleta/config";
+import { spinStep } from "@/server/actions/draw";
+import type { DrawResult } from "@/server/actions/draw";
 
 const MIN_RING = 8;
 
 type Phase = "spinning-game-mode" | "spinning-antimeta-mode" | "spinning-player-mode-direct" | "spinning-player-mode-after-antimeta" | "spinning-map-mode" | "spinning-llave-mode" | "final";
 interface ResolvedStep { key: string; mode: ConfigMode; layer: "h"|"v"; accent: string; stepNumber: number; label: string; modesList: ConfigMode[]; }
 interface ResolvedMap { key: string; map: ConfigMap; stepNumber: number; }
+
+// ============================================================
+// PROPS OPCIONALES — Integración con backend commit-reveal
+// ============================================================
+//
+// Si NO se pasan props → modo DEMO (random puro, como hoy).
+// Si se pasan → modo DETERMINISTA (commit-reveal con HMAC-SHA256).
+// La animación visual, sonidos, UI son IDÉNTICOS en ambos modos.
+
+export interface RouletteProps {
+  /** Si está presente, la ruleta usa índices deterministas del backend. */
+  serverSeedHash?: string;
+  /** Client seed público (ej. matchId). Default: derivado de drawId. */
+  clientSeed?: string;
+  /** ID del sorteo en DB (de commitDraw). Requerido para modo determinista. */
+  drawId?: string;
+  /** Tipo de sorteo. Default: "match". */
+  spinType?: "match" | "seeding" | "regirar";
+  /** IDs a excluir del sorteo (para re-girar, no repetir resultados). */
+  excludedIds?: Set<string>;
+  /** Si true, habilita botón "Spin" real (modo admin). Default: false. */
+  isAdmin?: boolean;
+  /** Callback al terminar todas las etapas con los resultados. */
+  onResult?: (steps: ResolvedStep[], mapStep: ResolvedMap | null) => Promise<void> | void;
+}
 
 /**
  * Ruleta VÉRTIGO — porte del repo WEBSITE-VERTIGO original.
@@ -16,8 +43,9 @@ interface ResolvedMap { key: string; map: ConfigMap; stepNumber: number; }
  * - Scope: en vez de document.body.classList.toggle, usa un wrapper con className propio
  * - Imports: usa @/lib/ruleta/* en vez de @/lib/*
  * - No afecta al resto del sitio (CSS scoping en ruleta.css)
+ * - Props opcionales para integración con backend commit-reveal (Fase 1)
  */
-export function Roulette() {
+export function Roulette(props: RouletteProps = {}) {
   const { config } = useConfig();
   const GAME_MODES = config.gameModes, ANTIMETA_MODES = config.antimetaModes, PLAYER_MODES = config.playerModes, MAP_MODES = config.mapModes, LLAVE_MODES = config.llaveModes, firstRound = config.firstRound;
   const soundsEnabled = config.sounds.enabled, soundsVolume = config.sounds.volume;
@@ -49,6 +77,39 @@ export function Roulette() {
   const [mapSpinning, setMapSpinning] = useState(false);
   const mapElsRef = useRef<HTMLDivElement[]>([]);
   const mapStateRef = useRef({ pos: 0, anim: 0, spinning: false });
+
+  // ─── Integración backend commit-reveal (Fase 1) ───
+  // Si props.drawId y props.serverSeedHash están presentes, modo determinista.
+  // Si no, modo demo (random puro, como antes).
+  const isDeterministic = !!(props.drawId && props.serverSeedHash);
+  const stepCounterRef = useRef(0); // para saber qué stepIndex pasarle al backend
+
+  /**
+   * Devuelve el índice target para una etapa del sorteo.
+   * - Modo demo: random puro (como antes).
+   * - Modo determinista: llama al server action spinStep que computa HMAC-SHA256.
+   *
+   * N es la cantidad de items en la etapa (puede ser MIN_RING si se aplicó padding).
+   * El backend espera el N real (sin padding) para que el índice sea consistente.
+   * Por eso pasamos ringModes.length (que ya tiene padding) pero el backend hace %N.
+   */
+  const getTargetIndex = useCallback(async (N: number, label: string): Promise<number> => {
+    if (isDeterministic && props.drawId) {
+      const stepIndex = stepCounterRef.current;
+      stepCounterRef.current += 1;
+      try {
+        const result = await spinStep(props.drawId, stepIndex, N, label);
+        if (result.ok) {
+          return result.data.targetIndex;
+        }
+        // Fallback: si falla el backend, usamos random para no bloquear la demo
+        console.warn("[Roulette] spinStep falló, usando random:", result.error);
+      } catch (e) {
+        console.warn("[Roulette] spinStep throw, usando random:", e);
+      }
+    }
+    return Math.floor(Math.random() * N);
+  }, [isDeterministic, props.drawId]);
 
   const antimetaStep = resolved.find(r => r.label === "ANTIMETA");
   const MAPS_ACTIVE = antimetaStep?.mode.mapPool && antimetaStep.mode.mapPool !== "global" && antimetaStep.mode.mapPool.length ? antimetaStep.mode.mapPool : MAP_MODES;
@@ -255,16 +316,25 @@ export function Roulette() {
     window.clearTimeout(s.current.entryTimer);
     s.current.spinningH=true;
     setSpinning(true);
-    const N=ringModes.length,start=s.current.hPos,cm=((start%N)+N)%N,ti=Math.floor(Math.random()*N);
-    let d=ti-cm;
-    while(d<=0) d+=N;
-    const L=6+Math.floor(Math.random()*4);
-    animateH(start+L*N+d,7000+Math.random()*1500,()=>{
-      s.current.spinningH=false;
-      setSpinning(false);
-      landedH();
+    const N=ringModes.length,start=s.current.hPos,cm=((start%N)+N)%N;
+    // Determinar label de la etapa para auditoría
+    const lbl = phaseRef.current === "spinning-game-mode" ? "MODO"
+      : phaseRef.current === "spinning-player-mode-after-antimeta" ? "FORMATO"
+      : phaseRef.current === "spinning-map-mode" ? "MAPA"
+      : phaseRef.current === "spinning-llave-mode" ? "LLAVE"
+      : "MODO";
+    // getTargetIndex es async (llama al backend en modo determinista, o random en demo)
+    void getTargetIndex(N, lbl).then(ti => {
+      let d=ti-cm;
+      while(d<=0) d+=N;
+      const L=6+Math.floor(Math.random()*4);
+      animateH(start+L*N+d,7000+Math.random()*1500,()=>{
+        s.current.spinningH=false;
+        setSpinning(false);
+        landedH();
+      });
     });
-  },[s,ringModes,activeModes,animateH]);
+  },[s,ringModes,activeModes,animateH,getTargetIndex]);
 
   const landedH = useCallback(()=>{
     const i=activeH(),mode=ringModes[i] as ConfigMode;
@@ -304,16 +374,24 @@ export function Roulette() {
     if(s.current.spinningV||s.current.spinningH) return;
     s.current.spinningV=true;
     setSpinning(true);
-    const N=ringModes.length,start=s.current.vPos,cm=((start%N)+N)%N,ti=Math.floor(Math.random()*N);
-    let d=ti-cm;
-    while(d<=0) d+=N;
-    const L=6+Math.floor(Math.random()*4);
-    animateV(start+L*N+d,7000+Math.random()*1500,()=>{
-      s.current.spinningV=false;
-      setSpinning(false);
-      landedV();
+    const N=ringModes.length,start=s.current.vPos,cm=((start%N)+N)%N;
+    // Determinar label de la etapa para auditoría
+    const lbl = phaseRef.current === "spinning-antimeta-mode" ? "ANTIMETA"
+      : phaseRef.current === "spinning-player-mode-direct" ? "FORMATO"
+      : phaseRef.current === "spinning-map-mode" ? "MAPA"
+      : phaseRef.current === "spinning-llave-mode" ? "LLAVE"
+      : "FORMATO";
+    void getTargetIndex(N, lbl).then(ti => {
+      let d=ti-cm;
+      while(d<=0) d+=N;
+      const L=6+Math.floor(Math.random()*4);
+      animateV(start+L*N+d,7000+Math.random()*1500,()=>{
+        s.current.spinningV=false;
+        setSpinning(false);
+        landedV();
+      });
     });
-  },[s,ringModes,activeModes,animateV]);
+  },[s,ringModes,activeModes,animateV,getTargetIndex]);
 
   const landedV = useCallback(()=>{
     const i=activeV(),mode=ringModes[i] as ConfigMode;
@@ -537,12 +615,21 @@ export function Roulette() {
     return()=>window.removeEventListener("keydown",onKey);
   },[s,activeModes,isVLayer,animateH,animateV,handleSpinClick]);
 
+  // ─── Notificar al backend cuando termina el sorteo (modo determinista) ───
+  useEffect(() => {
+    if (phase === "final" && isDeterministic && props.onResult) {
+      // Llamar async, sin await para no bloquear el render
+      void props.onResult(resolved, resolvedMap);
+    }
+  }, [phase, isDeterministic, props.onResult, resolved, resolvedMap]);
+
   const handleReset = useCallback(()=>{
     setResolved([]);
     setResolvedMap(null);
     setPhase("spinning-game-mode");
     setShowResults(false);
     setDownloadReady(false);
+    stepCounterRef.current = 0; // reset contador de steps para nuevo sorteo
     s.current.hPos=initialGameModeIndex>=0&&initialGameModeIndex<GAME_MODES.length?initialGameModeIndex:Math.floor(GAME_MODES.length/2);
     s.current.vPos=0;
     s.current.vFade=0;
