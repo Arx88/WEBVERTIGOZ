@@ -12,11 +12,16 @@ interface BracketViewProps {
   bracketSize?: number;
   matches?: MatchData[];
   className?: string;
+  /** Si se pasa, los matches se vuelven clickeables y llaman a este handler. */
+  onMatchClick?: (match: GeneratedMatch, data?: MatchData) => void;
+  /** Si se pasa, los matches se renderizan como <a> con este href factory. */
+  matchHref?: (match: GeneratedMatch, data?: MatchData) => string;
 }
 
 export interface MatchData {
   roundIndex: number;
   slotIndex: number;
+  matchId?: string; // ID real en DB, para navegación
   teamA?: { name: string; emblemUrl?: string; seed?: number };
   teamB?: { name: string; emblemUrl?: string; seed?: number };
   status: "scheduled" | "open" | "drawing" | "lineup" | "comodin_window" | "in_progress" | "finished" | "disputed" | "forfeit" | "cancelled";
@@ -56,6 +61,8 @@ export default function BracketView({
   bracketSize = 32,
   matches = [],
   className,
+  onMatchClick,
+  matchHref,
 }: BracketViewProps) {
   const bracket = useMemo(() => generateBracket(bracketSize), [bracketSize]);
 
@@ -79,6 +86,8 @@ export default function BracketView({
             columnWidth={columnWidth}
             matchHeight={matchHeight}
             bracketSize={bracketSize}
+            onMatchClick={onMatchClick}
+            matchHref={matchHref}
           />
         ))}
       </div>
@@ -92,12 +101,16 @@ function RoundColumn({
   columnWidth,
   matchHeight,
   bracketSize,
+  onMatchClick,
+  matchHref,
 }: {
   round: GeneratedBracket["rounds"][number];
   matches: MatchData[];
   columnWidth: number;
   matchHeight: number;
   bracketSize: number;
+  onMatchClick?: (match: GeneratedMatch, data?: MatchData) => void;
+  matchHref?: (match: GeneratedMatch, data?: MatchData) => string;
 }) {
   // Espaciado vertical entre matches crece exponencialmente por ronda
   const matchesCount = round.matches.length;
@@ -123,6 +136,8 @@ function RoundColumn({
               data={matchData}
               width={columnWidth}
               height={matchHeight}
+              onMatchClick={onMatchClick}
+              matchHref={matchHref}
             />
           );
         })}
@@ -136,11 +151,15 @@ function MatchCard({
   data,
   width,
   height,
+  onMatchClick,
+  matchHref,
 }: {
   match: GeneratedMatch;
   data?: MatchData;
   width: number;
   height: number;
+  onMatchClick?: (match: GeneratedMatch, data?: MatchData) => void;
+  matchHref?: (match: GeneratedMatch, data?: MatchData) => string;
 }) {
   const status = data?.status ?? "scheduled";
   const teamA = data?.teamA;
@@ -148,14 +167,18 @@ function MatchCard({
   const winnerA = data?.winnerSide === "A";
   const winnerB = data?.winnerSide === "B";
 
-  return (
-    <div
-      className={cn(
-        "border bg-bg-elevated transition-colors",
-        STATUS_COLORS[status]
-      )}
-      style={{ width: `${width}px`, minHeight: `${height}px` }}
-    >
+  const href = matchHref ? matchHref(match, data) : undefined;
+  const isClickable = href || onMatchClick;
+
+  const cardClass = cn(
+    "border bg-bg-elevated transition-colors block no-underline",
+    STATUS_COLORS[status],
+    isClickable && "cursor-pointer hover:border-accent"
+  );
+  const cardStyle = { width: `${width}px`, minHeight: `${height}px` };
+
+  const cardContent = (
+    <>
       {/* Status badge */}
       <div className="flex items-center justify-between px-2 py-1 border-b border-border-subtle">
         <span className="text-caption text-text-tertiary uppercase tracking-wider">
@@ -204,6 +227,31 @@ function MatchCard({
           })}
         </div>
       )}
+    </>
+  );
+
+  // Si hay href, renderizar como <a>; si hay onClick, como <div> clickable; si no, <div> estático
+  if (href) {
+    return (
+      <a href={href} className={cardClass} style={cardStyle}>
+        {cardContent}
+      </a>
+    );
+  }
+  if (onMatchClick) {
+    return (
+      <div
+        className={cardClass}
+        style={cardStyle}
+        onClick={() => onMatchClick(match, data)}
+      >
+        {cardContent}
+      </div>
+    );
+  }
+  return (
+    <div className={cardClass} style={cardStyle}>
+      {cardContent}
     </div>
   );
 }
