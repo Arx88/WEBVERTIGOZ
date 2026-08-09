@@ -1,9 +1,10 @@
 "use client";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { CIV_NAMES } from "@/lib/constants/civs";
 
 export interface ConfigMode {
   id: string; title: string; tag: string; color: string; img: string;
-  kind: "MODO" | "ANTIMETA" | "FORMATO" | "LLAVE"; tagline: string; description: string; rules: string[];
+  kind: "MODO" | "ANTIMETA" | "FORMATO" | "LLAVE" | "CIV"; tagline: string; description: string; rules: string[];
   mapPool?: "global" | ConfigMap[];
 }
 export interface ConfigMap {
@@ -17,8 +18,28 @@ export interface ConfigMap {
   description: string;
   rules: string[];
 }
+/**
+ * Civilización para la etapa CIVS de la ruleta.
+ * Las civs se sortean del pool de cada equipo (9 base + 3 extra si es final).
+ * La cantidad a sortear depende del playerMode: 1v1=1, 2v2=2, 3v3=3, fusión=1.
+ *
+ * NOTA: La etapa CIVS visual se implementa en Fase 2 junto con /admin/partido/[id].
+ * Por ahora solo agregamos el tipo y el config para que la infraestructura esté lista.
+ */
+export interface ConfigCiv {
+  id: string;
+  title: string;
+  tag: string;
+  color: string;
+  img: string;
+  kind: "CIV";
+  tagline: string;
+  description: string;
+  rules: string[];
+}
 export interface ConfigState {
   gameModes: ConfigMode[]; antimetaModes: ConfigMode[]; playerModes: ConfigMode[]; mapModes: ConfigMap[]; llaveModes: ConfigMode[];
+  civModes: ConfigCiv[];
   music: { enabled: boolean; volume: number };
   sounds: { enabled: boolean; volume: number };
   background: "fondo" | "vortex";
@@ -56,6 +77,20 @@ const DEFAULT_CONFIG: ConfigState = {
   initialGameModeIndex: -1,
   firstRound: false,
   epicCards: false,
+  // Pool global de civs para la etapa CIVS (53 civs incluyendo DLC).
+  // En modo determinista (admin), las civs se filtran al pool del equipo (9+3).
+  // En modo demo, se sortean de este pool global.
+  civModes: Object.entries(CIV_NAMES).map(([id, name]) => ({
+    id: `civ-${id}`,
+    title: name.toUpperCase(),
+    tag: "CIV",
+    color: "#7c3aed", // violeta del wizard
+    img: `/civs/${id}.webp`,
+    kind: "CIV" as const,
+    tagline: `Civilización ${name}`,
+    description: `${name} — civilización de Age of Empires II.`,
+    rules: [],
+  })),
   llaveModes: [
     { id:"ll-deathmatch",title:"DEATHMATCH",tag:"LLAVE",color:"#ff2e7e",img:"/modes/llave/deathmatch.webp",kind:"LLAVE",tagline:"A muerte: un solo partido decide la llave.",description:"Un solo partido. Quien gana, avanza. Quien pierde, queda eliminado de la llave.",rules:["Un solo partido","Sin ventaja de mapa","Ganador avanza","Eliminación directa"]},
     { id:"ll-bo3",title:"BO3",tag:"LLAVE",color:"#22e5c2",img:"/modes/llave/bo3.webp",kind:"LLAVE",tagline:"Al mejor de 3 partidos.",description:"Serie al mejor de tres: el primero que gane dos partidos se lleva la llave.",rules:["Mejor de 3","Ganar 2 partidos","Ban de mapas","Estrategia por serie"]},
@@ -83,7 +118,7 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const p = JSON.parse(raw);
-        const pick = (k: "gameModes" | "antimetaModes" | "playerModes" | "mapModes" | "llaveModes") =>
+        const pick = (k: "gameModes" | "antimetaModes" | "playerModes" | "mapModes" | "llaveModes" | "civModes") =>
           Array.isArray(p[k]) && p[k].length ? p[k] : DEFAULT_CONFIG[k];
         return {
           ...DEFAULT_CONFIG,
@@ -95,6 +130,7 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
           playerModes: pick("playerModes"),
           mapModes: pick("mapModes"),
           llaveModes: pick("llaveModes"),
+          civModes: pick("civModes"),
         };
       }
     } catch {}

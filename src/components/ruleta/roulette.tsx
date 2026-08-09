@@ -7,7 +7,7 @@ import type { DrawResult } from "@/server/actions/draw";
 
 const MIN_RING = 8;
 
-type Phase = "spinning-game-mode" | "spinning-antimeta-mode" | "spinning-player-mode-direct" | "spinning-player-mode-after-antimeta" | "spinning-map-mode" | "spinning-llave-mode" | "final";
+type Phase = "spinning-game-mode" | "spinning-antimeta-mode" | "spinning-player-mode-direct" | "spinning-player-mode-after-antimeta" | "spinning-map-mode" | "spinning-llave-mode" | "spinning-civ-mode" | "final";
 interface ResolvedStep { key: string; mode: ConfigMode; layer: "h"|"v"; accent: string; stepNumber: number; label: string; modesList: ConfigMode[]; }
 interface ResolvedMap { key: string; map: ConfigMap; stepNumber: number; }
 
