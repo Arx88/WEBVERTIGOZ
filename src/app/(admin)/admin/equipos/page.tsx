@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSupabaseServer } from "@/lib/supabase/server";
-import { logoutAction, approveTeamAction, rejectTeamAction } from "@/server/actions/auth";
-import { Shield, Check, X, Users, LogOut } from "lucide-react";
-import Link from "next/link";
+import { approveTeamAction, rejectTeamAction } from "@/server/actions/auth";
+import { Shield, Check, X, Users, Star, Crown, AlertTriangle, Clock } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -35,97 +34,246 @@ export default async function AdminEquiposPage() {
   const rejected = regsWithPlayers.filter((r: any) => r.status === "rejected");
 
   return (
-    <div>
+    <div className="vertigo-fade-in">
       <span className="vertigo-kicker">INSCRIPCIONES</span>
       <h1 className="vertigo-title">Equipos</h1>
       <div className="vertigo-divider"><span></span><i></i><span></span></div>
+      <p className="vertigo-desc">
+        Revisá y aprobá cada inscripción. Verificá ELO cap, perfiles de AoE2 Companion y datos del equipo antes de confirmar.
+      </p>
 
-      {/* Stats */}
       <div className="vertigo-stats">
-        <div className="vertigo-stat"><div className="vertigo-stat-label">TOTAL</div><div className="vertigo-stat-value">{regsWithPlayers.length}</div></div>
-        <div className="vertigo-stat"><div className="vertigo-stat-label">PENDIENTES</div><div className="vertigo-stat-value" style={{ color: "#fbbf24" }}>{pending.length}</div></div>
-        <div className="vertigo-stat"><div className="vertigo-stat-label">APROBADOS</div><div className="vertigo-stat-value" style={{ color: "var(--vertigo-success)" }}>{approved.length}</div></div>
-        <div className="vertigo-stat"><div className="vertigo-stat-label">RECHAZADOS</div><div className="vertigo-stat-value" style={{ color: "var(--vertigo-danger)" }}>{rejected.length}</div></div>
+        <div className="vertigo-stat">
+          <div className="vertigo-stat-label">Total</div>
+          <div className="vertigo-stat-value">{regsWithPlayers.length}</div>
+        </div>
+        <div className="vertigo-stat">
+          <div className="vertigo-stat-label">Pendientes</div>
+          <div className="vertigo-stat-value text-[#fbbf24]">{pending.length}</div>
+        </div>
+        <div className="vertigo-stat">
+          <div className="vertigo-stat-label">Aprobados</div>
+          <div className="vertigo-stat-value text-[var(--vertigo-success)]">{approved.length}</div>
+        </div>
+        <div className="vertigo-stat">
+          <div className="vertigo-stat-label">Rechazados</div>
+          <div className="vertigo-stat-value text-[var(--vertigo-danger)]">{rejected.length}</div>
+        </div>
       </div>
 
-      {/* Pendientes */}
-      {pending.length > 0 && (
-        <div style={{ marginBottom: "32px" }}>
-          <div className="vertigo-card-title" style={{ marginBottom: "16px" }}>Pendientes de aprobación</div>
-          {pending.map((reg: any) => <TeamCard key={reg.id} reg={reg} showActions={true} approveAction={approveTeamAction.bind(null, reg.id)} rejectAction={rejectTeamAction.bind(null, reg.id)} />)}
+      {regsWithPlayers.length === 0 ? (
+        <div className="vertigo-card">
+          <div className="vertigo-empty">
+            <Users className="mx-auto mb-4" style={{ width: 48, height: 48, color: "var(--vertigo-faint)" }} strokeWidth={1} />
+            <div className="vertigo-empty-title">Sin inscripciones</div>
+            <p className="vertigo-empty-desc">Todavía no hay equipos inscriptos. Cuando empiecen a registrarse, vas a verlos acá.</p>
+          </div>
         </div>
-      )}
+      ) : (
+        <div className="flex flex-col gap-10">
+          <Section
+            title="Pendientes de aprobación"
+            count={pending.length}
+            empty="No hay equipos pendientes — todo al día."
+          >
+            {pending.map((reg: any) => (
+              <TeamCard
+                key={reg.id}
+                reg={reg}
+                showActions={true}
+                approveAction={approveTeamAction.bind(null, reg.id)}
+                rejectAction={rejectTeamAction.bind(null, reg.id)}
+              />
+            ))}
+          </Section>
 
-      {/* Aprobados */}
-      {approved.length > 0 && (
-        <div style={{ marginBottom: "32px" }}>
-          <div className="vertigo-card-title" style={{ marginBottom: "16px" }}>Aprobados</div>
-          {approved.map((reg: any) => <TeamCard key={reg.id} reg={reg} showActions={false} />)}
-        </div>
-      )}
+          <Section title="Aprobados" count={approved.length} empty="Ningún equipo aprobado todavía.">
+            {approved.map((reg: any) => (
+              <TeamCard key={reg.id} reg={reg} showActions={false} />
+            ))}
+          </Section>
 
-      {/* Rechazados */}
-      {rejected.length > 0 && (
-        <div style={{ marginBottom: "32px" }}>
-          <div className="vertigo-card-title" style={{ marginBottom: "16px" }}>Rechazados</div>
-          {rejected.map((reg: any) => <TeamCard key={reg.id} reg={reg} showActions={false} />)}
-        </div>
-      )}
-
-      {regsWithPlayers.length === 0 && (
-        <div className="vertigo-empty">
-          <Users style={{ width: "48px", height: "48px", color: "var(--vertigo-faint)", margin: "0 auto 16px" }} strokeWidth={1} />
-          <div className="vertigo-empty-title">Sin inscripciones</div>
-          <p className="vertigo-empty-desc">Todavía no hay equipos inscriptos. Cuando empiecen a registrarse, vas a verlos acá.</p>
+          <Section title="Rechazados" count={rejected.length} empty="No hay equipos rechazados.">
+            {rejected.map((reg: any) => (
+              <TeamCard key={reg.id} reg={reg} showActions={false} />
+            ))}
+          </Section>
         </div>
       )}
     </div>
   );
 }
 
-function TeamCard({ reg, showActions, approveAction, rejectAction }: { reg: any; showActions: boolean; approveAction?: () => Promise<void>; rejectAction?: () => Promise<void>; }) {
+function Section({
+  title,
+  count,
+  empty,
+  children,
+}: {
+  title: string;
+  count: number;
+  empty: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section>
+      <div className="vertigo-subtitle">
+        {title}
+        <span className="vertigo-badge vertigo-badge-purple ml-2">{count}</span>
+      </div>
+      {count === 0 ? (
+        <div className="vertigo-card">
+          <div className="vertigo-empty">
+            <div className="vertigo-empty-title">Vacío</div>
+            <p className="vertigo-empty-desc">{empty}</p>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">{children}</div>
+      )}
+    </section>
+  );
+}
+
+function TeamCard({
+  reg,
+  showActions,
+  approveAction,
+  rejectAction,
+}: {
+  reg: any;
+  showActions: boolean;
+  approveAction?: () => Promise<void>;
+  rejectAction?: () => Promise<void>;
+}) {
   const team = reg.team_account;
   const edition = reg.tournament_edition;
   const players = reg.players ?? [];
   const eloCap = (edition?.elo_cap ?? 3500) + (edition?.elo_tolerance ?? 20);
   const isEloOk = !reg.elo_freeze_snapshot || reg.elo_freeze_snapshot <= eloCap;
 
+  const eloVerificationBadge = (() => {
+    switch (reg.elo_verification_status) {
+      case "verified":
+        return { cls: "vertigo-badge-success", label: "ELO verificado" };
+      case "pending":
+        return { cls: "vertigo-badge-warning", label: "ELO pendiente" };
+      case "hidden":
+        return { cls: "vertigo-badge-warning", label: "Perfil oculto" };
+      case "failed":
+        return { cls: "vertigo-badge-danger", label: "ELO falló" };
+      default:
+        return null;
+    }
+  })();
+
   return (
-    <div className="vertigo-card" style={{ marginBottom: "12px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px", marginBottom: "12px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-          <div style={{ width: "44px", height: "44px", borderRadius: "50%", border: "1px solid var(--vertigo-purple)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--vertigo-purple-soft)" }}>
-            <Shield style={{ width: "20px", height: "20px" }} strokeWidth={1.25} />
+    <div className="vertigo-card">
+      <div className="vertigo-card-header">
+        <div className="flex items-center gap-4 min-w-0">
+          <div
+            className="flex items-center justify-center rounded-full border border-[var(--vertigo-purple)] text-[var(--vertigo-purple-soft)] flex-none"
+            style={{ width: 44, height: 44 }}
+          >
+            <Shield style={{ width: 20, height: 20 }} strokeWidth={1.25} />
           </div>
-          <div>
-            <div style={{ fontFamily: "Cinzel, serif", fontSize: "18px", fontWeight: 600, color: "var(--vertigo-text)" }}>{team?.name ?? "—"}</div>
-            {team?.tagline && <div style={{ fontSize: "12px", color: "var(--vertigo-muted)", fontStyle: "italic" }}>&ldquo;{team.tagline}&rdquo;</div>}
-            <div style={{ fontSize: "11px", color: "var(--vertigo-faint)", marginTop: "4px" }}>{edition?.name ?? "—"} · Enviado {reg.submitted_at ? new Date(reg.submitted_at).toLocaleDateString("es-AR") : "—"}</div>
+          <div className="min-w-0">
+            <div className="font-cinzel text-lg font-semibold text-[var(--vertigo-text)] truncate">
+              {team?.name ?? "—"}
+            </div>
+            {team?.tagline && (
+              <div className="text-xs italic text-[var(--vertigo-muted)] truncate">
+                &ldquo;{team.tagline}&rdquo;
+              </div>
+            )}
+            <div className="text-[11px] text-[var(--vertigo-faint)] mt-1 flex items-center gap-2 flex-wrap">
+              <span>{edition?.name ?? "—"}</span>
+              <span>·</span>
+              <Clock style={{ width: 11, height: 11 }} />
+              <span>Enviado {reg.submitted_at ? new Date(reg.submitted_at).toLocaleDateString("es-AR") : "—"}</span>
+            </div>
           </div>
         </div>
-        <div style={{ textAlign: "right" }}>
-          <div style={{ fontSize: "10px", color: "var(--vertigo-faint)", letterSpacing: "1.7px", textTransform: "uppercase" }}>ELO TOTAL</div>
-          <div style={{ fontFamily: "Cinzel, serif", fontSize: "22px", fontWeight: 700, color: isEloOk ? "var(--vertigo-purple-pale)" : "var(--vertigo-danger)" }}>{reg.elo_freeze_snapshot ?? "—"}</div>
-          <div style={{ fontSize: "11px", color: "var(--vertigo-faint)" }}>/ {eloCap}</div>
+
+        <div className="vertigo-info-card flex-none text-right">
+          <div className="vertigo-info-card-label justify-end">ELO Total</div>
+          <div
+            className="font-cinzel text-2xl font-bold leading-tight"
+            style={{ color: isEloOk ? "var(--vertigo-purple-pale)" : "var(--vertigo-danger)" }}
+          >
+            {reg.elo_freeze_snapshot ?? "—"}
+          </div>
+          <div className="text-[11px] text-[var(--vertigo-faint)]">/ {eloCap}</div>
         </div>
       </div>
 
-      {reg.elo_verification_status === "pending" && <div style={{ padding: "8px 12px", border: "1px solid rgba(251,191,36,0.3)", background: "rgba(251,191,36,0.06)", borderRadius: "6px", fontSize: "12px", color: "#fbbf24", marginBottom: "12px" }}>Falta verificación de ELO — al menos un jugador tiene el perfil oculto</div>}
-      {reg.elo_verification_status === "failed" && <div style={{ padding: "8px 12px", border: "1px solid rgba(251,113,133,0.3)", background: "rgba(251,113,133,0.06)", borderRadius: "6px", fontSize: "12px", color: "var(--vertigo-danger)", marginBottom: "12px" }}>Falló la verificación: {reg.elo_verification_reason ?? "Error"}</div>}
+      {eloVerificationBadge && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          <span className={`vertigo-badge ${eloVerificationBadge.cls}`}>{eloVerificationBadge.label}</span>
+          {reg.elo_verification_status === "pending" && (
+            <span className="vertigo-badge vertigo-badge-warning">
+              <AlertTriangle style={{ width: 11, height: 11 }} />
+              Jugador con perfil oculto
+            </span>
+          )}
+          {reg.elo_verification_status === "failed" && reg.elo_verification_reason && (
+            <span className="vertigo-badge vertigo-badge-danger">
+              {reg.elo_verification_reason}
+            </span>
+          )}
+          {!isEloOk && (
+            <span className="vertigo-badge vertigo-badge-danger">Supera ELO cap</span>
+          )}
+        </div>
+      )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "8px" }}>
+      <div className="vertigo-subtitle">Jugadores</div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
         {players.map((p: any) => (
-          <div key={p.id} style={{ padding: "8px", border: "1px solid var(--vertigo-line-soft)", borderRadius: "6px", fontSize: "11px" }}>
-            <div style={{ fontWeight: 600, color: "var(--vertigo-text)" }}>{p.is_captain && "★ "}{p.display_name}</div>
-            <div style={{ color: "var(--vertigo-faint)" }}>{p.country} · #{p.aoe2_profile_id}{p.max_rating_rm_1v1 !== null && <span style={{ color: "var(--vertigo-purple-soft)", marginLeft: "8px" }}>ELO: {p.max_rating_rm_1v1}</span>}</div>
+          <div key={p.id} className="vertigo-info-card">
+            <div className="vertigo-info-card-label">
+              {p.is_captain ? (
+                <>
+                  <Crown style={{ width: 11, height: 11, color: "var(--vertigo-purple-soft)" }} />
+                  Capitán
+                </>
+              ) : (
+                <>
+                  <Star style={{ width: 11, height: 11 }} />
+                  Jugador
+                </>
+              )}
+            </div>
+            <div className="vertigo-info-card-value flex items-center gap-2">
+              {p.display_name}
+              {p.is_verified && (
+                <Check style={{ width: 13, height: 13, color: "var(--vertigo-success)" }} strokeWidth={2.5} />
+              )}
+            </div>
+            <div className="text-[11px] text-[var(--vertigo-faint)] mt-1">
+              {p.country ?? "—"} · #{p.aoe2_profile_id}
+              {p.max_rating_rm_1v1 !== null && (
+                <span className="text-[var(--vertigo-purple-soft)] ml-2">ELO: {p.max_rating_rm_1v1}</span>
+              )}
+            </div>
           </div>
         ))}
       </div>
 
       {showActions && (
-        <div style={{ display: "flex", gap: "8px", marginTop: "12px", paddingTop: "12px", borderTop: "1px solid var(--vertigo-line-soft)" }}>
-          <form action={approveAction!}><button type="submit" className="vertigo-btn vertigo-btn-success"><Check style={{ width: "14px", height: "14px" }} />Aprobar</button></form>
-          <form action={rejectAction!}><button type="submit" className="vertigo-btn vertigo-btn-danger"><X style={{ width: "14px", height: "14px" }} />Rechazar</button></form>
+        <div className="vertigo-action-bar mt-5 pt-4 border-t border-[var(--vertigo-line-soft)]">
+          <form action={approveAction!}>
+            <button type="submit" className="vertigo-btn vertigo-btn-success">
+              <Check style={{ width: 14, height: 14 }} />
+              Aprobar
+            </button>
+          </form>
+          <form action={rejectAction!}>
+            <button type="submit" className="vertigo-btn vertigo-btn-danger">
+              <X style={{ width: 14, height: 14 }} />
+              Rechazar
+            </button>
+          </form>
         </div>
       )}
     </div>
