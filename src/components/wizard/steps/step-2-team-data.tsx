@@ -1,60 +1,50 @@
 "use client";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useWizard } from "@/components/wizard/wizard-context";
 
-const REINOS = [
-  { id: "r1", img: "/reinos/reino-1.webp" },
-  { id: "r2", img: "/reinos/reino-2.webp" },
-  { id: "r3", img: "/reinos/reino-3.webp" },
-  { id: "r4", img: "/reinos/reino-4.webp" },
-  { id: "r5", img: "/reinos/reino-5.webp" },
-  { id: "r6", img: "/reinos/reino-6.webp" },
-  { id: "r7", img: "/reinos/reino-7.webp" },
-  { id: "r8", img: "/reinos/reino-8.webp" },
-  { id: "r9", img: "/reinos/reino-9.webp" },
-  { id: "r10", img: "/reinos/reino-10.webp" },
-  { id: "r11", img: "/reinos/reino-11.webp" },
-  { id: "r12", img: "/reinos/reino-12.webp" },
-  { id: "r13", img: "/reinos/reino-13.webp" },
+// Imágenes de referencia conocidas del torneo (de la landing)
+const REINO_IMGS = [
+  "/landing/fondo-castillo.webp",
+  "/landing/hero.webp",
+  "/landing/monje-trofeo.webp",
+  "/landing/universidad.webp",
 ];
+// Y reinos si existen
+const REINOS = Array.from({ length: 13 }, (_, i) => ({
+  id: `reino-${i + 1}`,
+  img: `/reinos/reino-${i + 1}.webp`,
+  fallback: REINO_IMGS[i % REINO_IMGS.length],
+}));
 
 export default function Step2TeamData() {
   const { data, updateData } = useWizard();
-  const [reinoIndex, setReinoIndex] = useState(0);
+  const [activeIdx, setActiveIdx] = useState(0);
+  const selectedEmblemId = data.emblemId;
 
-  const selectedReino = REINOS[reinoIndex];
-  const isSelected = data.emblemId === selectedReino.id;
+  const selectedReino = REINOS[activeIdx];
+  const isSelected = selectedEmblemId === selectedReino.id;
 
-  function goPrev() {
-    const next = reinoIndex === 0 ? REINOS.length - 1 : reinoIndex - 1;
-    setReinoIndex(next);
-  }
+  const gridCols = useMemo(() => {
+    if (typeof window === "undefined") return 7;
+    const w = window.innerWidth;
+    if (w >= 1200) return 7;
+    if (w >= 900) return 6;
+    if (w >= 600) return 4;
+    return 3;
+  }, []);
 
-  function goNext() {
-    const next = reinoIndex === REINOS.length - 1 ? 0 : reinoIndex + 1;
-    setReinoIndex(next);
-  }
+  const goPrev = () => setActiveIdx((i) => (i === 0 ? REINOS.length - 1 : i - 1));
+  const goNext = () => setActiveIdx((i) => (i === REINOS.length - 1 ? 0 : i + 1));
 
-  function selectReino() {
-    updateData({ emblemId: selectedReino.id });
-  }
-
-  // Auto-seleccionar al navegar
-  function goPrevAndSelect() {
-    const next = reinoIndex === 0 ? REINOS.length - 1 : reinoIndex - 1;
-    setReinoIndex(next);
-    updateData({ emblemId: REINOS[next].id });
-  }
-
-  function goNextAndSelect() {
-    const next = reinoIndex === REINOS.length - 1 ? 0 : reinoIndex + 1;
-    setReinoIndex(next);
-    updateData({ emblemId: REINOS[next].id });
-  }
+  const selectReino = (idx: number) => {
+    setActiveIdx(idx);
+    updateData({ emblemId: REINOS[idx].id });
+  };
 
   return (
     <>
-      <div className="field">
+      {/* Nombre del reino */}
+      <div className="field" style={{ marginBottom: "28px" }}>
         <label htmlFor="teamName">Nombre de tu Reino</label>
         <input
           id="teamName"
@@ -63,12 +53,21 @@ export default function Step2TeamData() {
           value={data.teamName}
           onChange={(e) => updateData({ teamName: e.target.value })}
           maxLength={60}
+          style={{
+            fontFamily: "Cinzel, serif",
+            fontSize: "18px",
+            fontWeight: 700,
+            letterSpacing: "1px",
+            height: "56px",
+            padding: "0 20px",
+          }}
         />
       </div>
 
-      <div className="field">
+      {/* Lema opcional */}
+      <div className="field" style={{ marginBottom: "28px" }}>
         <label htmlFor="teamTagline">
-          Lema del Reino <small>(opcional)</small>
+          Lema del Reino <small style={{ fontWeight: 400 }}>(opcional)</small>
         </label>
         <input
           id="teamTagline"
@@ -77,204 +76,121 @@ export default function Step2TeamData() {
           value={data.teamTagline}
           onChange={(e) => updateData({ teamTagline: e.target.value })}
           maxLength={140}
+          style={{ fontStyle: "italic" }}
         />
       </div>
 
-      {/* Selector de escudo — una imagen grande con flechas */}
-      <div style={{ maxWidth: "560px" }}>
-        <div className="chips-head">
+      {/* Selector de escudo — galería visual */}
+      <div style={{ maxWidth: "640px", marginBottom: "16px" }}>
+        <div className="chips-head" style={{ marginBottom: "14px" }}>
           <span className={`counter ${isSelected ? "full" : ""}`}>
-            {isSelected ? "✓ Escudo elegido" : "Elegí tu escudo"}
+            {isSelected ? `✓ Escudo ${activeIdx + 1}/${REINOS.length}` : "Elegí tu escudo"}
           </span>
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "24px",
-            padding: "24px 0",
-          }}
-        >
-          {/* Flecha izquierda */}
-          <button
-            onClick={goPrevAndSelect}
-            style={{
-              width: "44px",
-              height: "44px",
-              borderRadius: "50%",
-              border: "1px solid var(--input-border)",
-              background: "var(--input-bg)",
-              color: "var(--muted)",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              transition: "all 0.2s var(--ease)",
-              flex: "none",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = "var(--purple)";
-              e.currentTarget.style.color = "var(--purple-pale)";
-              e.currentTarget.style.background = "rgba(124,58,237,0.06)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = "var(--input-border)";
-              e.currentTarget.style.color = "var(--muted)";
-              e.currentTarget.style.background = "var(--input-bg)";
-            }}
-            aria-label="Escudo anterior"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 18l-6-6 6-6" />
-            </svg>
-          </button>
-
-          {/* Imagen grande del escudo */}
+        {/* Preview grande arriba */}
+        <div style={{
+          display: "flex",
+          justifyContent: "center",
+          marginBottom: "20px",
+        }}>
           <div
             key={selectedReino.id}
             style={{
-              width: "200px",
-              height: "200px",
+              width: "180px",
+              height: "180px",
               borderRadius: "16px",
               overflow: "hidden",
-              border: `2px solid ${isSelected ? "var(--purple)" : "var(--input-border)"}`,
+              border: `3px solid ${isSelected ? "var(--purple)" : "var(--input-border)"}`,
               background: "var(--input-bg)",
               boxShadow: isSelected
-                ? "0 0 0 1px var(--purple), 0 0 24px rgba(124,58,237,0.2), 0 8px 32px rgba(0,0,0,0.4)"
-                : "0 4px 16px rgba(0,0,0,0.3)",
-              transition: "all 0.3s var(--ease)",
-              animation: "reinoFadeIn 0.3s var(--ease)",
-              position: "relative",
+                ? `0 0 0 2px var(--purple), 0 0 32px rgba(124,58,237,0.3), 0 12px 40px rgba(0,0,0,0.5)`
+                : "0 4px 20px rgba(0,0,0,0.4)",
+              transition: "all 0.35s cubic-bezier(.22,1,.36,1)",
+              animation: "reinoFadeIn 0.4s cubic-bezier(.22,1,.36,1)",
+              flex: "none",
             }}
           >
             <style>{`
               @keyframes reinoFadeIn {
-                from { opacity: 0; transform: scale(0.92); }
-                to { opacity: 1; transform: scale(1); }
+                from { opacity: 0; transform: scale(0.94) rotate(-2deg); }
+                to { opacity: 1; transform: scale(1) rotate(0); }
               }
             `}</style>
             <img
               src={selectedReino.img}
-              alt={`Escudo ${reinoIndex + 1}`}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
+              alt={`Escudo ${activeIdx + 1}`}
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                if (!target.src.endsWith(REINO_IMGS[activeIdx % REINO_IMGS.length])) {
+                  target.src = REINO_IMGS[activeIdx % REINO_IMGS.length];
+                }
               }}
-            />
-          </div>
-
-          {/* Flecha derecha */}
-          <button
-            onClick={goNextAndSelect}
-            style={{
-              width: "44px",
-              height: "44px",
-              borderRadius: "50%",
-              border: "1px solid var(--input-border)",
-              background: "var(--input-bg)",
-              color: "var(--muted)",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              transition: "all 0.2s var(--ease)",
-              flex: "none",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = "var(--purple)";
-              e.currentTarget.style.color = "var(--purple-pale)";
-              e.currentTarget.style.background = "rgba(124,58,237,0.06)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = "var(--input-border)";
-              e.currentTarget.style.color = "var(--muted)";
-              e.currentTarget.style.background = "var(--input-bg)";
-            }}
-            aria-label="Escudo siguiente"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 18l6-6-6-6" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Counter */}
-        <div
-          style={{
-            textAlign: "center",
-            fontSize: "12px",
-            fontWeight: 600,
-            letterSpacing: "1.5px",
-            color: "var(--faint)",
-            fontFamily: "Inter, sans-serif",
-            marginBottom: "16px",
-          }}
-        >
-          {reinoIndex + 1} / {REINOS.length}
-        </div>
-      </div>
-
-      {/* Preview del reino */}
-      {data.teamName && isSelected && (
-        <div
-          style={{
-            marginTop: "16px",
-            padding: "16px",
-            background: "rgba(124,58,237,0.04)",
-            border: "1px solid rgba(124,58,237,0.15)",
-            borderRadius: "12px",
-            display: "flex",
-            alignItems: "center",
-            gap: "16px",
-            maxWidth: "560px",
-          }}
-        >
-          <div
-            style={{
-              width: "56px",
-              height: "56px",
-              borderRadius: "10px",
-              overflow: "hidden",
-              border: "1px solid rgba(124,58,237,0.3)",
-              flex: "none",
-            }}
-          >
-            <img
-              src={selectedReino.img}
-              alt="Escudo"
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
             />
           </div>
-          <div>
-            <div
-              style={{
-                fontFamily: "Cinzel, serif",
-                fontSize: "17px",
-                fontWeight: 600,
-                color: "var(--text)",
-              }}
-            >
-              {data.teamName}
-            </div>
-            {data.teamTagline && (
-              <div
-                style={{
-                  fontSize: "13px",
-                  color: "var(--muted)",
-                  fontStyle: "italic",
-                  marginTop: "2px",
-                  fontFamily: "Inter, sans-serif",
-                }}
-              >
-                &ldquo;{data.teamTagline}&rdquo;
-              </div>
-            )}
-          </div>
         </div>
-      )}
+
+        {/* Grid de thumbnails */}
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: `repeat(${gridCols}, 1fr)`,
+          gap: "8px",
+        }}>
+          {REINOS.map((r, idx) => {
+            const active = idx === activeIdx;
+            const chosen = selectedEmblemId === r.id;
+            return (
+              <button
+                key={r.id}
+                onClick={() => selectReino(idx)}
+                style={{
+                  aspectRatio: "1",
+                  borderRadius: "10px",
+                  overflow: "hidden",
+                  border: `2px solid ${chosen ? "var(--purple)" : active ? "rgba(124,58,237,0.5)" : "var(--input-border)"}`,
+                  background: "var(--input-bg)",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                  boxShadow: chosen
+                    ? "0 0 12px rgba(124,58,237,0.35)"
+                    : active
+                      ? "0 0 8px rgba(124,58,237,0.2)"
+                      : "none",
+                  opacity: chosen || active ? 1 : 0.5,
+                  transform: chosen ? "scale(1.06)" : "scale(1)",
+                  padding: 0,
+                  position: "relative",
+                }}
+                aria-label={`Escudo ${idx + 1}${chosen ? " (seleccionado)" : ""}`}
+              >
+                <img
+                  src={r.img}
+                  alt=""
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    if (!target.src.endsWith(REINO_IMGS[idx % REINO_IMGS.length])) {
+                      target.src = REINO_IMGS[idx % REINO_IMGS.length];
+                    }
+                  }}
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
+                {chosen && (
+                  <div style={{
+                    position: "absolute", inset: 0,
+                    background: "rgba(124,58,237,0.25)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 6L9 17l-5-5" />
+                    </svg>
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </>
   );
 }

@@ -11,7 +11,7 @@ const CIVS = [
   { id: "celts", name: "Celtas" }, { id: "spanish", name: "Españoles" },
   { id: "aztecs", name: "Aztecas" }, { id: "mayans", name: "Mayas" },
   { id: "huns", name: "Hunos" }, { id: "koreans", name: "Coreanos" },
-  { id: "italians", name: "Italianos" }, { id: "hindustanis", name: "Hindúes" },
+  { id: "italians", name: "Italianos" }, { id: "hindustanis", name: "Hindus" },
   { id: "incas", name: "Incas" }, { id: "magyars", name: "Magiares" },
   { id: "slavs", name: "Eslavos" }, { id: "berbers", name: "Bereberes" },
   { id: "ethiopians", name: "Etíopes" }, { id: "malians", name: "Malianos" },
@@ -22,16 +22,11 @@ const CIVS = [
   { id: "tatars", name: "Tártaros" }, { id: "burgundians", name: "Borgoñones" },
   { id: "sicilians", name: "Sicilianos" }, { id: "poles", name: "Polacos" },
   { id: "bohemians", name: "Bohemios" }, { id: "romans", name: "Romanos" },
-  // The Last Chieftains DLC
   { id: "armenians", name: "Armenios" }, { id: "georgians", name: "Georgianos" },
-  // Dynasties of India DLC
   { id: "bengalis", name: "Bengalíes" }, { id: "dravidians", name: "Drávidas" },
-  { id: "gurjaras", name: "Gurjaras" },
-  // The Three Kingdoms DLC
-  { id: "jurchens", name: "Jurchen" }, { id: "khitans", name: "Kitan" },
-  { id: "shu", name: "Shu" }, { id: "wei", name: "Wei" },
-  { id: "wu", name: "Wu" },
-  // The Last Chieftains DLC
+  { id: "gurjaras", name: "Gurjaras" }, { id: "jurchens", name: "Jurchen" },
+  { id: "khitans", name: "Kitan" }, { id: "shu", name: "Shu" },
+  { id: "wei", name: "Wei" }, { id: "wu", name: "Wu" },
   { id: "mapuche", name: "Mapuche" }, { id: "muiscas", name: "Muiscas" },
   { id: "tupies", name: "Tupies" },
 ];
@@ -40,79 +35,207 @@ export default function Step5CivsBase() {
   const { data, updateData } = useWizard();
   const sel = data.baseCivIds;
   const MAX = 9;
+
   const toggle = (civId: string) => {
     if (sel.includes(civId)) updateData({ baseCivIds: sel.filter((x) => x !== civId) });
     else if (sel.length < MAX) updateData({ baseCivIds: [...sel, civId] });
   };
+
   return (
     <>
-      <div className="chips-head">
-        <span className={`counter ${sel.length === MAX ? "full" : ""}`}>{sel.length} / {MAX}</span>
+      <div style={{ marginBottom: "16px" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "10px",
+          }}
+        >
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: "2px",
+              textTransform: "uppercase",
+              color: "var(--vertigo-faint)",
+            }}
+          >
+            Civilizaciones base
+          </span>
+          <span
+            style={{
+              fontSize: 13,
+              fontWeight: 700,
+              color: sel.length === MAX ? "var(--vertigo-success)" : sel.length > 0 ? "var(--vertigo-purple-pale)" : "var(--vertigo-muted)",
+              background: sel.length === MAX ? "rgba(34,197,84,0.15)" : sel.length > 0 ? "rgba(124,58,237,0.1)" : "rgba(255,255,255,0.03)",
+              padding: "4px 10px",
+              borderRadius: "999px",
+              border: "1px solid",
+              borderColor: sel.length === MAX ? "rgba(34,197,84,0.3)" : sel.length > 0 ? "rgba(124,58,237,0.25)" : "var(--vertigo-line)",
+            }}
+          >
+            {sel.length} / {MAX}
+          </span>
+        </div>
+        <p
+          style={{
+            fontSize: 13,
+            color: "var(--vertigo-muted)",
+            marginBottom: "16px",
+            maxWidth: "640px",
+            lineHeight: 1.6,
+          }}
+        >
+          Elegí <strong>{MAX} civilizaciones</strong> para tu equipo. El rival no verá esta
+          elección hasta que se sortee la partida. Hacé clic para seleccionar o deseleccionar.
+        </p>
       </div>
-      <div className="chips" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(96px,1fr))", gap: "10px", maxWidth: "720px" }}>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(84px, 1fr))",
+          gap: "8px",
+          maxWidth: "700px",
+        }}
+      >
         {CIVS.map((c) => {
           const isSelected = sel.includes(c.id);
           const order = sel.indexOf(c.id) + 1;
+          const isDisabled = !isSelected && sel.length >= MAX;
+
           return (
             <button
               key={c.id}
-              className={`chip ${isSelected ? "sel" : ""}`}
               onClick={() => toggle(c.id)}
-              disabled={!isSelected && sel.length >= MAX}
+              disabled={isDisabled}
+              title={`${c.name} — ${isSelected ? `Seleccionada (${order})` : "Click para seleccionar"}`}
               style={{
-                opacity: !isSelected && sel.length >= MAX ? 0.25 : 1,
-                padding: "12px 8px",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: "8px",
                 position: "relative",
+                padding: "6px",
+                borderRadius: "10px",
+                background: isSelected
+                  ? "rgba(212,175,55,0.15)"
+                  : isDisabled
+                    ? "rgba(0,0,0,0.2)"
+                    : "var(--vertigo-input-bg)",
+                border: `2px solid ${
+                  isSelected
+                    ? "var(--vertigo-warning)"
+                    : isDisabled
+                      ? "rgba(255,255,255,0.08)"
+                      : "var(--vertigo-line)"
+                }`,
+                cursor: isDisabled ? "not-allowed" : "pointer",
                 transition: "all 0.2s cubic-bezier(.22,1,.36,1)",
-                cursor: !isSelected && sel.length >= MAX ? "not-allowed" : "pointer",
-                borderColor: isSelected ? "rgba(212,175,55,0.6)" : undefined,
-                boxShadow: isSelected ? "0 0 12px rgba(212,175,55,0.2), 0 0 0 1px rgba(212,175,55,0.3)" : undefined,
-                background: isSelected ? "linear-gradient(180deg, rgba(212,175,55,0.12), rgba(212,175,55,0.05))" : undefined,
+                boxShadow: isSelected
+                  ? "0 0 12px rgba(212,175,55,0.25), 0 2px 8px rgba(0,0,0,0.3)"
+                  : "0 2px 6px rgba(0,0,0,0.2)",
+                opacity: isDisabled ? 0.4 : 1,
+                transform: isSelected ? "scale(1.03)" : "scale(1)",
+              }}
+              onMouseEnter={(e) => {
+                if (!isDisabled && !isSelected) {
+                  e.currentTarget.style.borderColor = "rgba(124,58,237,0.5)";
+                  e.currentTarget.style.background = "rgba(124,58,237,0.08)";
+                  e.currentTarget.style.transform = "translateY(-2px)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isDisabled && !isSelected) {
+                  e.currentTarget.style.borderColor = "var(--vertigo-line)";
+                  e.currentTarget.style.background = "var(--vertigo-input-bg)";
+                  e.currentTarget.style.transform = "scale(1)";
+                }
               }}
             >
-              {isSelected && (
-                <span style={{
-                  position: "absolute", top: "4px", right: "4px",
-                  width: "18px", height: "18px", borderRadius: "50%",
-                  background: "linear-gradient(135deg, rgba(212,175,55,1), rgba(180,130,20,1))",
-                  color: "#0a0011", fontSize: "10px", fontWeight: 700,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  boxShadow: "0 0 8px rgba(212,175,55,0.5)",
-                }}>
-                  {order}
-                </span>
-              )}
-              <div style={{
-                width: "44px", height: "44px",
-                borderRadius: "8px",
-                overflow: "hidden",
-                border: `1.5px solid ${isSelected ? "rgba(212,175,55,0.4)" : "var(--input-border)"}`,
-                background: "var(--input-bg)",
-              }}>
+              {/* Imagen de la civ */}
+              <div
+                style={{
+                  aspectRatio: "1",
+                  borderRadius: "6px",
+                  overflow: "hidden",
+                  background: "var(--vertigo-bg-deep)",
+                  marginBottom: "4px",
+                }}
+              >
                 <img
                   src={`/civs/${c.id}.webp`}
                   alt={c.name}
                   style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = "none";
+                  }}
                 />
               </div>
-              <span style={{
-                fontSize: "10px",
-                fontWeight: isSelected ? 600 : 500,
-                textAlign: "center",
-                letterSpacing: "0.3px",
-                color: isSelected ? "#e8c56a" : undefined,
-                transition: "color 0.2s",
-              }}>
+
+              {/* Nombre */}
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 600,
+                  textAlign: "center",
+                  color: isSelected ? "var(--vertigo-warning)" : isDisabled ? "var(--vertigo-faint)" : "var(--vertigo-text)",
+                  letterSpacing: "0.5px",
+                  textTransform: "uppercase",
+                  lineHeight: 1.2,
+                }}
+              >
                 {c.name}
-              </span>
+              </div>
+
+              {/* Badge de orden */}
+              {isSelected && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 4,
+                    right: 4,
+                    width: 18,
+                    height: 18,
+                    borderRadius: "50%",
+                    background: "var(--vertigo-warning)",
+                    color: "#000",
+                    fontSize: 10,
+                    fontWeight: 700,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    boxShadow: "0 0 8px rgba(212,175,55,0.5)",
+                  }}
+                >
+                  {order}
+                </div>
+              )}
             </button>
           );
         })}
       </div>
+
+      {/* Botón de limpiar selección */}
+      {sel.length > 0 && (
+        <div style={{ marginTop: "16px", textAlign: "right" }}>
+          <button
+            onClick={() => updateData({ baseCivIds: [] })}
+            style={{
+              padding: "8px 16px",
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: "1px",
+              textTransform: "uppercase",
+              color: "var(--vertigo-danger)",
+              background: "rgba(251,113,133,0.08)",
+              border: "1px solid rgba(251,113,133,0.2)",
+              borderRadius: "8px",
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+            }}
+          >
+            Limpiar selección
+          </button>
+        </div>
+      )}
     </>
   );
 }
