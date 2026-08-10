@@ -76,22 +76,23 @@ export default async function EquiposPage() {
         </div>
       </header>
 
-      <main className="vertigo-content">
-        <span className="vertigo-kicker">EQUIPOS</span>
-        <h1 className="vertigo-title">Equipos inscriptos</h1>
-        <div className="vertigo-divider"><span></span><i></i><span></span></div>
-        <p className="vertigo-desc">
-          Grilla de reinos confirmados para la edición. Cada equipo tiene 3 jugadores y un pool
-          de civilizaciones elegido al inscribirse.
-        </p>
+      <main className="vertigo-content" style={{ maxWidth: "1200px", padding: "40px 32px" }}>
+        <div className="vertigo-page-title">
+          <span className="vertigo-kicker">EQUIPOS</span>
+          <h1 className="vertigo-title">Equipos inscriptos</h1>
+          <div className="vertigo-divider"><span></span><i></i><span></span></div>
+          <p className="vertigo-desc">
+            Grilla de reinos confirmados para la edición. Cada equipo tiene 3 jugadores y un pool
+            de civilizaciones elegido al inscribirse.
+          </p>
+        </div>
 
         {equipos.length === 0 ? (
-          <div className="vertigo-card">
+          <div className="vertigo-card premium">
             <div className="vertigo-empty">
-              <Users
-                style={{ width: 48, height: 48, color: "var(--vertigo-faint)", margin: "0 auto 16px" }}
-                strokeWidth={1}
-              />
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: "20px" }}>
+                <Shield style={{ width: 52, height: 52, color: "var(--vertigo-faint)" }} strokeWidth={1} />
+              </div>
               <div className="vertigo-empty-title">Sin equipos confirmados</div>
               <p className="vertigo-empty-desc">
                 Las inscripciones se publican acá apenas son aprobadas por el staff.
@@ -100,54 +101,64 @@ export default async function EquiposPage() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "18px" }}>
             {equipos.map((eq) => (
               <Link
                 key={eq.id}
                 href={`/equipos/${eq.id}`}
                 className="vertigo-link-card"
+                style={{ padding: "24px" }}
               >
-                <div className="flex items-start gap-4">
+                {/* Header del equipo */}
+                <div style={{ display: "flex", alignItems: "flex-start", gap: "16px", marginBottom: "20px" }}>
                   <div
-                    className="flex items-center justify-center flex-none rounded-lg border border-[var(--vertigo-purple)] text-[var(--vertigo-purple-soft)]"
-                    style={{ width: 52, height: 52 }}
+                    style={{
+                      flex: "none",
+                      width: 56, height: 56,
+                      borderRadius: "12px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      border: "1.5px solid var(--vertigo-purple)",
+                      background: "rgba(124,58,237,0.08)",
+                      color: "var(--vertigo-purple-soft)",
+                    }}
                   >
-                    <Shield style={{ width: 22, height: 22 }} strokeWidth={1.25} />
+                    <Shield style={{ width: 24, height: 24 }} strokeWidth={1.25} />
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-1">
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px", flexWrap: "wrap" }}>
                       {eq.seed != null && (
-                        <span className="vertigo-badge vertigo-badge-purple">
+                        <span className="vertigo-badge vertigo-badge-purple" style={{ fontSize: "10px", padding: "3px 10px" }}>
                           #{eq.seed}
                         </span>
                       )}
                       {eq.editionName && (
-                        <span className="text-[10px] uppercase tracking-[1.5px] text-[var(--vertigo-faint)] truncate">
+                        <span style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "1.5px", color: "var(--vertigo-faint)" }}>
                           {eq.editionName}
                         </span>
                       )}
                     </div>
-                    <div className="vertigo-link-card-title truncate">{eq.name}</div>
+                    <div className="vertigo-link-card-title" style={{ marginBottom: "4px", fontSize: "17px" }}>{eq.name}</div>
                     {eq.tagline && (
-                      <div className="vertigo-link-card-desc italic truncate">
+                      <div className="vertigo-link-card-desc" style={{ fontStyle: "italic", fontSize: "13px" }}>
                         &ldquo;{eq.tagline}&rdquo;
                       </div>
                     )}
                   </div>
                 </div>
 
-                <div
-                  className="grid grid-cols-2 gap-2 mt-5 pt-4 border-t border-[var(--vertigo-line-soft)]"
-                >
-                  <div className="vertigo-info-card">
-                    <div className="vertigo-info-card-label">ELO total</div>
-                    <div className="vertigo-info-card-value">
-                      {eq.eloTotal ?? "—"}
+                {/* Stats */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", paddingTop: "18px", borderTop: "1px solid var(--vertigo-line-soft)" }}>
+                  <div className="vertigo-info-card" style={{ padding: "14px 16px" }}>
+                    <div className="vertigo-info-card-label" style={{ marginBottom: "2px" }}>ELO total</div>
+                    <div className="vertigo-info-card-value" style={{ fontSize: "16px" }}>
+                      {eq.eloTotal ? eq.eloTotal.toLocaleString() : "—"}
                     </div>
                   </div>
-                  <div className="vertigo-info-card">
-                    <div className="vertigo-info-card-label">Jugadores</div>
-                    <div className="vertigo-info-card-value">{eq.playerCount} / 3</div>
+                  <div className="vertigo-info-card" style={{ padding: "14px 16px" }}>
+                    <div className="vertigo-info-card-label" style={{ marginBottom: "2px" }}>Jugadores</div>
+                    <div className="vertigo-info-card-value" style={{ fontSize: "16px" }}>{eq.playerCount} / 3</div>
                   </div>
                 </div>
               </Link>

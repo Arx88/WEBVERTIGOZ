@@ -50,12 +50,9 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  // Si está logueado y va a /login o /registro, redirigir a /mi-equipo
-  if (
-    user &&
-    (req.nextUrl.pathname === "/login" ||
-      req.nextUrl.pathname.startsWith("/registro"))
-  ) {
+  // Si está logueado y va a /login → redirigir a /mi-equipo
+  // /registro sí se permite (primera vez, completar inscripción)
+  if (user && req.nextUrl.pathname === "/login") {
     const redirectUrl = req.nextUrl.clone();
     redirectUrl.pathname = "/mi-equipo";
     redirectUrl.search = "";

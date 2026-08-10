@@ -126,9 +126,9 @@ function WizardShell({ children }: { children: ReactNode }) {
               <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg>
             </button>
 
-            <div className="panels" id="panels">
+            <div className="panels" id="panels" key={step}>
               {/* Panel header (dinámico según el paso) */}
-              <div className="panel active" data-panel={step}>
+              <div className="panel active panel-slide-in" data-panel={step}>
                 <span className="p-kicker">{info.kicker}</span>
                 <h2 className="p-title">{info.title}</h2>
                 <div className="p-divider"><span></span><i></i><span></span></div>
@@ -156,12 +156,13 @@ function WizardShell({ children }: { children: ReactNode }) {
               id="nextBtn"
               onClick={handleNext}
               disabled={!canProceed() || submitting}
+              title={!canProceed() ? "Completá todos los campos requeridos para continuar" : undefined}
             >
               <span id="nextLabel">{isLast ? "Confirmar inscripción" : submitting ? "Procesando..." : "Siguiente"}</span>
-              {!isLast && !submitting && (
+              {!isLast && !submitting && canProceed() && (
                 <svg className="i-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></svg>
               )}
-              {isLast && !submitting && (
+              {isLast && !submitting && canProceed() && (
                 <svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10" /></svg>
               )}
             </button>

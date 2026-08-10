@@ -49,21 +49,66 @@ export default function Step5CivsBase() {
       <div className="chips-head">
         <span className={`counter ${sel.length === MAX ? "full" : ""}`}>{sel.length} / {MAX}</span>
       </div>
-      <div className="chips" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(110px,1fr))", gap: "8px", maxWidth: "720px" }}>
+      <div className="chips" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(96px,1fr))", gap: "10px", maxWidth: "720px" }}>
         {CIVS.map((c) => {
           const isSelected = sel.includes(c.id);
           const order = sel.indexOf(c.id) + 1;
           return (
-            <button key={c.id} className={`chip ${isSelected ? "sel" : ""}`} onClick={() => toggle(c.id)}
+            <button
+              key={c.id}
+              className={`chip ${isSelected ? "sel" : ""}`}
+              onClick={() => toggle(c.id)}
               disabled={!isSelected && sel.length >= MAX}
-              style={{ opacity: !isSelected && sel.length >= MAX ? 0.3 : 1, padding: "10px 6px", display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", position: "relative" }}>
+              style={{
+                opacity: !isSelected && sel.length >= MAX ? 0.25 : 1,
+                padding: "12px 8px",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "8px",
+                position: "relative",
+                transition: "all 0.2s cubic-bezier(.22,1,.36,1)",
+                cursor: !isSelected && sel.length >= MAX ? "not-allowed" : "pointer",
+                borderColor: isSelected ? "rgba(212,175,55,0.6)" : undefined,
+                boxShadow: isSelected ? "0 0 12px rgba(212,175,55,0.2), 0 0 0 1px rgba(212,175,55,0.3)" : undefined,
+                background: isSelected ? "linear-gradient(180deg, rgba(212,175,55,0.12), rgba(212,175,55,0.05))" : undefined,
+              }}
+            >
               {isSelected && (
-                <span style={{ position: "absolute", top: "4px", right: "4px", width: "18px", height: "18px", borderRadius: "50%", background: "var(--purple)", color: "#0a0011", fontSize: "10px", fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <span style={{
+                  position: "absolute", top: "4px", right: "4px",
+                  width: "18px", height: "18px", borderRadius: "50%",
+                  background: "linear-gradient(135deg, rgba(212,175,55,1), rgba(180,130,20,1))",
+                  color: "#0a0011", fontSize: "10px", fontWeight: 700,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  boxShadow: "0 0 8px rgba(212,175,55,0.5)",
+                }}>
                   {order}
                 </span>
               )}
-              <img src={`/civs/${c.id}.webp`} alt={c.name} style={{ width: "40px", height: "40px", objectFit: "contain" }} />
-              <span style={{ fontSize: "10px", fontWeight: 500, textAlign: "center", letterSpacing: "0.3px" }}>{c.name}</span>
+              <div style={{
+                width: "44px", height: "44px",
+                borderRadius: "8px",
+                overflow: "hidden",
+                border: `1.5px solid ${isSelected ? "rgba(212,175,55,0.4)" : "var(--input-border)"}`,
+                background: "var(--input-bg)",
+              }}>
+                <img
+                  src={`/civs/${c.id}.webp`}
+                  alt={c.name}
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
+              </div>
+              <span style={{
+                fontSize: "10px",
+                fontWeight: isSelected ? 600 : 500,
+                textAlign: "center",
+                letterSpacing: "0.3px",
+                color: isSelected ? "#e8c56a" : undefined,
+                transition: "color 0.2s",
+              }}>
+                {c.name}
+              </span>
             </button>
           );
         })}

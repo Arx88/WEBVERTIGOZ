@@ -70,10 +70,20 @@ interface WizardContextValue {
 
 const WizardContext = createContext<WizardContextValue | null>(null);
 
-export function WizardProvider({ children }: { children: ReactNode }) {
+export function WizardProvider({
+  children,
+  initialEmail,
+  initialStep,
+}: {
+  children: ReactNode;
+  initialEmail?: string;
+  initialStep?: number;
+}) {
   const TOTAL = 9;
-  const [step, setStepState] = useState(1);
-  const [data, setData] = useState<WizardData>(DEFAULT_DATA);
+  const [step, setStepState] = useState(initialStep ?? 1);
+  const [data, setData] = useState<WizardData>(
+    initialEmail ? { ...DEFAULT_DATA, email: initialEmail, existingAccount: true } : DEFAULT_DATA
+  );
   const [config, setConfig] = useState<TournamentConfig>(DEFAULT_CONFIG);
 
   // Fetch dinámico de la config del torneo (ELO cap, civs count)

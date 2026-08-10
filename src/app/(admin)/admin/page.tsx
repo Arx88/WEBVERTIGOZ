@@ -63,29 +63,30 @@ const SECTIONS = [
 export default function AdminHomePage() {
   return (
     <div className="vertigo-fade-in">
-      <span className="vertigo-kicker">PANEL DE ADMINISTRACIÓN</span>
-      <h1 className="vertigo-title">Centro de control</h1>
-      <div className="vertigo-divider"><span></span><i></i><span></span></div>
-      <p className="vertigo-desc">
-        Gestioná todos los aspectos del torneo VÉRTIGO desde este panel. Cada módulo está diseñado para una tarea específica del ciclo de vida del torneo.
-      </p>
+      <div className="vertigo-page-title">
+        <span className="vertigo-kicker">PANEL DE ADMINISTRACIÓN</span>
+        <h1 className="vertigo-title">Centro de control</h1>
+        <div className="vertigo-divider"><span></span><i></i><span></span></div>
+        <p className="vertigo-desc">
+          Gestioná todos los aspectos del torneo VÉRTIGO desde este panel. Cada módulo está diseñado para una tarea específica del ciclo de vida del torneo.
+        </p>
+      </div>
 
       {/* Grid de secciones */}
       <div style={{
         display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-        gap: "16px",
+        gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+        gap: "18px",
       }}>
         {SECTIONS.map((section, i) => (
           <Link
             key={section.href}
             href={section.href}
-            className="vertigo-link-card vertigo-fade-in"
-            style={{ animationDelay: `${0.05 * i}s` }}
+            className="vertigo-link-card premium"
           >
             <section.icon
               className="vertigo-link-card-icon"
-              style={{ color: section.accent }}
+              style={{ color: section.accent, marginBottom: "18px" }}
             />
             <div className="vertigo-link-card-title">{section.title}</div>
             <p className="vertigo-link-card-desc">{section.desc}</p>

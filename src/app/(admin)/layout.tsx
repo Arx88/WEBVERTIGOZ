@@ -2,25 +2,10 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { logoutAction } from "@/server/actions/auth";
-import {
-  LayoutDashboard, Trophy, Users, Brackets as BracketIcon,
-  Calendar, Mic, Shield, BookOpen, AlertTriangle, ScrollText, LogOut,
-} from "lucide-react";
+import { AdminSidebarNav } from "./admin-sidebar-nav";
+import { LogOut } from "lucide-react";
 
 export const dynamic = "force-dynamic";
-
-const NAV_ITEMS = [
-  { href: "/admin", label: "Centro", icon: LayoutDashboard },
-  { href: "/admin/torneo", label: "Torneo", icon: Trophy },
-  { href: "/admin/equipos", label: "Equipos", icon: Users },
-  { href: "/admin/bracket", label: "Bracket", icon: BracketIcon },
-  { href: "/admin/jornadas", label: "Jornadas", icon: Calendar },
-  { href: "/admin/casters", label: "Casters", icon: Mic },
-  { href: "/admin/emblemas", label: "Emblemas", icon: Shield },
-  { href: "/admin/handbook", label: "Handbook", icon: BookOpen },
-  { href: "/admin/disputas", label: "Disputas", icon: AlertTriangle },
-  { href: "/admin/auditoria", label: "Auditoría", icon: ScrollText },
-];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const supabase = await getSupabaseServer();
@@ -42,44 +27,31 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="vertigo-admin-shell">
-      {/* Sidebar */}
-      <aside className="vertigo-sidebar">
-        {/* Header */}
-        <div className="vertigo-sidebar-header">
-          <Link href="/" className="vertigo-sidebar-logo">VÉRTIGO</Link>
-          <div className="vertigo-sidebar-tag">Admin Panel</div>
-        </div>
+      <AdminSidebarNav />
 
-        {/* Navigation */}
-        <nav className="vertigo-sidebar-nav">
-          {NAV_ITEMS.map((item) => (
-            <Link key={item.href} href={item.href}>
-              <item.icon />
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-
-        {/* Footer — user info + logout */}
-        <div className="vertigo-sidebar-footer">
-          <div className="vertigo-sidebar-user">
-            <div className="vertigo-sidebar-user-avatar">{initials}</div>
-            <div className="vertigo-sidebar-user-info">
-              <div className="vertigo-sidebar-user-name">{displayName}</div>
-              <div className="vertigo-sidebar-user-role">{account.role === "super_admin" ? "Super Admin" : "Admin"}</div>
+      {/* Contenido principal */}
+      <div className="vertigo-admin-main vertigo-scroll">
+        {/* Topbar —Nombre usuario y logout */}
+        <div className="vertigo-admin-topbar">
+          <div className="vertigo-admin-topbar-user">
+            <div className="vertigo-sidebar-user-avatar" style={{ width: "34px", height: "34px", fontSize: "13px" }}>
+              {initials}
+            </div>
+            <div>
+              <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--vertigo-text)" }}>{displayName}</div>
+              <div style={{ fontSize: "10px", color: "var(--vertigo-faint)", letterSpacing: "1.5px", textTransform: "uppercase" }}>
+                {account.role === "super_admin" ? "Super Admin" : "Admin"}
+              </div>
             </div>
           </div>
           <form action={logoutAction}>
-            <button type="submit" className="vertigo-btn vertigo-btn-ghost" style={{ width: "100%", justifyContent: "center", padding: "10px", fontSize: "11px" }}>
-              <LogOut size={14} />
+            <button type="submit" className="vertigo-btn vertigo-btn-ghost" style={{ padding: "8px 16px", fontSize: "10px" }}>
+              <LogOut size={12} />
               Salir
             </button>
           </form>
         </div>
-      </aside>
 
-      {/* Main content */}
-      <div className="vertigo-admin-main vertigo-scroll">
         <div className="vertigo-admin-content">
           {children}
         </div>

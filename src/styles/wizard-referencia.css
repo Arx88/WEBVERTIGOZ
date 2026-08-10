@@ -135,6 +135,14 @@ body:has(.wizard-page), html:has(.wizard-page) {
   scrollbar-width:thin; scrollbar-color:var(--line) transparent}
 .wizard-page .panel.active{opacity:1; pointer-events:auto}
 .wizard-page .panel.leaving{opacity:1}
+/* Animación de transición entre pasos */
+.wizard-page .panel.panel-slide-in {
+  animation: panelSlideIn 0.5s var(--ease) both;
+}
+@keyframes panelSlideIn {
+  from { opacity: 0; transform: translateX(30px); }
+  to { opacity: 1; transform: none; }
+}
 .wizard-page .panel::-webkit-scrollbar{width:8px}
 .wizard-page .panel::-webkit-scrollbar-thumb{background:var(--line); border-radius:8px}
 .wizard-page .panel::-webkit-scrollbar-thumb:hover{background:#372c4a}
@@ -142,7 +150,7 @@ body:has(.wizard-page), html:has(.wizard-page) {
 .wizard-page .p-kicker{display:inline-block; font-size:11.5px; font-weight:700; letter-spacing:2.4px; color:var(--purple);
   text-transform:uppercase; margin-bottom:14px}
 .wizard-page .p-title{font-family:Cinzel; font-weight:700; font-size:clamp(24px,2.4vw,34px); letter-spacing:1px;
-  text-transform:uppercase; color:var(--text)}
+  text-transform:uppercase; color:var(--text); margin-bottom:8px}
 .wizard-page .p-divider{display:flex; align-items:center; justify-content:center; gap:10px; margin:20px 0 22px; max-width:660px}
 .wizard-page .p-divider span{flex:1; height:1px; background:linear-gradient(90deg,transparent,#3a2f4a)}
 .wizard-page .p-divider span:last-child{background:linear-gradient(90deg,#3a2f4a,transparent)}

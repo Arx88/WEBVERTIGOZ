@@ -145,17 +145,19 @@ export default async function BracketPage() {
         </div>
       </header>
 
-      <main className="vertigo-content" style={{ maxWidth: "none", padding: "32px 24px" }}>
-        <span className="vertigo-kicker">BRACKET</span>
-        <h1 className="vertigo-title">Llaves del torneo</h1>
-        <div className="vertigo-divider"><span></span><i></i><span></span></div>
-        <p className="vertigo-desc">
-          Single elimination de 32 equipos · 5 rondas hasta la final. Hacé clic en cada llave para
-          ver el partido con su sorteo en vivo.
-        </p>
+      <main className="vertigo-content" style={{ maxWidth: "none", padding: "40px 32px" }}>
+        <div className="vertigo-page-title">
+          <span className="vertigo-kicker">BRACKET</span>
+          <h1 className="vertigo-title">Llaves del torneo</h1>
+          <div className="vertigo-divider"><span></span><i></i><span></span></div>
+          <p className="vertigo-desc">
+            Single elimination de 32 equipos · 5 rondas hasta la final. Hacé clic en cada llave para
+            ver el partido con su sorteo en vivo.
+          </p>
+        </div>
 
         {/* Leyenda */}
-        <div className="vertigo-action-bar mb-6">
+        <div className="vertigo-action-bar" style={{ marginBottom: "28px" }}>
           <span className="vertigo-badge vertigo-badge-purple">Programado</span>
           <span className="vertigo-badge vertigo-badge-success">En juego / Abierto</span>
           <span className="vertigo-badge vertigo-badge-warning">Sorteo / Comodines</span>
