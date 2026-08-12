@@ -13,12 +13,20 @@ export default async function PartidoPage({
 }) {
   const { id } = await params;
 
+  const supabase = await getSupabaseServer();
   let initialMatch = null;
   try {
-    const supabase = await getSupabaseServer();
     initialMatch = await loadMatch(supabase, id);
   } catch {
     initialMatch = null;
+  }
+
+  // Contexto del capitán: ¿el usuario logueado es capitán de un equipo de este match?
+  let captainContext: import("@/components/captain/captain-match-panel").CaptainPanelContext | null = null;
+  try {
+    captainContext = await resolveCaptainContext(supabase as any, id);
+  } catch {
+    captainContext = null;
   }
 
   if (!initialMatch) {
@@ -84,8 +92,74 @@ export default async function PartidoPage({
           se actualiza en tiempo real cuando el staff ejecuta acciones.
         </p>
 
-        <MatchRealtimeWrapper matchId={id} initialMatch={initialMatch} />
+        <MatchRealtimeWrapper matchId={id} initialMatch={initialMatch} captainContext={captainContext} />
       </main>
     </div>
   );
+}
+
+// ============================================================
+// Resolver el contexto del capitán (server-side)
+// ============================================================
+// Devuelve todo lo que necesita el CaptainMatchPanel para renderizar la vista
+// contextual del capitán en su partido (lineup, READY, comodines).
+
+import { getSupabaseServiceRole } from "@/lib/supabase/server";
+
+async function resolveCaptainContext(supabase: any, matchId: string) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data: account } = await supabase.from("account").select("id, role").eq("supabase_auth_id", user.id).single();
+  if (!account) return null;
+
+  // team del usuario
+  const { data: teamAccount } = await supabase
+    .from("team_account").select("id, name").eq("owner_id", account.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (!teamAccount) return null;
+
+  // team_registration del usuario en la edición de este match
+  const { data: matchRow } = await supabase
+    .from("match")
+    .select("id, team_a_id, team_b_id, round:round_id(bracket:bracket_id(tournament_edition_id))")
+    .eq("id", matchId).single();
+  if (!matchRow) return null;
+  const editionId = matchRow.round?.bracket?.tournament_edition_id;
+
+  const { data: myReg } = await supabase
+    .from("team_registration")
+    .select("id, team_account_id")
+    .eq("team_account_id", teamAccount.id)
+    .eq("tournament_edition_id", editionId)
+    .maybeSingle();
+  if (!myReg) return null;
+
+  // ¿el usuario es capitán de un equipo de this match?
+  const isTeamA = matchRow.team_a_id === myReg.id;
+  const isTeamB = matchRow.team_b_id === myReg.id;
+  if (!isTeamA && !isTeamB) return null;
+
+  // Roster (3 jugadores)
+  const { data: players } = await supabase
+    .from("player_registration")
+    .select("id, display_name, is_captain")
+    .eq("team_registration_id", myReg.id);
+
+  // Jugadores anulados en este match (por comodín ANULAR)
+  const service = getSupabaseServiceRole();
+  const { data: usages } = await service
+    .from("comodin_usage")
+    .select("target_player_id")
+    .eq("match_id", matchId)
+    .eq("comodin_type", "anular")
+    .eq("status", "executed");
+  const annulledPlayerIds = (usages ?? []).map((u: any) => u.target_player_id).filter(Boolean);
+
+  return {
+    myTeamRegId: myReg.id,
+    teamA_id: matchRow.team_a_id,
+    teamB_id: matchRow.team_b_id,
+    myPlayers: (players ?? []).map((p: any) => ({ id: p.id, display_name: p.display_name, is_captain: p.is_captain })),
+    annulledPlayerIds,
+  };
 }

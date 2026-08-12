@@ -16,6 +16,10 @@ import {
 } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { civName } from "@/lib/constants/civs";
+import LiveDrawRoulette from "@/components/ruleta/live-draw-roulette";
+import MatchHero from "@/components/shared/match-hero";
+import { artForMode, artForMap } from "@/lib/art";
+import { CaptainMatchPanel, type CaptainPanelContext } from "@/components/captain/captain-match-panel";
 
 export interface GameView {
   id: string;
@@ -62,6 +66,12 @@ export interface MatchData {
   scoreA: number;
   scoreB: number;
   winnerTeamId: string | null;
+  // READY #1 / READY #2 y ventana de comodines (para el panel del capitán)
+  readyA: boolean;
+  readyB: boolean;
+  readyLineupA: boolean;
+  readyLineupB: boolean;
+  comodinWindowExpiresAt: string | null;
   streamEmbedEnabled: boolean;
   streamCaster: {
     displayName: string;
@@ -82,6 +92,8 @@ export interface MatchData {
 interface Props {
   matchId: string;
   initialMatch: MatchData | null;
+  /** Contexto del capitán si el viewer es capitán de un equipo de este match */
+  captainContext?: CaptainPanelContext | null;
 }
 
 const MATCH_STATUS_META: Record<string, { label: string; cls: string }> = {
@@ -123,7 +135,7 @@ function formatCountdown(ms: number): string {
   return `${pad(h)}:${pad(m)}:${pad(s)}`;
 }
 
-export default function MatchRealtimeWrapper({ matchId, initialMatch }: Props) {
+export default function MatchRealtimeWrapper({ matchId, initialMatch, captainContext }: Props) {
   const [match, setMatch] = useState<MatchData | null>(initialMatch);
   const now = useNow(1000);
 
@@ -195,6 +207,48 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch }: Props) {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* RULETA EN VIVO — overlay fullscreen cuando el server dispara el sorteo */}
+      {match.status === "drawing" && (
+        <LiveDrawRoulette
+          matchId={matchId}
+          onDone={() => void refresh()}
+        />
+      )}
+
+      {/* HERO cinematográfico del partido (modo + mapa, fondo con arte del sorteo) */}
+      <MatchHero
+        mapName={match.games[0]?.map ?? null}
+        gameModeName={match.games[0]?.gameMode ?? null}
+        antimetaName={match.games[0]?.antimetaMode ?? null}
+        playerModeName={match.games[0]?.playerMode ?? null}
+        llaveName={match.format ?? null}
+        status={match.status}
+        civsA={match.games[0]?.civsA ?? []}
+        civsB={match.games[0]?.civsB ?? []}
+        live={match.status === "in_progress" || match.status === "drawing"}
+      />
+
+      {/* PANEL DEL CAPITÁN — solo si el viewer es capitán de un equipo de esta llave.
+          Le da lineup, READY #2 y comodines en contexto del partido. */}
+      {captainContext && match.teamA && match.teamB && (
+        <CaptainMatchPanel
+          matchId={matchId}
+          status={match.status}
+          myTeamRegId={captainContext.myTeamRegId}
+          teamA={{ id: match.teamA.id, name: match.teamA.name, seed: match.teamA.seed }}
+          teamB={{ id: match.teamB.id, name: match.teamB.name, seed: match.teamB.seed }}
+          myPlayers={captainContext.myPlayers}
+          annulledPlayerIds={captainContext.annulledPlayerIds}
+          readyA={!!match.readyA}
+          readyB={!!match.readyB}
+          readyLineupA={!!match.readyLineupA}
+          readyLineupB={!!match.readyLineupB}
+          format={match.format}
+          scheduledAtStart={match.scheduledAtStart}
+          comodinExpiresAt={match.comodinWindowExpiresAt}
+        />
+      )}
+
       {/* SCOREBOARD */}
       <div className="vertigo-card">
         <div className="vertigo-card-header">
@@ -492,6 +546,10 @@ function GameCard({
   const civsA = draw?.civsA ?? game.civsA ?? [];
   const civsB = draw?.civsB ?? game.civsB ?? [];
 
+  // Imágenes del modo y del mapa sorteados (para mostrar arte, no solo texto)
+  const gameModeArt = gameMode ? artForMode(gameMode) : null;
+  const mapArt = map ? artForMap(map) : null;
+
   return (
     <div className="vertigo-card">
       <div className="vertigo-card-header">
@@ -509,12 +567,19 @@ function GameCard({
       </div>
       <div
         className="grid gap-2 mb-4"
-        style={{ gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))" }}
+        style={{ gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))" }}
       >
+        {/* Modo con imagen */}
         {gameMode && (
-          <div className="vertigo-info-card">
-            <div className="vertigo-info-card-label">Modo</div>
-            <div className="vertigo-info-card-value" style={{ fontSize: 13 }}>{gameMode}</div>
+          <div className="vertigo-info-card" style={{ padding: 0, overflow: "hidden", border: "1px solid rgba(124,58,237,0.25)", minHeight: 90 }}>
+            <div style={{ height: 56, overflow: "hidden", position: "relative", borderRadius: "10px 10px 0 0" }}>
+              <img src={gameModeArt ?? undefined} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.8 }} />
+              <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 40%, rgba(13,9,19,0.85) 100%)" }} />
+            </div>
+            <div style={{ padding: "8px 12px" }}>
+              <div className="vertigo-info-card-label" style={{ marginBottom: 2, fontSize: 9 }}>Modo</div>
+              <div className="vertigo-info-card-value" style={{ fontSize: 13, lineHeight: 1.2 }}>{gameMode}</div>
+            </div>
           </div>
         )}
         {antimetaMode && (
@@ -532,10 +597,17 @@ function GameCard({
             <div className="vertigo-info-card-value" style={{ fontSize: 13 }}>{playerMode}</div>
           </div>
         )}
+        {/* Mapa con imagen */}
         {map && (
-          <div className="vertigo-info-card">
-            <div className="vertigo-info-card-label">Mapa</div>
-            <div className="vertigo-info-card-value" style={{ fontSize: 13 }}>{map}</div>
+          <div className="vertigo-info-card" style={{ padding: 0, overflow: "hidden", border: "1px solid rgba(124,58,237,0.25)", minHeight: 90 }}>
+            <div style={{ height: 56, overflow: "hidden", position: "relative", borderRadius: "10px 10px 0 0" }}>
+              <img src={mapArt ?? undefined} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.8 }} />
+              <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 40%, rgba(13,9,19,0.85) 100%)" }} />
+            </div>
+            <div style={{ padding: "8px 12px" }}>
+              <div className="vertigo-info-card-label" style={{ marginBottom: 2, fontSize: 9 }}>Mapa</div>
+              <div className="vertigo-info-card-value" style={{ fontSize: 13, lineHeight: 1.2 }}>{map}</div>
+            </div>
           </div>
         )}
       </div>
@@ -604,7 +676,7 @@ export async function loadMatch(supabase: any, matchId: string): Promise<MatchDa
   const { data: match } = (await supabase
     .from("match")
     .select(
-      "id, status, format, scheduled_at_start, scheduled_at_end, jornada_label, score_a, score_b, winner_team_id, team_a_id, team_b_id, round_id, stream_caster_id, stream_embed_enabled"
+      "id, status, format, scheduled_at_start, scheduled_at_end, jornada_label, score_a, score_b, winner_team_id, team_a_id, team_b_id, round_id, stream_caster_id, stream_embed_enabled, ready_a_at, ready_b_at, ready_lineup_a_at, ready_lineup_b_at, comodin_window_expires_at"
     )
     .eq("id", matchId)
     .maybeSingle()) as { data: any };
@@ -774,6 +846,11 @@ export async function loadMatch(supabase: any, matchId: string): Promise<MatchDa
     scoreA: match.score_a ?? 0,
     scoreB: match.score_b ?? 0,
     winnerTeamId: match.winner_team_id ?? null,
+    readyA: !!match.ready_a_at,
+    readyB: !!match.ready_b_at,
+    readyLineupA: !!match.ready_lineup_a_at,
+    readyLineupB: !!match.ready_lineup_b_at,
+    comodinWindowExpiresAt: match.comodin_window_expires_at ?? null,
     streamEmbedEnabled: !!match.stream_embed_enabled,
     streamCaster,
     comodinUsages,

@@ -44,7 +44,7 @@ export default async function MiEquipoPage() {
 
   const { data: team } = (await supabase
     .from("team_account")
-    .select("id, name, tagline, emblem_id, created_at")
+    .select("id, name, tagline, emblem_id, created_at, emblem:emblem_id (image_url)")
     .eq("owner_id", account.id)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -104,6 +104,23 @@ export default async function MiEquipoPage() {
     pastMatches = past ?? [];
   }
 
+  // Resolver nombres de los rivales (para mostrar "vs NombreDelRival" en vez de "Equipo A/B")
+  const rivalIds = new Set<string>();
+  for (const m of pastMatches) {
+    if (m.team_a_id && m.team_a_id !== latestReg?.id) rivalIds.add(m.team_a_id);
+    if (m.team_b_id && m.team_b_id !== latestReg?.id) rivalIds.add(m.team_b_id);
+  }
+  const rivalNames: Record<string, string> = {};
+  if (rivalIds.size > 0) {
+    const { data: rivals } = (await supabase
+      .from("team_registration")
+      .select("id, team_account:team_account_id(name)")
+      .in("id", Array.from(rivalIds))) as { data: any };
+    for (const r of rivals ?? []) {
+      rivalNames[r.id] = r.team_account?.name ?? "Rival";
+    }
+  }
+
   // Fetch datos full de AoE2 Companion para cada jugador (en paralelo)
   const playerProfiles = await Promise.all(
     players.map(async (p) => {
@@ -149,8 +166,8 @@ export default async function MiEquipoPage() {
   ];
   const completedCount = checklist.filter((c) => c.ok).length;
 
-  const emblemIdx = team.id ? (team.id.charCodeAt(0) % 13) + 1 : 1;
-  const emblemUrl = `/reinos/reino-${emblemIdx}.webp`;
+  // Emblema real del equipo (de la DB), con fallback a los escudos genéricos si no eligió uno
+  const emblemUrl = team?.emblem?.image_url ?? (team.id ? `/reinos/reino-${(team.id.charCodeAt(0) % 13) + 1}.webp` : `/reinos/reino-1.webp`);
 
   const verificationLabel = (() => {
     switch (latestReg?.elo_verification_status) {
@@ -620,6 +637,8 @@ export default async function MiEquipoPage() {
                 const won = m.winner_team_id === latestReg?.id;
                 const ourScore = isTeamA ? m.score_a : m.score_b;
                 const theirScore = isTeamA ? m.score_b : m.score_a;
+                const rivalId = isTeamA ? m.team_b_id : m.team_a_id;
+                const rivalName = (rivalId && rivalNames[rivalId]) || "Rival";
                 // Obtener datos del sorteo si existe
                 const gameData = m.games?.[0];
                 const sorteoInfo = gameData
@@ -649,7 +668,7 @@ export default async function MiEquipoPage() {
                       {/* Info */}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: "14px", fontWeight: 600, color: "var(--vertigo-text)" }}>
-                          {isTeamA ? "vs Equipo B" : "vs Equipo A"}
+                          vs {rivalName}
                         </div>
                         <div style={{ fontSize: "12px", color: "var(--vertigo-faint)", marginTop: "2px", display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
                           <span>{m.jornada_label ?? "Partido"}</span>

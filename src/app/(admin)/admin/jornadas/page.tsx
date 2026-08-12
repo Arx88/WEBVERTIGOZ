@@ -1,7 +1,8 @@
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Calendar, Clock, AlertCircle, ChevronRight } from "lucide-react";
+import { scheduleMatchFormAction } from "@/server/actions/tournament";
+import { Calendar, Clock, AlertCircle, ChevronRight, Save } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -17,12 +18,13 @@ export default async function AdminJornadasPage() {
   const { data: matches } = (await supabase
     .from("match")
     .select(`
-      id, status, scheduled_at_start, scheduled_at_end, jornada_label, format,
-      round:round_id (name),
-      team_a:team_a_id (id),
-      team_b:team_b_id (id)
+      id, status, scheduled_at_start, scheduled_at_end, jornada_label, format, slot_index,
+      round:round_id (name, index),
+      team_a:team_a_id (id, seed, team_account:team_account_id (name)),
+      team_b:team_b_id (id, seed, team_account:team_account_id (name))
     `)
     .order("scheduled_at_start", { ascending: true, nullsFirst: false })
+    .order("slot_index", { ascending: true })
     .limit(100)) as { data: any };
 
   const total = matches?.length ?? 0;
@@ -104,32 +106,85 @@ export default async function AdminJornadasPage() {
                 {label}
                 <span className="vertigo-badge vertigo-badge-purple ml-2">{jMatches.length}</span>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3">
                 {jMatches.map((m: any) => {
                   const meta = STATUS_META[m.status] ?? STATUS_META.scheduled;
+                  const teamAName = m.team_a?.team_account?.name ?? "Por definir";
+                  const teamBName = m.team_b?.team_account?.name ?? "Por definir";
+                  const startLocal = m.scheduled_at_start ? toLocalInput(m.scheduled_at_start) : "";
+                  const endLocal = m.scheduled_at_end ? toLocalInput(m.scheduled_at_end) : "";
+                  const editable = m.status === "scheduled";
                   return (
-                    <Link key={m.id} href={`/admin/partido/${m.id}`} className="vertigo-link-card">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className={`vertigo-badge ${meta.cls}`}>
-                          <span className="vertigo-status-dot" style={{ background: meta.dot }} />
-                          {meta.label}
+                    <div key={m.id} className="vertigo-card" style={{ padding: 20 }}>
+                      {/* Header */}
+                      <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <span className={`vertigo-badge ${meta.cls}`}>
+                            <span className="vertigo-status-dot" style={{ background: meta.dot }} />
+                            {meta.label}
+                          </span>
+                          <span className="text-[10px] uppercase tracking-widest text-[var(--vertigo-faint)]">
+                            {m.round?.name ?? "Ronda"} · slot {m.slot_index}
+                          </span>
+                          {m.format && (
+                            <span className="vertigo-badge vertigo-badge-purple">{m.format}</span>
+                          )}
+                        </div>
+                        <Link href={`/admin/partido/${m.id}`} className="vertigo-btn vertigo-btn-ghost" style={{ padding: "7px 14px", fontSize: 10 }}>
+                          Abrir llave <ChevronRight style={{ width: 12, height: 12 }} />
+                        </Link>
+                      </div>
+
+                      {/* Equipos */}
+                      <div className="flex items-center justify-center gap-4 mb-4 flex-wrap">
+                        <span className="font-cinzel text-sm text-[var(--vertigo-text)]">
+                          {m.team_a?.seed != null ? `#${m.team_a.seed} ` : ""}{teamAName}
                         </span>
-                        {m.format && (
-                          <span className="vertigo-badge vertigo-badge-purple">{m.format}</span>
+                        <span className="text-[var(--vertigo-faint)] text-xs uppercase tracking-widest">vs</span>
+                        <span className="font-cinzel text-sm text-[var(--vertigo-text)]">
+                          {m.team_b?.seed != null ? `#${m.team_b.seed} ` : ""}{teamBName}
+                        </span>
+                      </div>
+
+                      {/* Programación actual + edición */}
+                      <div className="flex items-center gap-3 mb-4 text-xs text-[var(--vertigo-muted)] flex-wrap">
+                        <Clock style={{ width: 13, height: 13 }} />
+                        {m.scheduled_at_start
+                          ? `${new Date(m.scheduled_at_start).toLocaleString("es-AR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })} → ${m.scheduled_at_end ? new Date(m.scheduled_at_end).toLocaleString("es-AR", { hour: "2-digit", minute: "2-digit" }) : "?"}`
+                          : "Sin programar"}
+                        {m.jornada_label && (
+                          <span className="vertigo-badge vertigo-badge-purple" style={{ fontSize: 9 }}>{m.jornada_label}</span>
                         )}
                       </div>
-                      <div className="font-cinzel text-sm text-[var(--vertigo-text)] mb-2">
-                        {m.round?.name ?? "Ronda"}
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-[var(--vertigo-muted)]">
-                        <Clock style={{ width: 12, height: 12 }} />
-                        {m.scheduled_at_start
-                          ? new Date(m.scheduled_at_start).toLocaleString("es-AR", {
-                              day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
-                            })
-                          : "Sin programar"}
-                      </div>
-                    </Link>
+
+                      {editable ? (
+                        <form action={scheduleMatchFormAction} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto_auto] gap-3 items-end pt-4 border-t border-[var(--vertigo-line-soft)]">
+                          <input type="hidden" name="match_id" value={m.id} />
+                          <div className="flex flex-col gap-1">
+                            <label className="text-[9px] uppercase tracking-widest text-[var(--vertigo-faint)]">Inicio</label>
+                            <input type="datetime-local" name="scheduled_at_start" defaultValue={startLocal} required
+                              className="bg-[var(--vertigo-input-bg)] border border-[var(--vertigo-input-border)] rounded-md px-3 py-2 text-[13px] text-[var(--vertigo-text)]" />
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <label className="text-[9px] uppercase tracking-widest text-[var(--vertigo-faint)]">Fin estimado</label>
+                            <input type="datetime-local" name="scheduled_at_end" defaultValue={endLocal} required
+                              className="bg-[var(--vertigo-input-bg)] border border-[var(--vertigo-input-border)] rounded-md px-3 py-2 text-[13px] text-[var(--vertigo-text)]" />
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <label className="text-[9px] uppercase tracking-widest text-[var(--vertigo-faint)]">Jornada</label>
+                            <input type="text" name="jornada_label" defaultValue={m.jornada_label ?? ""} placeholder="Jornada 1"
+                              className="bg-[var(--vertigo-input-bg)] border border-[var(--vertigo-input-border)] rounded-md px-3 py-2 text-[13px] text-[var(--vertigo-text)] w-32" />
+                          </div>
+                          <button type="submit" className="vertigo-btn vertigo-btn-primary" style={{ padding: "9px 18px", fontSize: 10 }}>
+                            <Save style={{ width: 13, height: 13 }} /> Guardar
+                          </button>
+                        </form>
+                      ) : (
+                        <div className="pt-4 border-t border-[var(--vertigo-line-soft)] text-[11px] text-[var(--vertigo-faint)] italic">
+                          Solo se puede reprogramar un partido en estado "Programado".
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>
@@ -152,4 +207,17 @@ export default async function AdminJornadasPage() {
       </div>
     </div>
   );
+}
+
+/**
+ * Convierte una fecha ISO (UTC) al valor que espera <input type="datetime-local">
+ * (formato "YYYY-MM-DDTHH:mm" en hora local del navegador que renderiza el input).
+ * Como esto corre server-side, usamos la hora UTC directamente: el admin
+ * verá/edita en UTC. Lo documentamos en el label del campo.
+ */
+function toLocalInput(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }

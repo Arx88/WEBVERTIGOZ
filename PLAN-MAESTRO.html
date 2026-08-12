@@ -1,0 +1,1397 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VÉRTIGO Cup — Plan Maestro de Desarrollo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --v-bg:#070310;
+    --v-surface:#0d0913;
+    --v-surface-2:#120b1c;
+    --v-surface-3:#181026;
+    --v-border:#241d2f;
+    --v-border-soft:#1b1426;
+    --v-purple:#7c3aed;
+    --v-purple-soft:#a78bfa;
+    --v-purple-bright:#c4b5fd;
+    --v-purple-dim:#4c1d95;
+    --v-purple-glow:rgba(124,58,237,.32);
+    --v-text:#f2eef7;
+    --v-muted:#9a92a6;
+    --v-faint:#6f6780;
+    --v-success:#22c55e;
+    --v-danger:#fb7185;
+    --v-warning:#fbbf24;
+    --v-info:#60a5fa;
+    --v-gold:#D4AF37;
+    --v-code-bg:#0a0614;
+    --v-radius:14px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth;scroll-padding-top:24px}
+  body{
+    background:var(--v-bg);
+    color:var(--v-text);
+    font-family:'Inter',system-ui,sans-serif;
+    font-size:15px;
+    line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+  }
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:
+      radial-gradient(900px 500px at 85% -10%, rgba(124,58,237,.13), transparent 60%),
+      radial-gradient(700px 420px at -10% 30%, rgba(124,58,237,.08), transparent 60%);
+  }
+  ::selection{background:rgba(124,58,237,.45);color:#fff}
+
+  /* ============ LAYOUT ============ */
+  .layout{display:flex;min-height:100vh;position:relative;z-index:1}
+  aside#sidebar{
+    width:292px;flex:0 0 292px;
+    position:sticky;top:0;height:100vh;overflow-y:auto;overflow-x:hidden;
+    border-right:1px solid var(--v-border-soft);
+    background:linear-gradient(180deg,#0a0614 0%, #070310 100%);
+    padding:22px 14px 40px;
+    transition:margin-left .28s ease, opacity .2s ease;
+    scrollbar-width:thin;scrollbar-color:var(--v-border) transparent;
+  }
+  aside#sidebar::-webkit-scrollbar{width:6px}
+  aside#sidebar::-webkit-scrollbar-thumb{background:var(--v-border);border-radius:3px}
+  body.sb-collapsed aside#sidebar{margin-left:-292px;opacity:0;pointer-events:none}
+  main{
+    flex:1 1 auto;min-width:0;
+    padding:34px 44px 90px;
+    transition:padding .28s ease;
+  }
+  .container{max-width:1020px;margin:0 auto}
+
+  #sb-toggle{
+    position:fixed;top:16px;left:16px;z-index:60;
+    width:38px;height:38px;border-radius:10px;
+    background:var(--v-surface-2);border:1px solid var(--v-border);
+    color:var(--v-purple-soft);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    font-size:17px;transition:all .2s;
+  }
+  #sb-toggle:hover{border-color:var(--v-purple);box-shadow:0 0 16px var(--v-purple-glow)}
+  aside#sidebar .brand{
+    display:flex;align-items:center;gap:10px;
+    padding:2px 8px 18px;border-bottom:1px solid var(--v-border-soft);margin-bottom:16px;
+  }
+  aside#sidebar .brand .sigil{
+    width:34px;height:34px;border-radius:9px;flex:0 0 34px;
+    background:linear-gradient(135deg,#7c3aed,#4c1d95);
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Cinzel',serif;font-weight:900;font-size:16px;color:#fff;
+    box-shadow:0 0 18px var(--v-purple-glow);
+  }
+  aside#sidebar .brand b{font-family:'Cinzel',serif;font-size:13.5px;letter-spacing:.14em;font-weight:700}
+  aside#sidebar .brand span{display:block;font-size:10.5px;color:var(--v-faint);letter-spacing:.08em;text-transform:uppercase}
+  nav.toc a{
+    display:flex;gap:10px;align-items:baseline;
+    padding:7px 10px;border-radius:9px;
+    color:var(--v-muted);text-decoration:none;font-size:13px;font-weight:500;
+    border:1px solid transparent;transition:all .15s;
+  }
+  nav.toc a:hover{color:var(--v-text);background:var(--v-surface-2)}
+  nav.toc a.active{
+    color:var(--v-purple-bright);background:rgba(124,58,237,.12);
+    border-color:rgba(124,58,237,.3);
+  }
+  nav.toc a .n{
+    font-family:'Cinzel',serif;font-size:11px;font-weight:700;color:var(--v-purple-soft);
+    min-width:24px;
+  }
+  nav.toc .sub a{padding-left:38px;font-size:12px;color:var(--v-faint)}
+  nav.toc .sub a:hover,nav.toc .sub a.active{color:var(--v-purple-soft)}
+  nav.toc .toc-cap{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--v-faint);padding:16px 10px 6px}
+
+  /* ============ TYPOGRAPHY ============ */
+  h1,h2,h3,h4{font-family:'Cinzel',serif;color:var(--v-text)}
+  h2.sec{
+    font-size:26px;font-weight:700;letter-spacing:.02em;
+    margin:64px 0 8px;padding-top:10px;
+    display:flex;align-items:center;gap:16px;
+  }
+  h2.sec .num{
+    flex:0 0 auto;width:46px;height:46px;border-radius:12px;
+    display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(135deg,rgba(124,58,237,.28),rgba(76,29,149,.28));
+    border:1px solid rgba(124,58,237,.45);
+    color:var(--v-purple-bright);font-size:19px;font-weight:900;
+    box-shadow:0 0 22px var(--v-purple-glow);
+  }
+  .sec-sub{color:var(--v-muted);font-size:14px;margin:0 0 26px 62px}
+  h2.sec::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--v-border),transparent)}
+  h3{
+    font-size:17px;font-weight:700;margin:42px 0 12px;letter-spacing:.03em;
+    display:flex;align-items:center;gap:10px;
+  }
+  h3::before{content:"";width:8px;height:8px;transform:rotate(45deg);background:var(--v-purple);box-shadow:0 0 10px var(--v-purple-glow);flex:0 0 auto}
+  h4{font-family:'Inter',sans-serif;font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--v-purple-soft);margin:26px 0 10px}
+  p{margin:0 0 14px;color:#d9d3e3}
+  p.lead{font-size:16px;color:var(--v-text)}
+  strong{color:var(--v-text)}
+  a.inline{color:var(--v-purple-soft);text-decoration:none;border-bottom:1px dotted rgba(167,139,250,.5)}
+  ul,ol{margin:0 0 16px 22px;color:#d9d3e3}
+  li{margin-bottom:6px}
+  li::marker{color:var(--v-purple-soft)}
+  .muted{color:var(--v-muted)}
+  .small{font-size:12.5px}
+  .file{
+    font-family:'JetBrains Mono',monospace;font-size:12px;color:#d8b4fe;
+    background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.28);
+    padding:1px 7px;border-radius:6px;white-space:nowrap;
+  }
+  code.inl{
+    font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--v-purple-bright);
+    background:var(--v-surface-2);border:1px solid var(--v-border);
+    padding:1px 6px;border-radius:6px;
+  }
+  .kbd{font-family:'JetBrains Mono',monospace;font-size:11px;border:1px solid var(--v-border);border-bottom-width:2px;border-radius:5px;padding:1px 6px;background:var(--v-surface-2);color:var(--v-muted)}
+
+  /* ============ BADGES ============ */
+  .badge{
+    display:inline-flex;align-items:center;gap:5px;
+    font-size:10px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;
+    padding:3px 10px;border-radius:999px;border:1px solid;white-space:nowrap;
+  }
+  .badge::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;box-shadow:0 0 8px currentColor}
+  .badge.done{color:#4ade80;border-color:rgba(34,197,94,.42);background:rgba(34,197,94,.08)}
+  .badge.partial{color:#fcd34d;border-color:rgba(251,191,36,.42);background:rgba(251,191,36,.07)}
+  .badge.missing{color:#c4b5fd;border-color:rgba(167,139,250,.45);background:rgba(124,58,237,.12)}
+  .badge.bug{color:#fda4af;border-color:rgba(251,113,133,.48);background:rgba(251,113,133,.08)}
+  .badge.risk{color:#fdba74;border-color:rgba(251,146,60,.48);background:rgba(251,146,60,.08)}
+  .badge.new{color:#7dd3fc;border-color:rgba(96,165,250,.45);background:rgba(96,165,250,.08)}
+  .prio{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.1em;padding:2px 9px;border-radius:6px;border:1px solid}
+  .prio.p0{color:#fda4af;border-color:rgba(251,113,133,.5);background:rgba(251,113,133,.09)}
+  .prio.p1{color:#fcd34d;border-color:rgba(251,191,36,.45);background:rgba(251,191,36,.07)}
+  .prio.p2{color:#9a92a6;border-color:var(--v-border);background:var(--v-surface-2)}
+
+  /* ============ TABLES ============ */
+  .tbl-wrap{overflow-x:auto;border:1px solid var(--v-border);border-radius:var(--v-radius);margin:0 0 22px;background:var(--v-surface)}
+  table.tbl{width:100%;border-collapse:collapse;font-size:13px;min-width:640px}
+  .tbl thead th{
+    text-align:left;font-size:10.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--v-purple-soft);padding:11px 14px;
+    background:var(--v-surface-2);border-bottom:1px solid var(--v-border);
+    white-space:nowrap;
+  }
+  .tbl tbody td{padding:11px 14px;border-bottom:1px solid var(--v-border-soft);vertical-align:top;color:#cdc6da}
+  .tbl tbody tr:last-child td{border-bottom:none}
+  .tbl tbody tr:hover td{background:rgba(124,58,237,.04)}
+  .tbl td b,.tbl td strong{color:var(--v-text)}
+  .tbl .file{white-space:normal;word-break:break-all}
+
+  /* ============ CALLOUTS ============ */
+  .callout{
+    border-radius:0 var(--v-radius) var(--v-radius) 0;
+    border:1px solid var(--v-border);border-left:3px solid var(--v-purple);
+    background:linear-gradient(90deg,rgba(124,58,237,.09),rgba(124,58,237,.02) 55%,transparent);
+    padding:14px 18px;margin:0 0 20px;font-size:13.5px;color:#d9d3e3;
+  }
+  .callout .cap{
+    display:block;font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--v-purple-soft);margin-bottom:5px;
+  }
+  .callout.decision{border-left-color:var(--v-gold);background:linear-gradient(90deg,rgba(212,175,55,.08),transparent 60%)}
+  .callout.decision .cap{color:var(--v-gold)}
+  .callout.warn{border-left-color:var(--v-warning);background:linear-gradient(90deg,rgba(251,191,36,.08),transparent 60%)}
+  .callout.warn .cap{color:var(--v-warning)}
+  .callout.danger{border-left-color:var(--v-danger);background:linear-gradient(90deg,rgba(251,113,133,.08),transparent 60%)}
+  .callout.danger .cap{color:var(--v-danger)}
+  .callout.ok{border-left-color:var(--v-success);background:linear-gradient(90deg,rgba(34,197,94,.08),transparent 60%)}
+  .callout.ok .cap{color:#4ade80}
+  .callout p:last-child{margin-bottom:0}
+
+  /* ============ CODE ============ */
+  pre{
+    background:var(--v-code-bg);border:1px solid var(--v-border);border-radius:var(--v-radius);
+    padding:16px 18px;overflow-x:auto;margin:0 0 22px;
+    font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:1.75;color:#cfc8dd;
+    position:relative;
+  }
+  pre .ph{position:absolute;top:10px;right:14px;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--v-faint);font-family:'Inter',sans-serif;font-weight:700}
+  .c-k{color:#c4b5fd;font-weight:600}
+  .c-s{color:#86efac}
+  .c-c{color:#6f6780;font-style:italic}
+  .c-f{color:#93c5fd}
+  .c-n{color:#fbbf24}
+  .c-t{color:#f0abfc}
+  .c-p{color:#9a92a6}
+
+  /* ============ FLOW DIAGRAMS ============ */
+  .flow{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin:0 0 22px;padding:18px;border:1px dashed var(--v-border);border-radius:var(--v-radius);background:rgba(124,58,237,.03)}
+  .flow.v{flex-direction:column;align-items:stretch}
+  .fnode{
+    border:1px solid var(--v-border);border-radius:11px;background:var(--v-surface-2);
+    padding:8px 14px;font-size:12.5px;font-weight:600;color:var(--v-text);
+    text-align:center;
+  }
+  .fnode small{display:block;font-weight:400;font-size:10.5px;color:var(--v-muted);margin-top:2px}
+  .fnode.hot{border-color:var(--v-purple);box-shadow:0 0 16px var(--v-purple-glow);color:var(--v-purple-bright)}
+  .fnode.ok{border-color:rgba(34,197,94,.5);color:#4ade80}
+  .fnode.bad{border-color:rgba(251,113,133,.5);color:#fda4af}
+  .fnode.warn{border-color:rgba(251,191,36,.5);color:#fcd34d}
+  .farrow{color:var(--v-purple-soft);font-size:17px;font-weight:700;flex:0 0 auto}
+  .flow.v .farrow{align-self:center;transform:rotate(90deg)}
+  .fbranch{display:flex;gap:9px;flex:1 1 100%;justify-content:center;flex-wrap:wrap;margin-top:4px}
+
+  /* ============ CARDS / GRID ============ */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:22px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:22px}
+  .card{
+    border:1px solid var(--v-border);border-radius:var(--v-radius);
+    background:linear-gradient(180deg,var(--v-surface-2),var(--v-surface));
+    padding:18px 20px;
+  }
+  .card h5{font-family:'Cinzel',serif;font-size:14px;font-weight:700;margin:0 0 8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .card p{font-size:13px;margin-bottom:8px}
+  .card p:last-child{margin-bottom:0}
+  .stat{
+    border:1px solid var(--v-border);border-radius:var(--v-radius);
+    background:var(--v-surface);padding:16px 18px;text-align:left;
+  }
+  .stat .v{font-family:'Cinzel',serif;font-size:30px;font-weight:900;color:var(--v-purple-bright);line-height:1.1;text-shadow:0 0 24px var(--v-purple-glow)}
+  .stat .l{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--v-muted);margin-top:4px}
+
+  /* ============ SWATCHES ============ */
+  .swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:10px;margin:0 0 22px}
+  .sw{border:1px solid var(--v-border);border-radius:11px;overflow:hidden;background:var(--v-surface)}
+  .sw .c{height:44px}
+  .sw .t{padding:7px 10px;font-size:11px;color:var(--v-muted)}
+  .sw .t b{display:block;color:var(--v-text);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600}
+
+  /* ============ COVER ============ */
+  .cover{
+    border:1px solid rgba(124,58,237,.35);border-radius:20px;
+    background:
+      radial-gradient(700px 300px at 80% -20%, rgba(124,58,237,.22), transparent 60%),
+      linear-gradient(180deg,var(--v-surface-2),var(--v-surface));
+    padding:52px 46px;margin-bottom:40px;position:relative;overflow:hidden;
+    box-shadow:0 24px 70px rgba(0,0,0,.5), 0 0 60px rgba(124,58,237,.12) inset;
+  }
+  .cover::before,.cover::after{
+    content:"❖";position:absolute;color:rgba(212,175,55,.16);font-size:56px;line-height:1;
+  }
+  .cover::before{top:18px;right:26px}
+  .cover::after{bottom:14px;left:24px}
+  .cover .over{font-size:11px;letter-spacing:.32em;text-transform:uppercase;color:var(--v-gold);margin-bottom:14px;opacity:.85}
+  .cover h1{font-size:clamp(30px,4.6vw,46px);font-weight:900;letter-spacing:.02em;line-height:1.12;margin-bottom:12px;text-shadow:0 0 40px var(--v-purple-glow)}
+  .cover h1 em{font-style:normal;color:var(--v-purple-soft)}
+  .cover .sub{font-size:15.5px;color:var(--v-muted);margin-bottom:22px;max-width:640px}
+  .cover .meta{display:flex;flex-wrap:wrap;gap:9px;margin-bottom:26px}
+  .chip{font-size:11.5px;font-weight:600;padding:5px 12px;border-radius:999px;border:1px solid var(--v-border);background:rgba(13,9,19,.7);color:var(--v-muted)}
+  .chip b{color:var(--v-purple-soft);font-weight:700}
+  .cover .verdict{border-top:1px solid var(--v-border);padding-top:18px;font-size:14px;color:#d9d3e3}
+  .cover .verdict b{color:var(--v-text)}
+
+  footer{
+    margin-top:80px;padding:26px 0 10px;border-top:1px solid var(--v-border-soft);
+    text-align:center;color:var(--v-faint);font-size:12px;
+  }
+  footer .sig{font-family:'Cinzel',serif;letter-spacing:.22em;color:var(--v-purple-soft);opacity:.7}
+
+  /* ============ WIREFRAME ============ */
+  .wire{border:1px solid var(--v-border);border-radius:var(--v-radius);background:var(--v-code-bg);padding:18px;font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:1.55;color:#b7aed0;margin-bottom:22px;overflow-x:auto}
+  .wire .wb{border:1px solid var(--v-border);border-radius:8px;padding:8px 12px;margin:6px 0;background:rgba(124,58,237,.05)}
+  .wire .wb.hot{border-color:rgba(124,58,237,.55);box-shadow:0 0 14px rgba(124,58,237,.18)}
+  .wire .wrow{display:flex;gap:8px;flex-wrap:wrap}
+  .wire .wrow .wb{flex:1;min-width:170px}
+  .wire .wl{color:var(--v-faint);font-size:10px;letter-spacing:.14em;text-transform:uppercase;display:block;margin-bottom:4px}
+  .wire .wbtn{display:inline-block;border:1px solid rgba(167,139,250,.5);border-radius:6px;padding:1px 9px;color:var(--v-purple-bright);margin:2px 3px 2px 0;font-size:10.5px;font-weight:600}
+  .wire .wbtn.d{border-color:rgba(251,113,133,.5);color:#fda4af}
+  .wire .wbtn.g{border-color:rgba(34,197,94,.5);color:#4ade80}
+
+  /* ============ CHECKLIST ============ */
+  .check{list-style:none;margin:0 0 20px}
+  .check li{
+    display:flex;gap:12px;align-items:flex-start;
+    padding:10px 14px;border:1px solid var(--v-border-soft);border-radius:10px;
+    margin-bottom:8px;background:var(--v-surface);font-size:13.5px;color:#cdc6da;
+  }
+  .check li .box{
+    flex:0 0 18px;width:18px;height:18px;border:2px solid var(--v-purple);border-radius:5px;margin-top:2px;
+    box-shadow:0 0 10px rgba(124,58,237,.25);
+  }
+  .check li .n{font-family:'Cinzel',serif;color:var(--v-gold);font-weight:700;opacity:.75;flex:0 0 22px;font-size:12.5px;margin-top:2px}
+
+  /* ============ MISC ============ */
+  .divider-orn{display:flex;align-items:center;gap:14px;margin:46px 0 0;color:rgba(212,175,55,.4);font-size:13px}
+  .divider-orn::before,.divider-orn::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--v-border),transparent)}
+  details.fold{border:1px solid var(--v-border);border-radius:var(--v-radius);background:var(--v-surface);margin-bottom:14px}
+  details.fold summary{cursor:pointer;padding:13px 18px;font-weight:600;font-size:13.5px;color:var(--v-purple-soft);list-style:none;display:flex;align-items:center;gap:9px}
+  details.fold summary::before{content:"▸";transition:transform .2s;color:var(--v-faint)}
+  details.fold[open] summary::before{transform:rotate(90deg)}
+  details.fold .body{padding:0 18px 16px;font-size:13.5px}
+
+  @media (max-width:1080px){
+    aside#sidebar{position:fixed;left:0;top:0;bottom:0;z-index:50;transform:translateX(0);transition:transform .28s ease}
+    body.sb-collapsed aside#sidebar{margin-left:0;transform:translateX(-100%);opacity:1}
+    main{padding:70px 20px 70px}
+    .grid3{grid-template-columns:1fr}
+    .grid2{grid-template-columns:1fr}
+  }
+  @media (min-width:1081px){
+    #sb-toggle{position:fixed}
+  }
+  @media print{
+    aside#sidebar,#sb-toggle{display:none}
+    main{padding:20px}
+    body{background:#fff;color:#111}
+  }
+</style>
+</head>
+<body>
+<button id="sb-toggle" title="Mostrar / ocultar índice" aria-label="Mostrar u ocultar índice">☰</button>
+<div class="layout">
+<aside id="sidebar">
+  <div class="brand">
+    <div class="sigil">V</div>
+    <div><b>VÉRTIGO CUP</b><span>Plan maestro · v1.0</span></div>
+  </div>
+  <nav class="toc" id="toc">
+    <a href="#s0"><span class="n">0</span>Portada</a>
+    <a href="#s1"><span class="n">1</span>Resumen ejecutivo</a>
+    <a href="#s2"><span class="n">2</span>Diagnóstico</a>
+    <div class="sub">
+      <a href="#s2-1">2.1 · Lo que sí funciona</a>
+      <a href="#s2-2">2.2 · Roto / faltante (15)</a>
+      <a href="#s2-3">2.3 · Agujeros de seguridad</a>
+    </div>
+    <a href="#s3"><span class="n">3</span>Sistema de diseño unificado</a>
+    <a href="#s4"><span class="n">4</span>Arquitectura funcional</a>
+    <div class="sub">
+      <a href="#s4-1">4.1 · Mapa de estados</a>
+      <a href="#s4-2">4.2–4.9 · Estado por estado</a>
+      <a href="#s4-10">4.10 · Fases del sorteo 5+1</a>
+      <a href="#s4-11">4.11 · Server decide / client anima</a>
+      <a href="#s4-12">4.12 · Comodines</a>
+      <a href="#s4-13">4.13 · Edge cases</a>
+    </div>
+    <a href="#s5"><span class="n">5</span>Arquitectura de datos</a>
+    <a href="#s6"><span class="n">6</span>Página por página</a>
+    <div class="sub">
+      <a href="#s6-2">6.2 · Rutas públicas</a>
+      <a href="#s6-3">6.3 · Rutas de capitán</a>
+      <a href="#s6-4">6.4 · Rutas admin</a>
+      <a href="#s6-5">6.5 · Rutas nuevas</a>
+      <a href="#s6-6">6.6 · Centro de operaciones</a>
+      <a href="#s6-8">6.8 · Ruleta pública en vivo</a>
+    </div>
+    <a href="#s7"><span class="n">7</span>Plan de implementación</a>
+    <div class="sub">
+      <a href="#f0">Fase 0 · Fundamentos</a>
+      <a href="#f1">Fase 1 · Motor del bracket</a>
+      <a href="#f2">Fase 2 · El sorteo</a>
+      <a href="#f3">Fase 3 · Partida en vivo</a>
+      <a href="#f4">Fase 4 · Pulido y operación</a>
+      <a href="#f5">Fase 5 · Post-MVP</a>
+    </div>
+    <a href="#s8"><span class="n">8</span>Matriz de decisiones</a>
+    <a href="#s9"><span class="n">9</span>Riesgos y mitigaciones</a>
+    <a href="#s10"><span class="n">10</span>Checklist final</a>
+  </nav>
+</aside>
+<main>
+<div class="container">
+
+<!-- ==================== 0 · PORTADA ==================== -->
+<section id="s0">
+  <div class="cover">
+    <div class="over">Documento interno · Análisis + Plan</div>
+    <h1>VÉRTIGO Cup<br><em>Plan Maestro de Desarrollo</em></h1>
+    <p class="sub">Análisis exhaustivo + plan de implementación — sitio completo. Qué falta, cómo se ve terminado y qué hay que construir, decisión por decisión.</p>
+    <div class="meta">
+      <span class="chip">Fecha de generación · <b>2026-08-11</b></span>
+      <span class="chip">Base · <b>auditoría del 100% del repo + DB en vivo</b></span>
+      <span class="chip">Stack · <b>Next.js 16</b> (App Router · RSC · Server Actions)</span>
+      <span class="chip"><b>Supabase</b> Postgres + Auth + Realtime + Storage</span>
+      <span class="chip"><b>Drizzle ORM</b> · Tailwind 4 · Framer Motion</span>
+    </div>
+    <div class="verdict">
+      <b>Veredicto en 3 líneas:</b> la fachada del producto existe y es sólida —auth, wizard de inscripción, dashboards, infra realtime— pero el motor del torneo (bracket → sorteo → lineup → comodines → resultado → avance) no está construido: el bracket nunca se persiste, la ruleta no decide nada en servidor y ninguna partida puede jugarse de punta a punta. Este documento es el plan para cerrar ese circuito completo, sin recortes.
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 1 · RESUMEN EJECUTIVO ==================== -->
+<section id="s1">
+  <h2 class="sec"><span class="num">1</span>Resumen ejecutivo</h2>
+  <p class="sec-sub">Dónde está parado el proyecto hoy, en números y en una sola idea.</p>
+
+  <p class="lead">VÉRTIGO Cup tiene hoy <strong>una fachada excelente sobre un motor ausente</strong>. Todo lo que un visitante o un capitán ve antes de que empiece el torneo —registro, login, dashboard de equipo, lista de partidos, bracket público— está construido con calidad real y conectado a datos verdaderos. Pero en el momento exacto en que el torneo debería <em>arrancar</em>, el sistema se queda sin suelo: la acción que "genera el bracket" solo mezcla seeds en memoria y no escribe nada, la ruleta animada decide con <code class="inl">Math.random()</code> en el navegador sin guardar resultado, los comodines se leen pero no se pueden usar, y el panel de operaciones del admin muestra botones que no ejecutan nada.</p>
+
+  <p>La forma más honesta de decirlo: el sitio es <strong>~40% funciones reales y ~60% UI que muestra datos que nadie escribe jamás</strong>. No es trabajo tirado —la mitad difícil de UX y la infraestructura de realtime ya están—, pero el circuito competitivo <em>bracket → ruleta → lineup → comodines → resultado → avance de llave</em> está completo en 0 de sus 6 eslabones. Ese circuito es el torneo. Todo lo demás es decoración alrededor de él.</p>
+
+  <h3>1.1 · El estado en números</h3>
+  <div class="grid3">
+    <div class="stat"><div class="v">~33</div><div class="l">rutas/páginas en el repo</div></div>
+    <div class="stat"><div class="v">~13</div><div class="l">operativas de punta a punta</div></div>
+    <div class="stat"><div class="v">17</div><div class="l">tablas en schema Drizzle</div></div>
+  </div>
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr><th>Dimensión</th><th>Estado hoy</th><th>Detalle verificable</th></tr></thead>
+      <tbody>
+        <tr><td><b>Repo</b></td><td><span class="badge partial">PARTIAL</span></td><td>~33 rutas; las de "antes del torneo" funcionan, todo lo que ocurre <em>durante</em> el torneo es UI huérfana o read-only.</td></tr>
+        <tr><td><b>DB en vivo</b></td><td><span class="badge partial">PARTIAL</span></td><td>1 edición activa (<code class="inl">vertigo-2026-1</code>), 7 equipos de prueba, 21 players, 12 emblemas placeholder, 1 sorteo de prueba con audit log (commit→spin→reveal→publish). <b>0 comodines usados. 0 matches reales.</b></td></tr>
+        <tr><td><b><span class="file">preset_version</span></b></td><td><span class="badge missing">MISSING</span></td><td>Tabla vacía: la configuración de la ruleta (modos, mapas, pesos) vive solo en <code class="inl">localStorage</code> del navegador que abra <span class="file">/ruleta/demo</span>.</td></tr>
+        <tr><td><b><span class="file">tournament_config</span></b></td><td><span class="badge missing">MISSING</span></td><td>Tabla vacía: parámetros como ELO cap 3500 (+20 tolerancia) no tienen fila real; el wizard los pide vía <span class="file">/api/tournament/config</span> pero la fuente no está poblada.</td></tr>
+        <tr><td><b><span class="file">bracket / round / match</span></b></td><td><span class="badge missing">MISSING</span></td><td>0 filas persistidas de un bracket real: <span class="file">src/server/actions/auth.ts — generateBracketAction</span> hace Fisher-Yates de seeds y termina ahí.</td></tr>
+        <tr><td><b>Circuito en vivo</b></td><td><span class="badge missing">MISSING</span></td><td>Ningún partido puede pasar de <code class="inl">scheduled</code> a <code class="inl">finished</code> por la UI: faltan sorteo server-side, lineup, comodines ejecutables y carga de resultado.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>1.2 · Qué significa "está terminado"</h3>
+  <p>El producto se considera terminado cuando estas tres frases son literalmente ciertas, sin asteriscos:</p>
+  <div class="grid3">
+    <div class="card">
+      <h5>A · El admin opera una llave</h5>
+      <p>Un admin puede llevar <strong>cualquier partido de punta a punta</strong> solo con la UI: agendar, abrir, disparar el sorteo en vivo, gestionar comodines, cargar resultados por game, resolver disputas y ver al ganador avanzar en el bracket. Cero SQL manual, cero consola.</p>
+    </div>
+    <div class="card">
+      <h5>B · El capitán vive su partido</h5>
+      <p>Un capitán hace <strong>todo su ciclo desde el sitio</strong>: ve su próximo partido, confirma READY, mira la ruleta en vivo, declara su lineup, usa sus comodines en la ventana, y ve el resultado publicado — sin pisar Discord para operar el torneo.</p>
+    </div>
+    <div class="card">
+      <h5>C · El público ve el torneo real</h5>
+      <p>Cualquier visitante abre <span class="file">/bracket</span>, <span class="file">/partido/[id]</span> o <span class="file">/resultados</span> y ve <strong>datos reales y en vivo</strong>: la ruleta girando sincronizada en todos los clientes, el marcador actualizándose, el bracket llenándose. Ninguna página muestra contenido fake.</p>
+    </div>
+  </div>
+
+  <div class="callout decision">
+    <span class="cap">Decisión del dueño · marco de todo el plan</span>
+    Sitio <strong>COMPLETO</strong>, nada de MVP recortado. Cada decisión confirmada (sección 8) se respeta con sus consecuencias y flujos ramificados. Este plan no propone achicar el torneo: propone el orden exacto para construirlo entero.
+  </div>
+</section>
+<!-- ==================== 2 · DIAGNÓSTICO ==================== -->
+<section id="s2">
+  <h2 class="sec"><span class="num">2</span>Diagnóstico — Qué está hecho / roto / falta</h2>
+  <p class="sec-sub">Auditoría del 100% del repo + DB en vivo al 2026-08-11. Cada afirmación cita su archivo real.</p>
+
+  <h3 id="s2-1">2.1 · Lo que sí funciona (no se toca)</h3>
+  <p>Estas piezas están construidas con calidad real, conectadas a la DB, y son la base sobre la que se construye todo el resto. Regla: <strong>no reescribir, solo integrar</strong>.</p>
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr><th>Pieza</th><th>Estado</th><th>Qué hace y por qué está bien</th></tr></thead>
+      <tbody>
+        <tr><td><b>Wizard de inscripción</b><br><span class="file">src/app/(auth)/registro/*</span></td><td><span class="badge done">DONE</span></td><td>9 pasos (cuenta, equipo, 3 jugadores con AoE2 Companion, capitán, 9 civs, 3 extra, handbook, términos, confirmación), validación ELO server-side real, cleanup en cascada ante error, fetch de <span class="file">/api/tournament/config</span> para parámetros dinámicos.</td></tr>
+        <tr><td><b>Auth + roles</b><br><span class="file">login / Supabase Auth</span></td><td><span class="badge done">DONE</span></td><td>Login funcional con roles <code class="inl">owner · admin · super_admin · caster</code> y redirects por rol.</td></tr>
+        <tr><td><b>Dashboard capitán</b><br><span class="file">src/app/mi-equipo/*</span></td><td><span class="badge done">DONE</span></td><td>ELO total, barra de capacidad vs cap, percentil del torneo, stats por jugador, racha, pool de civs, top civs combinadas, historial, próxima partida. Es la referencia estética del interior.</td></tr>
+        <tr><td><b>mis-partidos</b><br><span class="file">src/app/mis-partidos/*</span></td><td><span class="badge done">DONE</span></td><td>Próximos + historial, comodines disponibles (lectura real del inventario), estados con badges; READY #1 funciona (<span class="file">ready.ts — confirmReadyAction</span>).</td></tr>
+        <tr><td><b>Bracket público</b><br><span class="file">src/app/bracket/*</span></td><td><span class="badge done">DONE</span></td><td>Lee DB real; engine de seeds snake correcto (<span class="file">lib/bracket/engine.ts</span>). Hoy renderiza vacío porque nadie persiste el bracket.</td></tr>
+        <tr><td><b>Partido público</b><br><span class="file">src/app/partido/[id]/*</span></td><td><span class="badge done">DONE</span></td><td><code class="inl">MatchRealtimeWrapper</code> con suscripciones <code class="inl">postgres_changes</code> a <code class="inl">match / match_game / roulette_draw / comodin_usage</code>, countdown, scoreboard, comodines usados. La infraestructura de live ya existe y funciona.</td></tr>
+        <tr><td><b>Admin base</b><br><span class="file">src/app/admin/*</span></td><td><span class="badge done">DONE</span></td><td>Home con secciones, equipos (aprobar/rechazar), bracket (sortear seeds), disputas (crear + resolver), casters básico, uploader de emblemas, handbook viewer.</td></tr>
+        <tr><td><b>AoE2 Companion proxy</b><br><span class="file">src/app/api/companion/*</span></td><td><span class="badge done">DONE</span></td><td>search, profile, profile-full con throttle 16 req/10 s y cache 30 min; <code class="inl">getMaxRatingRm1v1</code> robusto con fallback ratings→leaderboards.</td></tr>
+        <tr><td><b>Schema DB</b><br><span class="file">src/lib/db/schema.ts</span></td><td><span class="badge done">DONE</span></td><td>17 tablas completas: account, team_account, emblem, preset_version, tournament_edition, team_registration, player_registration, bracket, round, match, match_game, roulette_draw, draw_audit_log, comodin_inventory, comodin_usage, caster, dispute, tournament_config.</td></tr>
+        <tr><td><b>Datos semilla parciales</b></td><td><span class="badge partial">PARTIAL</span></td><td>1 edición activa (<code class="inl">vertigo-2026-1</code>), 7 equipos + 21 players de prueba, 12 emblemas placeholder, 1 sorteo de prueba con audit log completo. Sirven para dev; se reemplazan por el seed de 32 (Fase 0).</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="s2-2">2.2 · Lo que está roto o no existe (los 15 puntos)</h3>
+  <p>El corazón del torneo. Cada punto con archivo exacto, qué pasa hoy y qué ve el usuario.</p>
+
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr><th style="width:40px">#</th><th>Problema · archivo real</th><th>Qué pasa hoy</th><th>Consecuencia visible</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>1</b></td>
+          <td><b>El bracket nunca se persiste</b><br><span class="file">src/server/actions/auth.ts — generateBracketAction</span></td>
+          <td>Solo asigna seeds con Fisher-Yates en memoria. El engine <code class="inl">generateBracket()</code> (<span class="file">lib/bracket/engine.ts</span>, correcto) existe pero <strong>nadie lo llama para insertar</strong> bracket/round/match/match_game.</td>
+          <td>El torneo no puede arrancar: <span class="file">/bracket</span> vacío, ningún match existe, nada puede jugarse. <b>Es el bloqueo #1 de todo.</b></td>
+        </tr>
+        <tr>
+          <td><b>2</b></td>
+          <td><b>Panel de partido admin es 100% read-only</b><br><span class="file">src/app/admin/partido/[id]/page.tsx</span></td>
+          <td>Muestra todo (teams, games, sorteo, lineups, comodines, disputas) pero los botones "Abrir partido", "Marcar finalizado", "Pausar" son <code class="inl">&lt;button&gt;</code> sin onClick ni form. <code class="inl">startComodinWindowAction</code> y <code class="inl">startMatchAction</code> (<span class="file">ready.ts</span>) existen y <strong>ninguna página las importa</strong>.</td>
+          <td>El centro de operaciones del torneo es una maqueta: se ve completo, no opera nada.</td>
+        </tr>
+        <tr>
+          <td><b>3</b></td>
+          <td><b>La ruleta no decide ni persiste nada</b><br><span class="file">components/ruleta/roulette.tsx (716 líneas)</span></td>
+          <td>Port fiel del original (5 fases, audio Web Audio, carrusel 3D, results screen) pero usa <code class="inl">Math.random()</code> en cliente, config en <code class="inl">localStorage</code> (no en <code class="inl">preset_version</code>), y solo está montada en <span class="file">/ruleta/demo</span> sin <code class="inl">onResult</code>. <code class="inl">preset_version</code> y <code class="inl">tournament_config</code> están vacías en DB.</td>
+          <td>El momento distintivo del torneo es una demo local: nada queda registrado, nada es auditable, dos viewers verían resultados distintos.</td>
+        </tr>
+        <tr>
+          <td><b>4</b></td>
+          <td><b>Memotest huérfano</b><br><span class="file">components/memotest/memotest.tsx</span></td>
+          <td>Solo montado en <span class="file">/memotest/demo</span> con civs hardcodeadas y <code class="inl">Math.random()</code>. Un comentario dice "el server lo decide", pero no hay server.</td>
+          <td>La asignación de civilizaciones —mitad del espectáculo del sorteo— no existe como feature.</td>
+        </tr>
+        <tr>
+          <td><b>5</b></td>
+          <td><b>Comodines se leen pero no se usan</b><br><span class="file">components/comodin-window.tsx (419 líneas)</span></td>
+          <td>El inventario se crea vía trigger DB y se lee en mis-partidos, pero los botones no disparan nada (no existe <code class="inl">usarComodinAction</code>). <span class="file">comodin-window.tsx</span> (con timer de 5 min) tiene <strong>cero imports</strong>.</td>
+          <td>4 comodines por equipo por torneo que nadie puede usar jamás: una mecánica entera del reglamento es decorativa.</td>
+        </tr>
+        <tr>
+          <td><b>6</b></td>
+          <td><b>No hay lineup ni READY #2</b></td>
+          <td>No existe UI ni action para que el capitán declare quiénes juegan en 1v1/2v2. Los campos <code class="inl">ready_lineup_a_at / ready_lineup_b_at</code> existen en DB pero nadie los escribe.</td>
+          <td>Nadie puede decirle al sistema quién juega: el partido no puede pasar a <code class="inl">in_progress</code> con sentido.</td>
+        </tr>
+        <tr>
+          <td><b>7</b></td>
+          <td><b>No hay carga de resultado ni lógica BO3</b></td>
+          <td>Ninguna UI deja al admin cargar ganador por game. No existe lógica "2-0 termina, 1-1 va a P3". <code class="inl">getNextMatch</code> (engine) existe pero nadie lo invoca: el ganador no avanza.</td>
+          <td>Aunque se jugara un partido, el torneo no avanzaría. El bracket quedaría congelado para siempre.</td>
+        </tr>
+        <tr>
+          <td><b>8</b></td>
+          <td><b>La disputa no cambia el estado del match</b><br><span class="file">createDisputeAction</span></td>
+          <td>Crea la fila en <code class="inl">dispute</code> pero <strong>no</strong> pasa <code class="inl">match.status</code> a <code class="inl">disputed</code>.</td>
+          <td>Un match disputado sigue "vivo" a los ojos del sistema: podría cargarse resultado sobre él, y el público no ve la disputa.</td>
+        </tr>
+        <tr>
+          <td><b>9</b></td>
+          <td><b>admin/torneo le pide SQL al usuario</b><br><span class="file">src/app/admin/torneo/*</span></td>
+          <td>Página read-only que literalmente le dice al admin "ejecutá SQL directo contra <code class="inl">tournament_edition</code>".</td>
+          <td>Rompe la ilusión de producto terminado y contradice la decisión "todo editable desde UI".</td>
+        </tr>
+        <tr>
+          <td><b>10</b></td>
+          <td><b>Jornadas solo lista</b><br><span class="file">src/app/admin/jornadas/*</span></td>
+          <td>Lista matches pero no permite asignar ni editar <code class="inl">scheduled_at</code>.</td>
+          <td>El admin no puede agendar el fixture: nadie sabe cuándo se juega nada.</td>
+        </tr>
+        <tr>
+          <td><b>11</b></td>
+          <td><b>Seguridad crítica</b> (ver 2.3)</td>
+          <td>RLS de <code class="inl">draw_audit_log</code> con <code class="inl">USING(true)</code>; endpoint <span class="file">/api/admin/exec-sql</span> ejecuta SQL crudo con un token; endpoints de creación de super-admin expuestos.</td>
+          <td>Bomba en producción: lectura de commit hashes pre-reveal y ejecución arbitraria de SQL.</td>
+        </tr>
+        <tr>
+          <td><b>12</b></td>
+          <td><b>Emblemas rotos</b></td>
+          <td>Los 12 emblemas apuntan a <span class="file">/emblems/placeholder.svg</span> que no existe en <span class="file">/public</span> (solo un README). Equipos con <code class="inl">emblem_id: null</code>. <span class="file">mi-equipo</span> inventa el emblema con <code class="inl">charCodeAt(0)%13</code> en vez de usar el real.</td>
+          <td>Imágenes rotas en todo el sitio; la identidad visual de los equipos no existe.</td>
+        </tr>
+        <tr>
+          <td><b>13</b></td>
+          <td><b>/torneo muestra datos fake</b><br><span class="file">src/app/torneo/page.tsx</span></td>
+          <td><code class="inl">EXAMPLE_MATCHES</code> hardcodeado ("Alpha" vs "Omega", "32 equipos" literal).</td>
+          <td>Una página en producción mintiendo al público.</td>
+        </tr>
+        <tr>
+          <td><b>14</b></td>
+          <td><b>El rol caster redirige al vacío</b></td>
+          <td>El login de caster redirige a <span class="file">/caster/*</span>, pero la carpeta <code class="inl">(caster)</code> no existe.</td>
+          <td>404 garantizado para todo caster al iniciar sesión.</td>
+        </tr>
+        <tr>
+          <td><b>15</b></td>
+          <td><b>Branding fragmentado</b><br><span class="file">layout.tsx · globals.css</span></td>
+          <td>SPEC pedía "premium sobrio medieval" (Butler + Oswald) pero <strong>Butler nunca se carga</strong> (fallback silencioso a Georgia); la ruleta referencia Rajdhani que tampoco se carga. <span class="file">globals.css</span> mezcla Tailwind sobrio + estilos cyberpunk magenta del landing. <span class="file">vertigo-design-system.css</span> (púrpura) es el sistema real y el mejor logrado.</td>
+          <td>Tres identidades visuales conviviendo; la tipografía display principal resuelve a Georgia sin avisar.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="s2-3">2.3 · Agujeros de seguridad (resolver en Fase 0, antes de cualquier otra cosa)</h3>
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr><th>Riesgo</th><th>Archivo / configuración</th><th>Exposición</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="badge risk">RISK</span> <b>Hashes de sorteo públicos</b></td>
+          <td>RLS de <code class="inl">draw_audit_log</code></td>
+          <td>Política <code class="inl">USING(true)</code>: cualquier cliente lee los commit hashes <em>antes</em> del reveal, lo que permitiría predecir/verificar resultados anticipadamente.</td>
+          <td>Endurecer RLS: lectura solo <code class="inl">service_role</code> / roles admin; la verificación pública futura consume un endpoint controlado, no la tabla.</td>
+        </tr>
+        <tr>
+          <td><span class="badge risk">RISK</span> <b>SQL crudo por HTTP</b></td>
+          <td><span class="file">src/app/api/admin/exec-sql/route.ts</span></td>
+          <td>Ejecuta SQL arbitrario protegido solo por un token. Si el token se filtra (repo, log, captura), es control total de la base.</td>
+          <td>Eliminar el endpoint. Todo lo que hoy "requiere SQL" se convierte en server actions con RBAC (esta es la Fase 4 completa y la corrección de admin/torneo).</td>
+        </tr>
+        <tr>
+          <td><span class="badge risk">RISK</span> <b>Endpoints de super-admin expuestos</b></td>
+          <td><span class="file">/api/admin/create-super-admin</span> · <span class="file">/api/admin/promote-to-super-admin</span></td>
+          <td>Creación/elevación de privilegios máximos accesibles como rutas HTTP.</td>
+          <td>Eliminarlos del despliegue o moverlos a script de un solo uso fuera del runtime web.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout danger">
+    <span class="cap">Regla</span>
+    Ninguna feature nueva se construye sobre estos tres agujeros. Fase 0 los cierra primero; mientras existan, cualquier cosa que se agregue hereda el riesgo.
+  </div>
+</section>
+<!-- ==================== 3 · SISTEMA DE DISEÑO UNIFICADO ==================== -->
+<section id="s3">
+  <h2 class="sec"><span class="num">3</span>Sistema de diseño unificado</h2>
+  <p class="sec-sub">Una sola identidad para todo el interior del sitio, basada en lo que el wizard y mi-equipo ya hacen bien.</p>
+
+  <div class="callout decision">
+    <span class="cap">Decisión del dueño · regla de oro</span>
+    La <strong>landing se queda como está</strong> (magenta/dramática — no se toca). <strong>Todo el interior del sitio</strong> usa la estética del wizard + mi-equipo: púrpura oscuro, Cinzel para títulos, Inter para UI/body. Hay que <strong>unificar</strong> todo lo demás a ese sistema.
+  </div>
+
+  <h3>3.1 · Paleta de tokens</h3>
+  <p>Todos los colores del interior salen de estas variables (el prefijo <code class="inl">--v-*</code> ya existe en <span class="file">vertigo-design-system.css</span>; se consolida como única fuente):</p>
+  <div class="swatches">
+    <div class="sw"><div class="c" style="background:#070310"></div><div class="t"><b>--v-bg</b>#070310 · fondo</div></div>
+    <div class="sw"><div class="c" style="background:#0d0913"></div><div class="t"><b>--v-surface</b>#0d0913 · superficie</div></div>
+    <div class="sw"><div class="c" style="background:#181026"></div><div class="t"><b>--v-surface-3</b>#181026 · elevada</div></div>
+    <div class="sw"><div class="c" style="background:#241d2f"></div><div class="t"><b>--v-border</b>#241d2f · bordes</div></div>
+    <div class="sw"><div class="c" style="background:#7c3aed"></div><div class="t"><b>--v-purple</b>#7c3aed · acento</div></div>
+    <div class="sw"><div class="c" style="background:#a78bfa"></div><div class="t"><b>--v-purple-soft</b>#a78bfa · acento 2</div></div>
+    <div class="sw"><div class="c" style="background:#f2eef7"></div><div class="t"><b>--v-text</b>#f2eef7 · texto</div></div>
+    <div class="sw"><div class="c" style="background:#9a92a6"></div><div class="t"><b>--v-muted</b>#9a92a6 · muted</div></div>
+    <div class="sw"><div class="c" style="background:#22c55e"></div><div class="t"><b>--v-success</b>#22c55e · ok</div></div>
+    <div class="sw"><div class="c" style="background:#fb7185"></div><div class="t"><b>--v-danger</b>#fb7185 · peligro</div></div>
+    <div class="sw"><div class="c" style="background:#fbbf24"></div><div class="t"><b>--v-warning</b>#fbbf24 · aviso</div></div>
+    <div class="sw"><div class="c" style="background:#D4AF37"></div><div class="t"><b>--v-gold</b>#D4AF37 · ornamento</div></div>
+  </div>
+
+  <h3>3.2 · Tipografías (y el bug de fuentes a corregir)</h3>
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr><th>Fuente</th><th>Uso</th><th>Estado hoy</th></tr></thead>
+      <tbody>
+        <tr><td><b>Cinzel</b></td><td>Títulos display de todo el interior</td><td><span class="badge done">DONE</span> Cargada en <span class="file">layout.tsx</span>.</td></tr>
+        <tr><td><b>Inter</b></td><td>UI / body de todo el sitio</td><td><span class="badge done">DONE</span> Cargada.</td></tr>
+        <tr><td><b>Anton</b></td><td>Display de la ruleta (su propia estética)</td><td><span class="badge done">DONE</span> Cargada.</td></tr>
+        <tr><td><b>Butler</b></td><td>Solo la pedía el SPEC viejo ("premium sobrio medieval")</td><td><span class="badge bug">BUG</span> <strong>Nunca se carga</strong>: fallback silencioso a Georgia. Como la identidad interior definitiva es Cinzel+Inter, Butler se <b>descarta</b> formalmente (eliminar referencias del SPEC/CSS, no agregar la fuente).</td></tr>
+        <tr><td><b>Rajdhani</b></td><td>Referenciada por <span class="file">components/ruleta/roulette.tsx</span></td><td><span class="badge bug">BUG</span> No se carga en ningún lado. La ruleta la conserva: hay que <b>importarla</b> en <span class="file">layout.tsx</span> (o en el layout del segmento reglas/ruleta).</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout ok">
+    <span class="cap">Conclusión de fuentes</span>
+    Interior = <b>Cinzel + Inter</b>. Ruleta = conserva su identidad con <b>Anton + Rajdhani</b> (importar Rajdhani). Landing = la suya propia. Butler queda oficialmente fuera del proyecto.
+  </div>
+
+  <h3>3.3 · Catálogo de componentes</h3>
+  <p>Nombres de clase propuestos (convención <code class="inl">v-*</code>) para unificar el interior. Hoy varios existen a medias duplicados entre wizard, mi-equipo y admin; la tarea es consolidarlos en un solo archivo de sistema y hacer que <strong>todo el interior los consuma</strong>.</p>
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr><th>Componente</th><th>Descripción</th><th>Cuándo usarlo</th></tr></thead>
+      <tbody>
+        <tr><td><code class="inl">v-btn-primary</code></td><td>Botón púrpura sólido con glow sutil</td><td>Acción principal de cada pantalla (una por vista)</td></tr>
+        <tr><td><code class="inl">v-btn-ghost</code></td><td>Botón borde púrpura, fondo transparente</td><td>Acciones secundarias / navegación interna</td></tr>
+        <tr><td><code class="inl">v-btn-danger</code></td><td>Botón rojo/rosa contenido</td><td>Forfeit, revocar comodín, acciones destructivas</td></tr>
+        <tr><td><code class="inl">v-btn-success</code></td><td>Botón verde</td><td>Confirmar resultado, aprobar, READY</td></tr>
+        <tr><td><code class="inl">v-card</code></td><td>Card base superficie + borde</td><td>Cualquier bloque de contenido</td></tr>
+        <tr><td><code class="inl">v-card-premium</code></td><td>Card con gradiente y ornamento dorado tenue</td><td>Hero de equipo, premios, momentos destacados</td></tr>
+        <tr><td><code class="inl">v-link</code></td><td>Enlace púrpura con subrayado punteado</td><td>Navegación dentro de texto</td></tr>
+        <tr><td><code class="inl">v-field / v-input</code></td><td>Label + input oscuro con foco púrpura</td><td>Todos los formularios (admin edita todo con esto)</td></tr>
+        <tr><td><code class="inl">v-badge-done / partial / missing / bug / risk / new</code></td><td>Badges de estado semánticos</td><td>Estados de match, comodines, disputas</td></tr>
+        <tr><td><code class="inl">v-stat</code></td><td>Número grande Cinzel + label</td><td>ELO, percentil, marcadores, stats</td></tr>
+        <tr><td><code class="inl">v-status</code></td><td>Píldora de estado de match con punto animado</td><td>Cabeceras de partido y bracket</td></tr>
+        <tr><td><code class="inl">v-table</code></td><td>Tabla oscura con hover púrpura</td><td>Listados admin, standings, auditoría</td></tr>
+        <tr><td><code class="inl">v-empty</code></td><td>Estado vacío con ícono y CTA</td><td>"Sin partidos", "sin disputas", brackets vacíos</td></tr>
+        <tr><td><code class="inl">v-divider</code></td><td>Divisor con ornamento dorado central</td><td>Separar bloques mayores</td></tr>
+        <tr><td><code class="inl">v-modal-full</code></td><td>Modal fullscreen con backdrop blur</td><td>Ventana de comodines, declaración de lineup, ruleta</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>3.4 · Reglas de convivencia</h3>
+  <ul>
+    <li><strong>La landing magenta no contamina el interior.</strong> Los únicos lugares del sitio con estética distinta al sistema púrpura son la landing y la ruleta (que conserva su identidad dramática intencionalmente).</li>
+    <li><strong>El dorado es ornamento, no color de acción.</strong> <code class="inl">#D4AF37</code> aparece solo en divisores, detalles y card-premium. Nunca en botones ni estados (para eso están success/danger/warning).</li>
+    <li><strong>Mobile-first.</strong> Toda pantalla nueva se diseña primero a 360px; el modal fullscreen y la ruleta deben funcionar en el celular del capitán.</li>
+    <li><strong>Una acción principal por vista.</strong> Si hay dos <code class="inl">v-btn-primary</code> en pantalla, uno está mal.</li>
+  </ul>
+</section>
+<!-- ==================== 4 · ARQUITECTURA FUNCIONAL ==================== -->
+<section id="s4">
+  <h2 class="sec"><span class="num">4</span>Arquitectura funcional — El flujo completo de una llave</h2>
+  <p class="sec-sub">La sección más importante del documento. Cómo vive un partido de punta a punta: quién actúa, qué se escribe, qué ve cada público.</p>
+
+  <h3 id="s4-1">4.1 · Mapa de estados del Match</h3>
+  <div class="flow">
+    <div class="fnode">scheduled<small>agendado · tiene scheduled_at</small></div><span class="farrow">→</span>
+    <div class="fnode">open<small>READY #1 habilitado</small></div><span class="farrow">→</span>
+    <div class="fnode hot">drawing<small>ruleta 5+1 fases en vivo</small></div><span class="farrow">→</span>
+    <div class="fnode">lineup<small>capitanes declaran + READY #2</small></div><span class="farrow">→</span>
+    <div class="fnode warn">comodin_window<small>5 min · comodines</small></div><span class="farrow">→</span>
+    <div class="fnode">in_progress<small>se juega</small></div><span class="farrow">→</span>
+    <div class="fnode ok">finished<small>ganador avanza</small></div>
+  </div>
+  <div class="flow">
+    <div class="fnode bad">disputed<small>desde in_progress / finished · congela avance</small></div>
+    <div class="fnode bad">forfeit<small>W.O. · ganador = rival · avanza</small></div>
+    <div class="fnode">cancelled<small>admin cierra sin ganador</small></div>
+  </div>
+  <p class="muted small">Transiciones terminales: <code class="inl">finished</code> y <code class="inl">forfeit</code> disparan el avance de bracket; <code class="inl">disputed</code> lo congela hasta resolución; <code class="inl">cancelled</code> lo deja pendiente de intervención manual.</p>
+
+  <h3 id="s4-2">4.2 · <code class="inl">scheduled</code></h3>
+  <p>El match existe con slot A/B y horario. Quién actúa: el sistema (al generar el bracket) y el admin (al agendar en <span class="file">/admin/jornadas</span>).</p>
+  <ul>
+    <li><b>Acción:</b> <code class="inl">scheduleMatchAction(matchId, scheduledAt)</code> — escribe <code class="inl">match.scheduled_at</code>. La creación inicial la hace la transacción de generación de bracket (Fase 1).</li>
+    <li><b>Ven los 3 públicos:</b> en <span class="file">/mis-partidos</span> (capitanes) y <span class="file">/partido/[id]</span> y <span class="file">/bracket</span> (público): card del match con countdown a <code class="inl">scheduled_at</code>. Canal realtime: suscripción a <code class="inl">match</code> por id.</li>
+    <li><b>Edge case:</b> reprogramar un match ya <code class="inl">open</code> vuelve el estado a <code class="inl">scheduled</code> y limpia <code class="inl">ready_a_at / ready_b_at</code> (los READYs eran para otro horario).</li>
+  </ul>
+
+  <h3 id="s4-3">4.3 · <code class="inl">open</code> — READY #1</h3>
+  <ul>
+    <li><b>Quién:</b> admin, botón "Abrir partido" en <span class="file">/admin/partido/[id]</span> (hoy existe el botón, sin handler — punto 2 del diagnóstico). Luego cada capitán presiona READY en <span class="file">/mis-partidos</span>.</li>
+    <li><b>Acciones:</b> <code class="inl">startMatchAction(matchId)</code> (ya existe en <span class="file">ready.ts</span>, sin uso) pone <code class="inl">status=open</code>. <code class="inl">confirmReadyAction(matchId)</code> (funciona) escribe <code class="inl">ready_a_at / ready_b_at</code>.</li>
+    <li><b>Ven:</b> capitanes ven su botón READY y el estado del rival en tiempo real (canal <code class="inl">match</code>). Público: "equipos confirmando asistencia".</li>
+    <li><b>Edge cases:</b> si a los 15 min de <code class="inl">scheduled_at</code> un solo equipo hizo READY → timeout automático → el match pasa a <code class="inl">forfeit</code> con ganador el equipo presente (regla configurable en <code class="inl">tournament_config</code>); si ninguno hizo READY, queda <code class="inl">open</code> y el admin decide manualmente (forfeit doble a criterio o reprogramar).</li>
+  </ul>
+
+  <h3 id="s4-4">4.4 · <code class="inl">drawing</code> — el sorteo en vivo</h3>
+  <div class="callout decision"><span class="cap">Decisión del dueño</span>La ruleta de partido es <strong>pública en vivo</strong>: equipos y espectadores la ven girar sincronizados por Realtime, y el stream la muestra. El <strong>sorteo inicial de seeds</strong> también es una ruleta animada con los equipos (espectáculo).</div>
+  <ul>
+    <li><b>Quién:</b> admin dispara "INICIAR SORTEO". Se habilita solo cuando ambos READY #1 están confirmados (o el admin lo fuerza).</li>
+    <li><b>Acción:</b> <code class="inl">runDrawAction(matchId)</code> — el server decide <em>todo el resultado completo</em> con aleatorio real (ver 4.11), persiste en <code class="inl">roulette_draw.result</code> + <code class="inl">match_game.*</code>, y publica. La UI solo <em>anima</em> ese resultado ya decidido.</li>
+    <li><b>Escribe en DB:</b> fila en <code class="inl">roulette_draw</code> (edition, match, game, seed, result JSON completo, commit hash) + <code class="inl">match_game</code> con <code class="inl">game_mode / antimeta_mode / player_mode / map / llave_format</code> + <code class="inl">draw_seed</code> en <code class="inl">match</code>.</li>
+    <li><b>Ven los 3 públicos:</b> todos suscritos al canal del match reciben el mismo resultado y reproducen la animación sincronizada (admin, capitanes, espectadores, overlay OBS). El admin ve además controles de intervención (re-girar fase si se aprobó un reroll).</li>
+    <li><b>Edge cases:</b> ver 4.13 — FUSIÓN impacta en lineup (4.5), formato se sortea solo en P1 (4.10), reroll durante <code class="inl">comodin_window</code> re-gira una sola fase y actualiza el draw persistido.</li>
+  </ul>
+
+  <h3 id="s4-5">4.5 · <code class="inl">lineup</code> — declaración + READY #2</h3>
+  <div class="callout decision"><span class="cap">Decisión del dueño</span>El capitán declara el lineup en <span class="file">/partido/[id]</span> (no en otra página): misma pantalla del partido, overlay por rol.</div>
+  <ul>
+    <li><b>Quién:</b> cada capitán, desde su vista del partido.</li>
+    <li><b>Acción:</b> <code class="inl">declareLineupAction(matchId, { slot1v1, slot2v2A, slot2v2B })</code> — escribe <code class="inl">match.lineup_a / lineup_b</code> (JSON) y al confirmar ambos, <code class="inl">ready_lineup_a_at / ready_lineup_b_at</code> (los campos existen; nadie los escribe hoy).</li>
+    <li><b>Reglas por formato:</b> 1v1 = declara 1 jugador; 2v2 = declara la dupla; 3v3 = implícito (roster completo, se autodeclara); <strong>FUSIÓN salta esta fase</strong> (los 3 manejan una sola civ; lineup = roster completo por defecto).</li>
+    <li><b>Ven:</b> capitanes ven su formulario y el check del rival; el público ve "definiendo alineaciones" (los lineups se revelan al entrar a <code class="inl">comodin_window</code>, para no regalar información antes del uso de comodines).</li>
+    <li><b>Edge case:</b> capitán no declara en X minutos → admin puede forzar forfeit o extender (acción manual con confirmación). Si declaró jugador no inscripto o duplicado → validación 422 con mensaje claro.</li>
+  </ul>
+
+  <h3 id="s4-6">4.6 · <code class="inl">comodin_window</code> — 5 minutos de tensión</h3>
+  <div class="callout decision"><span class="cap">Decisión del dueño</span>Ventana de comodines = <strong>modal fullscreen con timer</strong> para el capitán.</div>
+  <ul>
+    <li><b>Quién:</b> admin abre la ventana con <code class="inl">startComodinWindowAction(matchId)</code> (ya existe en <span class="file">ready.ts</span>, sin uso). Capitanes usan comodines desde el modal fullscreen.</li>
+    <li><b>Escribe en DB:</b> <code class="inl">match.comodin_window_expires_at</code> (countdown server-side, no del cliente) + filas en <code class="inl">comodin_usage</code> por cada uso + decremento atómico de <code class="inl">comodin_inventory</code>.</li>
+    <li><b>Acción:</b> <code class="inl">requestComodinAction(matchId, type, payload)</code> → crea solicitud pendiente; <code class="inl">resolveComodinAction(usageId, approve)</code> → admin confirma/ejecuta. Detalle completo en 4.12.</li>
+    <li><b>Ven:</b> capitanes ven el modal con timer sincronizado al servidor; público ve el timer y los comodines confirmados apareciendo en vivo (canal <code class="inl">comodin_usage</code>).</li>
+    <li><b>Al expirar:</b> <code class="inl">status=in_progress</code>. Si se aprobó un reroll durante la ventana, se ejecuta la re-tirada de la fase afectada (nueva fila <code class="inl">roulette_draw</code> con <code class="inl">supersedes_draw_id</code>) y la ventana <em>no</em> reinicia.</li>
+  </ul>
+
+  <h3 id="s4-7">4.7 · <code class="inl">in_progress</code></h3>
+  <ul>
+    <li><b>Quién:</b> se juega en el juego (el sitio no interviene); el admin observa y puede pausar.</li>
+    <li><b>Ven:</b> público ve matchup final (modo, formato, mapa, civs asignadas, lineups, comodines aplicados), scoreboard y estado del BO3.</li>
+    <li><b>Desde aquí:</b> carga de resultado (4.8), disputa (cualquier capitán la abre → <code class="inl">disputed</code>), o forfeit manual del admin (desconexión, no presentación tardía — regla documentada, ver riesgos).</li>
+  </ul>
+
+  <h3 id="s4-8">4.8 · <code class="inl">finished</code> — resultado y avance</h3>
+  <div class="callout decision"><span class="cap">Decisión del dueño</span>Resultado: el admin carga el ganador <strong>POR GAME</strong> (P1/P2/P3) en <span class="file">/admin/partido/[id]</span>, con lógica BO3 automática.</div>
+  <ul>
+    <li><b>Acción:</b> <code class="inl">reportGameResultAction(matchId, gameNumber, winnerTeamId, replayUrl)</code>.</li>
+    <li><b>Lógica BO3 automática (server):</b> BO3/BO1 lo define la fase LLAVE sorteada en P1.
+      <ul>
+        <li>P1 cargado → se crea <code class="inl">match_game</code> #2 heredando modo/formato/mapa de P1 (la llave no re-sortea: el sorteo fue 1 vez).</li>
+        <li>2-0 → match <code class="inl">finished</code>, ganador definido; P3 nunca existe.</li>
+        <li>1-1 → se crea P3 y se <strong>vuelve a ruleta sin fase LLAVE</strong>: nuevo draw solo para modo/formato/mapa/civs de P3.</li>
+        <li>BO1-DM → tras P1, match <code class="inl">finished</code> directamente.</li>
+      </ul>
+    </li>
+    <li><b>Avance:</b> al pasar a <code class="inl">finished</code>/<code class="inl">forfeit</code>, un trigger (o la misma acción en transacción) propaga el ganador al parent match: <span class="file">lib/bracket/engine.ts — getNextMatch</span> da el destino; <code class="inl">slot_index</code> par → slot A, impar → slot B del match padre.</li>
+    <li><b>Ven:</b> marcador actualizado en tiempo real; bracket público se completa; el siguiente match aparece con un equipo confirmado y "TBD" en el otro slot.</li>
+  </ul>
+
+  <h3 id="s4-9">4.9 · <code class="inl">disputed</code> / <code class="inl">forfeit</code> / <code class="inl">cancelled</code></h3>
+  <ul>
+    <li><b>disputed:</b> <code class="inl">createDisputeAction</code> debe transicionar <code class="inl">match.status → disputed</code> (hoy no lo hace — bug 8). Congela: no se puede cargar resultado ni disparar avance mientras haya disputa abierta. Al resolverse (<code class="inl">resolveDisputeAction</code>), el admin decide: resultado válido (se carga y avanza), replay (match vuelve a <code class="inl">in_progress</code>), o forfeit.</li>
+    <li><b>forfeit:</b> <code class="inl">forceForfeitAction(matchId, winnerTeamId, reason)</code> — siempre con confirmación doble y registro en auditoría. Avanza igual que finished.</li>
+    <li><b>cancelled:</b> solo admin, casos excepcionales (suspensión del torneo). No propaga ganador; el parent queda a resolver manualmente.</li>
+  </ul>
+
+  <h3 id="s4-10">4.10 · Las 5+1 fases del sorteo</h3>
+  <p>El sorteo completo de un match game, en orden. <strong>Todo lo decide el server</strong> con <code class="inl">crypto.randomInt</code>, persiste el resultado completo, y las UIs lo animan.</p>
+  <div class="flow">
+    <div class="fnode hot">1 · MODO<small>Antimeta / Guerras Imperiales / Muerte Súbita / Regicida</small></div><span class="farrow">→</span>
+    <div class="fnode">2 · ANTIMETA<small>solo si MODO=Antimeta</small></div><span class="farrow">→</span>
+    <div class="fnode">3 · FORMATO<small>1v1 / 2v2 / 3v3 / FUSIÓN</small></div><span class="farrow">→</span>
+    <div class="fnode">4 · MAPA<small>pool del preset</small></div><span class="farrow">→</span>
+    <div class="fnode warn">5 · LLAVE<small>solo P1 · BO3 o BO1-DM</small></div><span class="farrow">→</span>
+    <div class="fnode hot">6 · MEMOTEST CIVS<small>fase final encadenada</small></div>
+  </div>
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr><th>Fase</th><th>Cuándo</th><th>Reglas duras</th></tr></thead>
+      <tbody>
+        <tr><td><b>1 · MODO</b></td><td>Siempre</td><td>Pesos del preset de la edición (<code class="inl">preset_version.config.gameModes</code>).</td></tr>
+        <tr><td><b>2 · ANTIMETA</b></td><td>Solo si fase 1 = Antimeta</td><td>Sub-modo desde <code class="inl">antimetaModes</code>. Si no aplica, la animación lo salta limpiamente.</td></tr>
+        <tr><td><b>3 · FORMATO</b></td><td>Siempre</td><td>1v1 / 2v2 / 3v3 / <b>FUSIÓN</b> (los 3 jugadores manejan una sola civilización). FUSIÓN salta la fase de lineup (4.5).</td></tr>
+        <tr><td><b>4 · MAPA</b></td><td>Siempre</td><td><code class="inl">maps</code> del preset, con pesos.</td></tr>
+        <tr><td><b>5 · LLAVE</b></td><td><b>Solo en partida 1 (P1)</b></td><td>BO3 o BO1-Deathmatch. Define cuántos games tiene el match. En P3 (si 1-1) no se re-sortea.</td></tr>
+        <tr><td><b>6 · MEMOTEST</b></td><td>Siempre, como fase final del mismo sorteo</td><td>Asigna 1/2/3 civs por equipo según formato (1v1→1, 2v2→2, 3v3/FUSIÓN→3). Fuente: <code class="inl">base_civ_ids</code> del equipo (las 9 elegidas en inscripción); <code class="inl">extra_civ_ids</code> entran al pool <b>solo si el match es la final</b>. Sin repetir civ <em>intra-equipo</em> (un equipo no puede tener 2 civs iguales en la misma asignación).</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout decision"><span class="cap">Decisión del dueño</span>Ruleta + memotest son <strong>UNA sola experiencia encadenada</strong>: el memotest es la fase final del sorteo, no otra pantalla. El componente <span class="file">memotest.tsx</span> se integra como fase 6 dentro del flujo de <span class="file">roulette.tsx</span>.</div>
+
+  <h3 id="s4-11">4.11 · Modelo "server decide / client anima"</h3>
+  <p>Principio rector de todo lo aleatorio en el sitio:</p>
+  <div class="flow">
+    <div class="fnode">Admin dispara<small>runDrawAction</small></div><span class="farrow">→</span>
+    <div class="fnode hot">Server decide todo<small>crypto.randomInt · pesos del preset</small></div><span class="farrow">→</span>
+    <div class="fnode">Persiste resultado<small>roulette_draw + match_game + draw_seed</small></div><span class="farrow">→</span>
+    <div class="fnode">Publica por Realtime<small>canal del match</small></div><span class="farrow">→</span>
+    <div class="fnode ok">Todos animan lo mismo<small>admin · capitanes · espectadores · OBS</small></div>
+  </div>
+  <ul>
+    <li>El cliente <strong>nunca genera aleatoriedad</strong>: la animación reproduce el resultado que el server ya determinó y persistió. <code class="inl">Math.random()</code> queda proscrito de <span class="file">roulette.tsx</span> y <span class="file">memotest.tsx</span>.</li>
+    <li>La config (modos, mapas, pesos, duraciones de animación) se lee de <code class="inl">preset_version</code> de la edición — <strong>no de localStorage</strong>. La edición de pesos es una pantalla de admin (Fase 4).</li>
+    <li>Internamente se guarda <code class="inl">draw_seed</code> y commit hash en <code class="inl">draw_audit_log</code> (auditoría interna). El commit-reveal público completo queda <strong>documentado como fase posterior</strong> (Fase 5), por decisión del dueño.</li>
+    <li>Si un viewer entra tarde (o perdió conexión), al suscribirse recibe el resultado persistido y salta directo al estado correcto de la animación: <strong>el stream nunca se desincroniza</strong>.</li>
+  </ul>
+  <pre><span class="ph">pseudocódigo · decisión del sorteo (server)</span>
+<span class="c-k">const</span> result = {
+  mode:      <span class="c-f">weightedPick</span>(preset.gameModes, <span class="c-f">rng</span>(seed, <span class="c-s">'mode'</span>)),
+  antimeta:  mode===<span class="c-s">'antimeta'</span> ? <span class="c-f">weightedPick</span>(preset.antimetaModes, <span class="c-f">rng</span>(seed,<span class="c-s">'anti'</span>)) : <span class="c-k">null</span>,
+  format:    <span class="c-f">weightedPick</span>(preset.playerModes, <span class="c-f">rng</span>(seed, <span class="c-s">'fmt'</span>)),
+  map:       <span class="c-f">weightedPick</span>(preset.maps, <span class="c-f">rng</span>(seed, <span class="c-s">'map'</span>)),
+  llave:     gameNumber===<span class="c-n">1</span> ? <span class="c-f">weightedPick</span>(preset.llaveModes, <span class="c-f">rng</span>(seed,<span class="c-s">'llave'</span>)) : prior.llave,
+  civs:      <span class="c-f">memotestAssign</span>({ poolA, poolB, n: fmtSlots(format), isFinal }),
+};  <span class="c-c">// rng = crypto.randomInt derivado por fase, determinista con la seed</span></pre>
+
+  <h3 id="s4-12">4.12 · Los 4 comodines</h3>
+  <p>Stock por equipo por torneo: <b>Re-girar ×2</b>, <b>Anular jugador ×1</b>, <b>Elegir rival ×1</b>, <b>INVOCAR PRO ×1</b>. Flujo general: <strong>el capitán solicita → el admin confirma/ejecuta</strong> (con una excepción explícita).</p>
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr><th>Comodín</th><th>Stock</th><th>Restricción</th><th>Quién lo ejecuta</th><th>Flujo de UI</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>Re-girar</b></td><td>×2</td>
+          <td>Solo durante <code class="inl">comodin_window</code>; una fase por uso</td>
+          <td>Capitán solicita → admin confirma → server re-gira UNA fase</td>
+          <td>Modal: selector de fase a re-girar (MODO / FORMATO / MAPA / CIVS / LLAVE si aún no se jugó P1). Al aprobarse, nueva tirada de esa fase (persistida, <code class="inl">supersedes_draw_id</code>) y re-animación solo de esa fase para todos.</td>
+        </tr>
+        <tr>
+          <td><b>Anular jugador</b></td><td>×1</td>
+          <td>Mutuamente excluyente con Elegir rival en el mismo match</td>
+          <td>Capitán solicita → admin confirma</td>
+          <td>Modal: selector de jugador rival. El jugador anulado queda fuera del lineup del match (el rival debe declarar sin él; si el formato requería exactamente ese jugador, el rival redeclara lineup antes de que expire la ventana).</td>
+        </tr>
+        <tr>
+          <td><b>Elegir rival</b></td><td>×1</td>
+          <td>Mutuamente excluyente con Anular jugador; solo en primera ronda, antes del sorteo de seeds</td>
+          <td>Capitán solicita desde <span class="file">/mis-partidos</span> → admin confirma</td>
+          <td>Selector de equipo rival entre los elegibles del bracket. Al confirmarse, el seeding del sorteo de seeds fija ese cruce (el engine recibe el pairing forzado).</td>
+        </tr>
+        <tr>
+          <td><b>INVOCAR PRO</b></td><td>×1</td>
+          <td>Una vez por torneo; el PRO juega por el equipo según reglamento</td>
+          <td><b>Solo el admin</b>: lo descuenta manualmente del inventario cuando el equipo lo usa fuera del sitio</td>
+          <td>Sin chat, sin flujo especial: botón del admin en el panel del match "Marcar INVOCAR PRO usado" (revocado/usado con confirmación). El sitio solo registra que se consumió; la coordinación del PRO es operativa del staff.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout decision">
+    <span class="cap">Decisión del dueño · INVOCAR PRO</span>
+    <strong>NO es un chat ni un flujo complejo.</strong> Es management manual del comodín por parte del staff: cuando el equipo invoca a su PRO (por los canales habituales del torneo), el admin lo marca como usado desde su panel y se descuenta del inventario. Fin del flujo.
+  </div>
+  <div class="callout warn">
+    <span class="cap">Concurrencia de comodines</span>
+    El decremento de <code class="inl">comodin_inventory</code> debe ser atómico (UPDATE con <code class="inl">WHERE stock &gt; 0</code> o lock de fila) y la aprobación del admin debe detectar conflictos: si ambos equipos piden Anular/Elegir en el mismo match, el sistema rechaza el segundo con mensaje claro (CHECK de exclusión mutua por match).
+  </div>
+
+  <h3 id="s4-13">4.13 · Edge cases explícitos (reglas de la casa)</h3>
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr><th>Situación</th><th>Comportamiento del sistema</th></tr></thead>
+      <tbody>
+        <tr><td>Solo un equipo hace READY #1</td><td>Timeout (15 min post <code class="inl">scheduled_at</code>) → <code class="inl">forfeit</code> automático a favor del presente. Umbral configurable en <code class="inl">tournament_config</code>.</td></tr>
+        <tr><td>Formato en P3</td><td>El formato (1v1/2v2/3v3/FUSIÓN) se sortea en <b>cada game con draw nuevo</b> excepto la fase LLAVE: 1-1 → P3 vuelve a ruleta completa <b>sin fase LLAVE</b>.</td></tr>
+        <tr><td>FUSIÓN</td><td>Salta la fase de lineup (roster completo implícito). Banner explícito en la vista del partido para que todos entiendan qué están viendo.</td></tr>
+        <tr><td>Anular vs Elegir rival</td><td>Mutuamente excluyentes por match y por torneo respectivamente; el UI los deshabilita cruzados y el server valida (defensa en profundidad).</td></tr>
+        <tr><td>Reroll durante comodin_window</td><td>Re-gira solo la fase elegida, actualiza el draw (nueva fila + supersede), re-anima esa fase para todos los viewers, y la ventana sigue su curso (no reinicia los 5 min).</td></tr>
+        <tr><td>Civ repetida intra-equipo</td><td>El memotest del server filtra: al asignar N civs a un equipo, excluye las ya asignadas a ese mismo equipo en ese match antes de sortear (si el pool se agota —caso límite con pool mínimo—, permite repetición y lo marca en el draw como <code class="inl">pool_exhausted:true</code>).</td></tr>
+        <tr><td>Civs extra</td><td><code class="inl">extra_civ_ids</code> solo se mezclan al pool cuando el match es la final del bracket (flag del round). En cualquier otro match, pool = 9 base.</td></tr>
+        <tr><td>Admin se equivoca cargando resultado</td><td>Mientras el siguiente match no haya arrancado su sorteo, <code class="inl">revertResultAction</code> deshace: borra games cargados desde el error, revierte la propagación y reabre el match. Todo queda en auditoría.</td></tr>
+        <tr><td>Desconexión en game</td><td>Regla manual del admin (fuerza mayor AoE2): pausa, rehost o forfeit según reglamento. El sitio soporta los tres caminos; la decisión es humana y queda registrada (ver matriz de riesgos).</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+<!-- ==================== 5 · ARQUITECTURA DE DATOS ==================== -->
+<section id="s5">
+  <h2 class="sec"><span class="num">5</span>Arquitectura de datos — Cambios de schema</h2>
+  <p class="sec-sub">El schema de 17 tablas está bien diseñado. Estos son los ajustes puntuales para que el circuito en vivo funcione.</p>
+
+  <h3>5.1 · Tabla de cambios</h3>
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr><th>Tabla</th><th>Cambio</th><th>Motivo</th></tr></thead>
+      <tbody>
+        <tr><td><code class="inl">preset_version</code></td><td><span class="badge new">NEW DATA</span> Poblar con el preset real de la edición (config JSON completo) + UI admin de edición</td><td>Hoy vacía: la ruleta lee config de localStorage. La config del torneo debe vivir en la DB, versionada por edición.</td></tr>
+        <tr><td><code class="inl">tournament_config</code></td><td><span class="badge new">NEW DATA</span> Filas reales: ELO cap 3500, tolerancia +20, timeouts (ready, lineup, comodín), reglas de forfeit</td><td>Hoy vacía: el wizard ya consulta <span class="file">/api/tournament/config</span>; la fuente debe existir y ser editable desde UI.</td></tr>
+        <tr><td><code class="inl">match_game</code></td><td><span class="badge partial">ALTER</span> Agregar <code class="inl">llave_format text</code> y <code class="inl">draw_id uuid FK → roulette_draw</code></td><td>El formato de llave (BO3/BO1-DM) hoy no tiene dónde vivir por game; cada game debe apuntar al draw que lo generó (trazabilidad).</td></tr>
+        <tr><td><code class="inl">match_game</code></td><td><span class="badge partial">REGLA</span> Creación: 1 por defecto al generar el match; +P2 al cargar P1; +P3 solo si 1-1</td><td>Hoy nadie los crea. La lógica BO3 depende de este ciclo de vida exacto.</td></tr>
+        <tr><td><code class="inl">match</code></td><td><span class="badge partial">ALTER</span> Agregar <code class="inl">comodin_window_expires_at timestamptz</code> y <code class="inl">draw_seed text</code></td><td>Countdown de comodines server-side (clientes solo renderizan) y seed del sorteo reproducible guardada server-side.</td></tr>
+        <tr><td><code class="inl">match</code></td><td><span class="badge partial">REGLA</span> Transición a <code class="inl">disputed</code> desde <code class="inl">createDisputeAction</code></td><td>Bug 8 del diagnóstico: la disputa hoy no congela nada.</td></tr>
+        <tr><td><code class="inl">bracket/round/match</code></td><td><span class="badge new">NEW</span> Trigger (o transacción en la action) de avance: al pasar a <code class="inl">finished/forfeit</code>, propagar ganador al parent</td><td>Sin esto el bracket no se llena solo; <code class="inl">getNextMatch</code> define el destino, <code class="inl">slot_index</code> par/impar define slot A/B.</td></tr>
+        <tr><td><code class="inl">comodin_inventory</code></td><td><span class="badge partial">CONSTRAINT</span> <code class="inl">CHECK (qty &gt;= 0)</code> + decremento atómico</td><td>Evita stock negativo por doble clic o race entre aprobación y uso.</td></tr>
+        <tr><td>Varias</td><td><span class="badge partial">ÍNDICES</span> <code class="inl">UNIQUE bracket(edition_id,type)</code>, <code class="inl">UNIQUE round(bracket_id,index)</code>, <code class="inl">UNIQUE match(round_id,slot)</code></td><td>Garantizan que no se pueda generar el bracket dos veces ni duplicar slots por race condition.</td></tr>
+        <tr><td><code class="inl">draw_audit_log</code></td><td><span class="badge risk">RLS</span> Endurecer políticas (lectura solo service/admin)</td><td>Riesgo 2.3: hoy <code class="inl">USING(true)</code> expone commit hashes pre-reveal.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>5.2 · Config JSON del preset de ruleta</h3>
+  <p>Contenido de <code class="inl">preset_version.config</code> para la edición activa (los pesos son editables por el admin desde UI — Fase 4):</p>
+  <pre><span class="ph">json · preset_version.config</span>
+{
+  <span class="c-s">"gameModes"</span>: [
+    { <span class="c-s">"id"</span>: <span class="c-s">"antimeta"</span>,     <span class="c-s">"weight"</span>: <span class="c-n">35</span> },
+    { <span class="c-s">"id"</span>: <span class="c-s">"guerras_imperiales"</span>, <span class="c-s">"weight"</span>: <span class="c-n">25</span> },
+    { <span class="c-s">"id"</span>: <span class="c-s">"muerte_subita"</span>, <span class="c-s">"weight"</span>: <span class="c-n">20</span> },
+    { <span class="c-s">"id"</span>: <span class="c-s">"regicida"</span>,    <span class="c-s">"weight"</span>: <span class="c-n">20</span> }
+  ],
+  <span class="c-s">"antimetaModes"</span>: [ <span class="c-c">/* sub-modos con pesos */</span> ],
+  <span class="c-s">"playerModes"</span>: [
+    { <span class="c-s">"id"</span>: <span class="c-s">"1v1"</span>,    <span class="c-s">"weight"</span>: <span class="c-n">30</span>, <span class="c-s">"civs"</span>: <span class="c-n">1</span> },
+    { <span class="c-s">"id"</span>: <span class="c-s">"2v2"</span>,    <span class="c-s">"weight"</span>: <span class="c-n">30</span>, <span class="c-s">"civs"</span>: <span class="c-n">2</span> },
+    { <span class="c-s">"id"</span>: <span class="c-s">"3v3"</span>,    <span class="c-s">"weight"</span>: <span class="c-n">25</span>, <span class="c-s">"civs"</span>: <span class="c-n">3</span> },
+    { <span class="c-s">"id"</span>: <span class="c-s">"fusion"</span>, <span class="c-s">"weight"</span>: <span class="c-n">15</span>, <span class="c-s">"civs"</span>: <span class="c-n">3</span> }
+  ],
+  <span class="c-s">"maps"</span>:       [ <span class="c-c">/* pool de mapas con pesos */</span> ],
+  <span class="c-s">"llaveModes"</span>: [
+    { <span class="c-s">"id"</span>: <span class="c-s">"bo3"</span>,   <span class="c-s">"weight"</span>: <span class="c-n">70</span> },
+    { <span class="c-s">"id"</span>: <span class="c-s">"bo1_dm"</span>,<span class="c-s">"weight"</span>: <span class="c-n">30</span> }
+  ]
+}</pre>
+
+  <h3>5.3 · Migración (snippets orientativos)</h3>
+  <pre><span class="ph">sql · alter tables + constraints</span>
+<span class="c-k">ALTER TABLE</span> match_game <span class="c-k">ADD COLUMN</span> llave_format <span class="c-t">text</span>,
+  <span class="c-k">ADD COLUMN</span> draw_id <span class="c-t">uuid</span> <span class="c-k">REFERENCES</span> roulette_draw(id);
+<span class="c-k">ALTER TABLE</span> match <span class="c-k">ADD COLUMN</span> comodin_window_expires_at <span class="c-t">timestamptz</span>,
+  <span class="c-k">ADD COLUMN</span> draw_seed <span class="c-t">text</span>;
+<span class="c-k">ALTER TABLE</span> comodin_inventory <span class="c-k">ADD CONSTRAINT</span> chk_qty_nonneg <span class="c-k">CHECK</span> (qty &gt;= <span class="c-n">0</span>);
+<span class="c-k">CREATE UNIQUE INDEX</span> uq_bracket_edition_type <span class="c-k">ON</span> bracket(edition_id, type);
+<span class="c-k">CREATE UNIQUE INDEX</span> uq_round_bracket_index  <span class="c-k">ON</span> round(bracket_id, index);
+<span class="c-k">CREATE UNIQUE INDEX</span> uq_match_round_slot     <span class="c-k">ON</span> match(round_id, slot);</pre>
+
+  <h3>5.4 · Seed de 32 equipos sintéticos</h3>
+  <p>Script <span class="file">scripts/seed-32-teams.ts</span> (Fase 0):</p>
+  <ul>
+    <li><b>Limpieza:</b> borra los 7 equipos de prueba, sus players, registraciones, comodin_inventories y el sorteo de prueba (cascada controlada, conservando la edición <code class="inl">vertigo-2026-1</code> y los catálogos).</li>
+    <li><b>Generación:</b> 32 equipos completos con nombres sintéticos variados, 3 jugadores cada uno, perfiles AoE2 (fake realistas o cuentas reales de prueba), ELO individual tal que la suma de los 3 maxRating RM 1v1 quede <strong>bajo cap 3500</strong> con distribución realista (algunos equipos cerca del cap, otros no), 9 civs base + capitán + emblema asignado.</li>
+    <li><b>Emblemas:</b> los avatares que el dueño pasó por Drive se suben a Storage (o <span class="file">/public/emblems/</span>) y se referencian con rutas reales — se elimina para siempre el <span class="file">placeholder.svg</span> inexistente y el hack <code class="inl">charCodeAt(0)%13</code> de mi-equipo (que pasa a leer el emblema real de DB).</li>
+    <li><b>Verificable:</b> al terminar, <code class="inl">SELECT count(*) FROM team_registration WHERE edition_id='vertigo-2026-1'</code> = 32, todos <code class="inl">approved</code>, todos con emblema válido.</li>
+  </ul>
+</section>
+<!-- ==================== 6 · PÁGINA POR PÁGINA ==================== -->
+<section id="s6">
+  <h2 class="sec"><span class="num">6</span>Página por página — Estado actual vs objetivo</h2>
+  <p class="sec-sub">Cada ruta del sitio con su estado real, qué debe mostrar terminada, qué acciones soporta y su prioridad. P0 = bloquea el torneo · P1 = consultiva/core · P2 = valor agregado.</p>
+
+  <h3 id="s6-1">6.1 · Convención</h3>
+  <div class="flow">
+    <span class="badge done">DONE</span> funciona y no se toca ·
+    <span class="badge partial">PARTIAL</span> UI existe, falta función ·
+    <span class="badge missing">MISSING</span> no existe / vacía ·
+    <span class="badge bug">BUG</span> funciona mal ·
+    <span class="badge risk">RISK</span> riesgo de seguridad
+  </div>
+
+  <h3 id="s6-2">6.2 · Rutas públicas</h3>
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr><th>Ruta</th><th>Estado</th><th>Objetivo cuando esté terminada</th><th>Acciones / queries</th><th>Prio</th></tr></thead>
+      <tbody>
+        <tr><td><span class="file">/</span> (landing)</td><td><span class="badge done">DONE</span></td><td>Se queda <strong>exactamente como está</strong> (estética magenta/dramática — decisión del dueño).</td><td>—</td><td><span class="prio p2">P2</span></td></tr>
+        <tr><td><span class="file">/bracket</span></td><td><span class="badge partial">PARTIAL</span></td><td>Bracket + standings unificados: las 5 rondas con partidos reales, marcadores en vivo, ganadores propagados, horarios. <strong>Es la página pública central del torneo.</strong></td><td>Lee <code class="inl">bracket/round/match</code> (realtime). <span class="file">/torneo</span> se elimina o redirige acá.</td><td><span class="prio p0">P0</span></td></tr>
+        <tr><td><span class="file">/equipos</span></td><td><span class="badge partial">PARTIAL</span></td><td>Grid de los 32 equipos con emblema real, ELO total, seed asignado post-sorteo.</td><td>Lee registrations aprobadas + seeds.</td><td><span class="prio p1">P1</span></td></tr>
+        <tr><td><span class="file">/equipos/[id]</span></td><td><span class="badge partial">PARTIAL</span></td><td>Perfil público: roster con ELO individual, pool de 9 civs (+3 si finalista), fixture del equipo, comodines restantes (público), historial.</td><td>Leee team + players + matches.</td><td><span class="prio p1">P1</span></td></tr>
+        <tr><td><span class="file">/jugadores/[id]</span></td><td><span class="badge partial">PARTIAL</span></td><td>Perfil: stats AoE2 Companion, equipo, civs jugadas en el torneo, historial de partidos.</td><td>Player + matches vía games.</td><td><span class="prio p2">P2</span></td></tr>
+        <tr><td><span class="file">/partido/[id]</span></td><td><span class="badge partial">PARTIAL</span></td><td><b>Una sola página con overlays por rol:</b> espectador ve countdown, ruleta en vivo, matchup final y scoreboard; capitán ve además READY, lineup y modal de comodines. Detalle en 6.7.</td><td>Realtime wrapper existente (match/match_game/roulette_draw/comodin_usage) + acciones de capitán.</td><td><span class="prio p0">P0</span></td></tr>
+        <tr><td><span class="file">/resultados</span></td><td><span class="badge partial">PARTIAL</span></td><td>Historial real de partidos terminados con marcadores, MVPs implícitos y link a cada <span class="file">/partido/[id]</span>.</td><td>Matches <code class="inl">finished</code> ordenados por fecha.</td><td><span class="prio p1">P1</span></td></tr>
+        <tr><td><span class="file">/fixture</span></td><td><span class="badge partial">PARTIAL</span></td><td>Calendario real: todos los matches agendados agrupados por fecha, con countdown.</td><td>Matches con <code class="inl">scheduled_at</code>.</td><td><span class="prio p1">P1</span></td></tr>
+        <tr><td><span class="file">/casters</span></td><td><span class="badge partial">PARTIAL</span></td><td>Casters oficiales con links a canales (canales editables desde admin).</td><td>Tabla <code class="inl">caster</code>.</td><td><span class="prio p2">P2</span></td></tr>
+        <tr><td><span class="file">/sorteos/[id]/verificar</span></td><td><span class="badge missing">MISSING</span></td><td><b>Verificación interna/auditoría:</b> muestra commit hash, seed, resultado y timeline del draw para staff. El commit-reveal público completo queda en Fase 5 (decisión del dueño).</td><td><code class="inl">roulette_draw</code> + <code class="inl">draw_audit_log</code> (RLS endurecido, solo roles staff).</td><td><span class="prio p2">P2</span></td></tr>
+        <tr><td><span class="file">/registro</span></td><td><span class="badge done">DONE</span></td><td>Sin cambios funcionales; solo unificación visual al sistema (ya la tiene).</td><td>—</td><td><span class="prio p2">P2</span></td></tr>
+        <tr><td><span class="file">/login</span></td><td><span class="badge done">DONE</span></td><td>Sin cambios; redirect de caster pasará a existir (6.5).</td><td>—</td><td><span class="prio p2">P2</span></td></tr>
+        <tr><td><span class="file">/torneo</span></td><td><span class="badge bug">BUG</span></td><td><strong>Eliminar o redirigir a /bracket.</strong> Hoy muestra EXAMPLE_MATCHES hardcodeado — mentira en producción.</td><td>—</td><td><span class="prio p0">P0</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="s6-3">6.3 · Rutas de capitán</h3>
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr><th>Ruta</th><th>Estado</th><th>Objetivo</th><th>Acciones</th><th>Prio</th></tr></thead>
+      <tbody>
+        <tr><td><span class="file">/mi-equipo</span></td><td><span class="badge done">DONE</span> <span class="badge bug">BUG-menor</span></td><td>Sigue igual; corregir solo el emblema inventado (<code class="inl">charCodeAt(0)%13</code>) para leer el real de DB.</td><td>—</td><td><span class="prio p1">P1</span></td></tr>
+        <tr><td><span class="file">/mis-partidos</span></td><td><span class="badge partial">PARTIAL</span></td><td>READY #1 (ya funciona) + botones de comodines <strong>funcionales</strong> (hoy no hacen nada) + acceso directo al partido en vivo.</td><td><code class="inl">confirmReadyAction</code> ✓ · <code class="inl">requestComodinAction</code> (nueva)</td><td><span class="prio p0">P0</span></td></tr>
+        <tr><td><span class="file">/disputas</span></td><td><span class="badge partial">PARTIAL</span></td><td>Abrir disputa sobre un match propio (con motivo + evidencia) y ver estado/resolución.</td><td><code class="inl">createDisputeAction</code> (debe transicionar status — bug 8)</td><td><span class="prio p1">P1</span></td></tr>
+        <tr><td>Vista capitán en <span class="file">/partido/[id]</span></td><td><span class="badge missing">MISSING</span></td><td>Overlay de capitán sobre la página pública: READY, declaración de lineup (form según formato sorteado), modal fullscreen de comodines cuando la ventana está abierta.</td><td><code class="inl">declareLineupAction</code> · <code class="inl">requestComodinAction</code></td><td><span class="prio p0">P0</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="s6-4">6.4 · Rutas admin</h3>
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr><th>Ruta</th><th>Estado</th><th>Objetivo</th><th>Acciones</th><th>Prio</th></tr></thead>
+      <tbody>
+        <tr><td><span class="file">/admin</span></td><td><span class="badge done">DONE</span></td><td>Home con secciones; sumar conteos vivos (matches hoy, disputas abiertas, solicitudes de comodín pendientes).</td><td>—</td><td><span class="prio p1">P1</span></td></tr>
+        <tr><td><span class="file">/admin/torneo</span></td><td><span class="badge bug">BUG</span></td><td><strong>Todo editable desde UI:</strong> edición activa, fases del torneo, ELO cap/tolerancia, timeouts, apertura/cierre de inscripción. <em>Eliminar todo texto que diga "ejecutá SQL".</em></td><td><code class="inl">updateTournamentConfigAction</code> · <code class="inl">updateEditionAction</code></td><td><span class="prio p1">P1</span></td></tr>
+        <tr><td><span class="file">/admin/equipos</span></td><td><span class="badge done">DONE</span></td><td>Aprobar/rechazar ya funciona; sumar edición de ELO manual (con auditoría) y emblema.</td><td><code class="inl">updateTeamEloAction</code></td><td><span class="prio p1">P1</span></td></tr>
+        <tr><td><span class="file">/admin/bracket</span></td><td><span class="badge partial">PARTIAL</span></td><td>Sorteo de seeds <strong>con ruleta animada</strong> (espectáculo, decisión del dueño) + generación real del bracket (persiste todo en transacción). Hoy solo hace Fisher-Yates en memoria.</td><td><code class="inl">generateBracketAction</code> (reescrita) · <code class="inl">runSeedsDrawAction</code></td><td><span class="prio p0">P0</span></td></tr>
+        <tr><td><span class="file">/admin/jornadas</span></td><td><span class="badge partial">PARTIAL</span></td><td>Asignar/editar <code class="inl">scheduled_at</code> por match con datepicker; vista calendario; reprogramar (reset de READYs con confirmación).</td><td><code class="inl">scheduleMatchAction</code></td><td><span class="prio p0">P0</span></td></tr>
+        <tr><td><span class="file">/admin/partido/[id]</span></td><td><span class="badge partial">PARTIAL</span></td><td><b>El centro de operaciones</b> — wireframe completo en 6.6.</td><td>Todas las del match</td><td><span class="prio p0">P0</span></td></tr>
+        <tr><td><span class="file">/admin/casters</span></td><td><span class="badge partial">PARTIAL</span></td><td>CRUD completo de casters (nombre, canal, rol) + gestión de cuentas caster.</td><td>CRUD caster</td><td><span class="prio p2">P2</span></td></tr>
+        <tr><td><span class="file">/admin/emblemas</span></td><td><span class="badge partial">PARTIAL</span></td><td>Uploader funciona; sumar listado de los 32 emblemas, reasignación y vista previa.</td><td>CRUD emblem</td><td><span class="prio p1">P1</span></td></tr>
+        <tr><td><span class="file">/admin/handbook</span></td><td><span class="badge partial">PARTIAL</span></td><td>De viewer a editor: contenido del handbook y T&C editables con versionado (los equipos aceptan una versión específica).</td><td><code class="inl">updateHandbookAction</code></td><td><span class="prio p1">P1</span></td></tr>
+        <tr><td><span class="file">/admin/disputas</span></td><td><span class="badge partial">PARTIAL</span></td><td>Crear/resolver ya existe; conectar a <code class="inl">match.status</code> (disputed congela, resolver decide camino: resultado / replay / forfeit).</td><td><code class="inl">resolveDisputeAction</code></td><td><span class="prio p1">P1</span></td></tr>
+        <tr><td><span class="file">/admin/auditoria</span></td><td><span class="badge missing">MISSING</span></td><td>Log navegable: sorteos (seed/hash/resultado), comodines, cambios de ELO, resultados cargados/revertidos, acciones admin. Filtros por edición/match/actor.</td><td><code class="inl">draw_audit_log</code> + audit de acciones</td><td><span class="prio p1">P1</span></td></tr>
+        <tr><td><span class="file">/admin/ruleta-preset</span></td><td><span class="badge missing">MISSING</span></td><td>Editor del preset: modos, sub-modos antimeta, formatos, mapas, llave — con pesos, vista previa y versionado.</td><td><code class="inl">savePresetVersionAction</code></td><td><span class="prio p1">P1</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="s6-5">6.5 · Rutas nuevas</h3>
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr><th>Ruta</th><th>Estado</th><th>Objetivo</th><th>Prio</th></tr></thead>
+      <tbody>
+        <tr><td><span class="file">/caster/*</span> (dashboard + partidos + recursos)</td><td><span class="badge missing">MISSING</span></td><td><b>Rol separado con dashboard propio</b> (decisión del dueño): partidos del día con datos completos del matchup (modos posibles, comodines restantes, ELOs), acceso al partido en vivo en modo lectura enriquecida (ve draws tan pronto se publican), recursos de cast (overlay, reglas rápidas). Elimina el 404 actual del redirect.</td><td><span class="prio p2">P2</span></td></tr>
+        <tr><td><span class="file">/overlay/[match_id]</span></td><td><span class="badge missing">MISSING</span></td><td>Página limpia sin chrome para OBS (fondo transparente/chroma, tipografía grande): muestra ruleta en vivo, resultado, scoreboard. Misma suscripción realtime que <span class="file">/partido/[id]</span>.</td><td><span class="prio p2">P2</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="s6-6">6.6 · <span class="file">/admin/partido/[id]</span> — el centro de operaciones (wireframe textual)</h3>
+  <p>Hoy la página <em>muestra</em> todo y <em>no hace</em> nada (botones sin handler — bug 2). Así queda cuando está terminada:</p>
+  <div class="wire">
+<span class="wl">HEADER DEL MATCH</span>
+<div class="wb hot">R32 · Slot 7 · Equipo A vs Equipo B &nbsp;·&nbsp; <span class="wbtn">ESTADO: open</span> &nbsp;·&nbsp; programado: SÁB 21:00 GMT-3 &nbsp;·&nbsp; timer contextual (countdown / ventana comodines)</div>
+<span class="wl">EQUIPOS + READY</span>
+<div class="wrow">
+  <div class="wb"><b>EQUIPO A</b> · ELO 3402/3520 · comodines: R×2 A×1 E×1 PRO×1 · READY#1 ✓ · lineup ✓ · READY#2 ✓</div>
+  <div class="wb"><b>EQUIPO B</b> · ELO 2987/3520 · comodines: R×1 A×1 E×0 PRO×0 · READY#1 ✓ · lineup — esperando</div>
+</div>
+<span class="wl">SORTEO EN VIVO (ruleta embebida, misma vista que el público)</span>
+<div class="wb hot">[RULETA / MEMOTEST EN VIVO] &nbsp; resultado P1: Antimeta · 2v2 · Arena · BO3 · civs A:[Franco,Mago] B:[Huno] &nbsp;·&nbsp; <span class="wbtn">INICIAR SORTEO</span> (habilitado cuando ambos READY) · <span class="wbtn">RE-GIRAR FASE ▾</span> (solo con comodín aprobado)</div>
+<span class="wl">COMODINES</span>
+<div class="wb">Solicitudes pendientes: [Re-girar MAPA — Equipo A] <span class="wbtn g">APROBAR</span> <span class="wbtn d">RECHAZAR</span> &nbsp;·&nbsp; <span class="wbtn">ABRIR VENTANA 5:00</span> · <span class="wbtn">MARCAR INVOCAR PRO USADO ▾ equipo</span></div>
+<span class="wl">RESULTADO POR GAME (lógica BO3 automática)</span>
+<div class="wrow">
+  <div class="wb">P1 · Arena — ganador: [Equipo A ▾] · replay URL [____] <span class="wbtn g">GUARDAR</span></div>
+  <div class="wb">P2 · Arena — ganador: [— ▾] · replay [____] <span class="wbtn g">GUARDAR</span></div>
+  <div class="wb">P3 · solo si 1-1 (nuevo sorteo sin LLAVE) <span class="wbtn">FORZAR FORFEIT</span></div>
+</div>
+<span class="wl">PELIGRO + LOG</span>
+<div class="wb"><span class="wbtn d">DISPUTA ABIERTA / RESOLVER</span> · <span class="wbtn d">CANCELAR MATCH</span> &nbsp;·&nbsp; Eventos: 21:00 abierto · 21:03 A ready · 21:04 B ready · 21:05 sorteo iniciado · 21:06 draw publicado (seed 9f3…)…</div>
+  </div>
+
+  <h3 id="s6-7">6.7 · <span class="file">/partido/[id]</span> — una página, tres públicos</h3>
+  <p>Misma ruta, overlays por rol (decisión del dueño — evita duplicar toda la lógica de live):</p>
+  <div class="grid3">
+    <div class="card"><h5>Espectador</h5><p>Countdown → ruleta en vivo (solo anima) → matchup final revelado → scoreboard en vivo → resultado. Comodines confirmados visibles en tiempo real. Sin ninguna acción.</p></div>
+    <div class="card"><h5>Capitán</h5><p>Todo lo del espectador, más su overlay: botón READY #1, formulario de lineup según formato sorteado (READY #2), y el modal fullscreen de comodines cuando la ventana está abierta. Solo ve el formulario de <em>su</em> equipo.</p></div>
+    <div class="card"><h5>Overlay OBS</h5><p><span class="file">/overlay/[match_id]</span>: la misma suscripción realtime, render sin UI de navegación, pensado para captura de stream. Lo ve el caster desde <span class="file">/caster/*</span>.</p></div>
+  </div>
+
+  <h3 id="s6-8">6.8 · La ruleta "pública en vivo"</h3>
+  <div class="flow">
+    <div class="fnode">Admin: INICIAR SORTEO</div><span class="farrow">→</span>
+    <div class="fnode hot">Server decide + persiste</div><span class="farrow">→</span>
+    <div class="fnode">Realtime publica draw</div><span class="farrow">→</span>
+    <div class="fbranch">
+      <div class="fnode">Admin<small>anima + controles</small></div>
+      <div class="fnode">Capitán A / B<small>anima</small></div>
+      <div class="fnode">Espectadores<small>animan</small></div>
+      <div class="fnode">Overlay OBS<small>anima p/ stream</small></div>
+    </div>
+  </div>
+  <ul>
+    <li>Todos los clientes suscritos al canal del match reproducen <strong>la misma animación con el mismo resultado</strong>, porque la animación es una función pura del draw persistido.</li>
+    <li>Sincronía: la duración de cada fase viene en el draw (o en el preset), de modo que todos terminan la fase 6 en el mismo instante aproximado; quien se conecta tarde salta al estado actual.</li>
+    <li>El admin ve controles extra sobre la misma vista: re-girar fase (solo habilitado con comodín reroll aprobado), pausar, forzar publicación.</li>
+  </ul>
+</section>
+<!-- ==================== 7 · PLAN DE IMPLEMENTACIÓN ==================== -->
+<section id="s7">
+  <h2 class="sec"><span class="num">7</span>Plan de implementación faseado</h2>
+  <p class="sec-sub">Orden justificado por dependencias: nada se construye sobre arena. Las Fases 1 y 2 son el camino crítico — bloquean todo lo demás.</p>
+
+  <div class="callout warn">
+    <span class="cap">Camino crítico</span>
+    <strong>Fase 1 (motor del bracket) y Fase 2 (el sorteo) bloquean todo lo posterior.</strong> Sin bracket persistido no hay matches; sin sorteo server-side no hay match jugable. Fases 3 y 4 dependen directamente de ellas. Fase 0 no bloquea el código nuevo pero sí el despliegue seguro — va primero por seguridad y porque deja los datos limpios con que probar todo.
+  </div>
+
+  <h3 id="f0">Fase 0 — Fundamentos y seguridad <span class="badge risk">1 semana</span></h3>
+  <p><b>Objetivo:</b> cerrar los agujeros de seguridad, arreglar los datos rotos y dejar la base lista para construir sin arrastrar deuda.</p>
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr><th>Tarea</th><th>Archivo a crear/modificar</th><th>Criterio de done verificable</th></tr></thead>
+      <tbody>
+        <tr><td>Fix de fuentes (importar Rajdhani, descartar Butler formalmente)</td><td><span class="file">src/app/layout.tsx</span> · limpiar referencias en <span class="file">globals.css</span>/SPEC</td><td>No hay fallback silencioso a Georgia; la ruleta renderiza con Rajdhani real.</td></tr>
+        <tr><td>Endurecer RLS de <code class="inl">draw_audit_log</code></td><td>Migración SQL</td><td>Cliente anónimo <code class="inl">SELECT</code> → error/0 filas; service_role lee todo.</td></tr>
+        <tr><td>Eliminar/neutralizar <span class="file">/api/admin/exec-sql</span> y endpoints de super-admin</td><td>Borrar rutas o dejarlas fuera del build</td><td>Las rutas devuelven 404 en producción; nada en el código las llama.</td></tr>
+        <tr><td>Limpiar <span class="file">/torneo</span> fake</td><td><span class="file">src/app/torneo/page.tsx</span></td><td>Redirige a /bracket o 404 controlado; cero datos hardcodeados en producción.</td></tr>
+        <tr><td>Seed de 32 equipos sintéticos + emblemas reales del Drive</td><td><span class="file">scripts/seed-32-teams.ts</span> · <span class="file">/public/emblems/</span> o Storage</td><td>32 equipos aprobados con emblemas válidos; 0 referencias a placeholder.svg; mi-equipo lee emblema de DB.</td></tr>
+        <tr><td>Poblar <code class="inl">preset_version</code> + <code class="inl">tournament_config</code> reales</td><td>Migración/seed</td><td><span class="file">/api/tournament/config</span> devuelve datos reales; la ruleta puede leer su config de DB.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted small"><b>Dependencias:</b> ninguna (es la base) · <b>Desbloquea:</b> todo.</p>
+
+  <h3 id="f1">Fase 1 — El motor del bracket <span class="badge bug">1–2 semanas · CAMINO CRÍTICO</span></h3>
+  <p><b>Objetivo:</b> que el bracket exista en la DB y avance solo. Sin esto no hay torneo.</p>
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr><th>Tarea</th><th>Archivo a crear/modificar</th><th>Criterio de done</th></tr></thead>
+      <tbody>
+        <tr><td>Reescribir <code class="inl">generateBracketAction</code>: transacción que persiste bracket + 5 rounds + 31 matches + parent links usando <code class="inl">generateBracket()</code> del engine</td><td><span class="file">src/server/actions/auth.ts</span> → mover a <span class="file">src/server/actions/bracket.ts</span></td><td>Con 32 equipos aprobados, un clic genera el bracket completo en DB; reintentar da error controlado (índice UNIQUE).</td></tr>
+        <tr><td>Trigger/acción de avance: al <code class="inl">finished/forfeit</code>, propagar ganador a parent (<code class="inl">getNextMatch</code> + slot par/impar)</td><td><span class="file">src/server/actions/match.ts</span> o función Postgres</td><td>Cargar resultado de un match de R32 coloca al ganador en el slot correcto de R16 automáticamente.</td></tr>
+        <tr><td>Jornadas: asignar/editar <code class="inl">scheduled_at</code> (con reset de READYs en reprogramación)</td><td><span class="file">src/app/admin/jornadas/*</span> · <code class="inl">scheduleMatchAction</code></td><td>Admin agenda horarios desde UI; público los ve en /fixture y countdowns.</td></tr>
+        <tr><td>/bracket público con datos reales completos (incluye standings unificado)</td><td><span class="file">src/app/bracket/*</span></td><td>Muestra las 5 rondas con equipos reales, marcadores y horarios; se actualiza solo por realtime.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <pre><span class="ph">pseudocódigo · transacción de generación</span>
+<span class="c-k">await</span> db.<span class="c-f">transaction</span>(<span class="c-k">async</span> (tx) =&gt; {
+  <span class="c-k">const</span> teams = <span class="c-k">await</span> <span class="c-f">getApprovedSeeded</span>(tx, editionId);          <span class="c-c">// 32 exactos, sin byes</span>
+  <span class="c-k">const</span> tree  = <span class="c-f">generateBracket</span>(teams);                   <span class="c-c">// engine.ts (ya correcto)</span>
+  <span class="c-k">const</span> b     = <span class="c-k">await</span> <span class="c-f">insertBracket</span>(tx, editionId);       <span class="c-c">// UNIQUE(edition,type)</span>
+  <span class="c-k">for</span> (<span class="c-k">const</span> r <span class="c-k">of</span> tree.rounds) {                          <span class="c-c">// R32 → Final (5)</span>
+    <span class="c-k">const</span> round = <span class="c-k">await</span> <span class="c-f">insertRound</span>(tx, b.id, r.index);
+    <span class="c-k">for</span> (<span class="c-k">const</span> m <span class="c-k">of</span> r.matches) {
+      <span class="c-k">await</span> <span class="c-f">insertMatch</span>(tx, { roundId: round.id, slot: m.slot,
+        teamA: m.a, teamB: m.b, parent... , status: <span class="c-s">'scheduled'</span>,
+        createGames: [<span class="c-n">1</span>] });                              <span class="c-c">// match_game #1 por defecto</span>
+    }
+  }
+});  <span class="c-c">// 31 matches · 31 match_game #1 · parent links via getNextMatch</span></pre>
+
+  <h3 id="f2">Fase 2 — El sorteo <span class="badge bug">2 semanas · CAMINO CRÍTICO</span></h3>
+  <p><b>Objetivo:</b> el momento distintivo del torneo funciona de verdad: aleatorio real en server, persistido, animado sincronizado para todos.</p>
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr><th>Tarea</th><th>Archivo</th><th>Criterio de done</th></tr></thead>
+      <tbody>
+        <tr><td>Server-side draw con <code class="inl">crypto.randomInt</code> + seed reproducible + persistencia <code class="inl">roulette_draw</code> + <code class="inl">match_game</code></td><td><span class="file">src/server/actions/draw.ts — runDrawAction</span></td><td>Ejecutar el sorteo genera fila con resultado JSON completo y el match_game poblado; con la misma seed el resultado es reproducible.</td></tr>
+        <tr><td>Memotest como fase 6 del sorteo (asignación server-side: N civs por formato, sin repetir intra-equipo, base/extra según final)</td><td><span class="file">draw.ts</span> + integración en <span class="file">components/ruleta/roulette.tsx</span> con <span class="file">memotest.tsx</span></td><td>El sorteo termina con civs asignadas a ambos equipos, persistidas, visibles para todos.</td></tr>
+        <tr><td>Ruleta embebida que <b>reproduce</b> el resultado (no lo decide); eliminar Math.random() y localStorage</td><td><span class="file">components/ruleta/roulette.tsx</span> (props: draw persistido + fase actual)</td><td>Dos navegadores distintos muestran exactamente el mismo resultado; quien entra tarde salta al estado actual.</td></tr>
+        <tr><td>Admin "INICIAR SORTEO" con gating de READYs</td><td><span class="file">src/app/admin/partido/[id]/*</span></td><td>Botón habilitado solo con ambos READY; dispara runDrawAction; todos ven la ruleta.</td></tr>
+        <tr><td>Sorteo inicial de seeds con ruleta animada (espectáculo)</td><td><span class="file">src/app/admin/bracket/*</span> + ruleta en modo "equipos"</td><td>El admin sortea seeds animado; los seeds quedan persistidos y alimentan la generación del bracket.</td></tr>
+        <tr><td>Página de verificación interna/auditoría</td><td><span class="file">src/app/sorteos/[id]/verificar/*</span></td><td>Staff ve seed, commit hash, resultado y timeline de cualquier draw.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="f3">Fase 3 — La partida en vivo <span class="badge partial">2 semanas</span></h3>
+  <p><b>Objetivo:</b> un match se puede jugar de punta a punta desde la UI.</p>
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr><th>Tarea</th><th>Archivo</th><th>Criterio de done</th></tr></thead>
+      <tbody>
+        <tr><td>Lineup + READY #2 (form por formato, FUSIÓN lo salta)</td><td><span class="file">src/app/partido/[id]/*</span> · <code class="inl">declareLineupAction</code></td><td>Ambos capitanes declaran; <code class="inl">ready_lineup_*_at</code> se escriben; se revelan al abrir comodines.</td></tr>
+        <tr><td>Ventana de comodines: conectar <span class="file">comodin-window.tsx</span> (huérfano) como modal fullscreen con timer server-side</td><td><span class="file">src/app/partido/[id]/*</span> · <code class="inl">startComodinWindowAction</code></td><td>Admin abre ventana; timer idéntico para todos (desde <code class="inl">comodin_window_expires_at</code>); al expirar → in_progress.</td></tr>
+        <tr><td>Comodines 4/4 funcionales (solicitar → aprobar → ejecutar; invocar_pro = descuento manual admin)</td><td><code class="inl">requestComodinAction</code> · <code class="inl">resolveComodinAction</code> · panel admin</td><td>Cada comodín se puede usar, se descuenta atómicamente, ejecuta su efecto (reroll re-gira fase; anular excluye jugador; elegir rival fija cruce) y queda en auditoría.</td></tr>
+        <tr><td>Carga de resultado por game con lógica BO3 automática + avance de bracket</td><td><code class="inl">reportGameResultAction</code> · panel admin</td><td>2-0 termina; 1-1 crea P3 con nuevo sorteo sin LLAVE; ganador aparece en el siguiente match; BO1 termina en P1.</td></tr>
+        <tr><td>Disputa conectada a status + resolución con caminos</td><td><code class="inl">createDisputeAction</code> (fix) · <code class="inl">resolveDisputeAction</code></td><td>Abrir disputa congela el match; resolverlo lo retoma por el camino elegido.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="f4">Fase 4 — Pulido y operación <span class="badge partial">1–2 semanas</span></h3>
+  <p><b>Objetivo:</b> el staff opera todo sin SQL y el producto se siente terminado.</p>
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr><th>Tarea</th><th>Archivo</th><th>Criterio de done</th></tr></thead>
+      <tbody>
+        <tr><td>admin/torneo 100% editable (adiós "ejecutá SQL")</td><td><span class="file">src/app/admin/torneo/*</span></td><td>Toda la config del torneo se edita desde UI con validación.</td></tr>
+        <tr><td>Editor de preset de ruleta (pesos, mapas, modos)</td><td><span class="file">src/app/admin/ruleta-preset/*</span> · <code class="inl">savePresetVersionAction</code></td><td>Crear nueva versión de preset y activarla para la edición desde UI.</td></tr>
+        <tr><td>/caster/* completo (elimina el 404 del redirect)</td><td><span class="file">src/app/(caster)/*</span></td><td>Un caster loguea y vive su jornada desde su dashboard.</td></tr>
+        <tr><td>Overlay OBS</td><td><span class="file">src/app/overlay/[match_id]/*</span></td><td>Browser source muestra ruleta/scoreboard sin chrome.</td></tr>
+        <tr><td>Auditoría navegable</td><td><span class="file">src/app/admin/auditoria/*</span></td><td>Filtros por edición/match/actor; cada acción crítica aparece.</td></tr>
+        <tr><td>Empty states, unificación visual final del interior, mobile pass</td><td>Todo el interior</td><td>Ninguna pantalla rompe en 360px; ningún vacío es una página en blanco.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="f5">Fase 5 — Post-MVP documentado (NO hacer ahora)</h3>
+  <p>Solo listar, para que no contaminen el foco ni se olviden:</p>
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr><th>Feature futura</th><th>Nota</th></tr></thead>
+      <tbody>
+        <tr><td>Commit-reveal público completo</td><td>El mecanismo criptográfico queda documentado; por ahora la verificación es interna (decisión del dueño). Cuando se implemente: publicar commit pre-draw, reveal post-draw, verificador público.</td></tr>
+        <tr><td>Notificaciones email/push</td><td>Recordatorios de horario, "tu ruleta empieza en 15 min".</td></tr>
+        <tr><td>Stats globales del torneo</td><td>Civs más sorteadas, mapas más jugados, ELO medio por ronda.</td></tr>
+        <tr><td>Copa de consolación</td><td>Segundo cuadro para eliminados tempranos.</td></tr>
+        <tr><td>Pick'em</td><td>Predicciones del público con puntaje.</td></tr>
+        <tr><td>PWA</td><td>Instalable, notificaciones push nativas.</td></tr>
+        <tr><td>Auto-import de replays</td><td>Parsear .aoe2record y validar resultado automáticamente.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>7.1 · Estimación y dependencias</h3>
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr><th>Fase</th><th>Estimación</th><th>Depende de</th><th>Bloquea a</th></tr></thead>
+      <tbody>
+        <tr><td><b>Fase 0</b> · Fundamentos y seguridad</td><td>1 semana</td><td>—</td><td>Despliegue seguro de todo</td></tr>
+        <tr><td><b>Fase 1</b> · Motor del bracket</td><td>1–2 semanas</td><td>Fase 0 (seed para probar)</td><td>Fases 2, 3, 4</td></tr>
+        <tr><td><b>Fase 2</b> · El sorteo</td><td>2 semanas</td><td>Fase 1 (necesita matches)</td><td>Fases 3, 4</td></tr>
+        <tr><td><b>Fase 3</b> · Partida en vivo</td><td>2 semanas</td><td>Fases 1+2</td><td>Fase 4</td></tr>
+        <tr><td><b>Fase 4</b> · Pulido y operación</td><td>1–2 semanas</td><td>Fases 1–3</td><td>Lanzamiento</td></tr>
+        <tr><td><b>Total estimado</b></td><td><b>6–9 semanas</b></td><td colspan="2">Con las Fases 1→2→3 como camino crítico estrictamente secuencial.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+<!-- ==================== 8 · MATRIZ DE DECISIONES ==================== -->
+<section id="s8">
+  <h2 class="sec"><span class="num">8</span>Matriz de decisiones y consecuencias</h2>
+  <p class="sec-sub">Toda decisión confirmada por el dueño + las técnicas recomendadas por este análisis. La columna final es el costo de arrepentirse.</p>
+
+  <h3>8.1 · Decisiones del dueño (confirmadas — no se discuten, se respetan)</h3>
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr><th>Decisión</th><th>Elegido</th><th>Alternativa descartada</th><th>Consecuencia si se cambia después</th></tr></thead>
+      <tbody>
+        <tr><td>Alcance</td><td><b>Sitio COMPLETO</b>, sin MVP recortado</td><td>Lanzar con subset de features</td><td>Replanificar fases; el camino crítico (F1+F2) no se puede recortar porque ES el torneo.</td></tr>
+        <tr><td>Estética</td><td>Landing magenta intacta + interior púrpura unificado (Cinzel+Inter)</td><td>Unificar todo a una sola estética</td><td>Cambiar la landing rompe la pieza marketinera terminada; cambiar el interior es barato solo antes de Fase 4.</td></tr>
+        <tr><td>Sorteo de seeds</td><td>Ruleta animada con equipos (espectáculo)</td><td>Tabla estática de seeds</td><td>Sin ella, /admin/bracket pierde el momento destacado de arranque; barato de quitar, caro de agregar tarde.</td></tr>
+        <tr><td>Ruleta de partido</td><td><b>Pública en vivo</b>, sincronizada por Realtime</td><td>Sorteo privado con resultado publicado</td><td>Quitarla simplifica Fase 2 (no sync), pero mata el momento distintivo del torneo y el contenido de stream.</td></tr>
+        <tr><td>Ruleta + memotest</td><td><b>Una sola experiencia encadenada</b></td><td>Dos pantallas/pasos separados</td><td>Separar tarde implica reescribir la orquestación de fases de Fase 2.</td></tr>
+        <tr><td>Lineup</td><td>Capitán lo declara en <span class="file">/partido/[id]</span></td><td>Página aparte / mis-partidos</td><td>Moverlo después duplica componentes de live; decidirlo ahora es gratis.</td></tr>
+        <tr><td>Ventana comodines</td><td>Modal fullscreen con timer</td><td>Panel lateral / inline</td><td>Cambio de patrón UI afecta solo Fase 3; costo medio.</td></tr>
+        <tr><td>Resultado</td><td>Admin carga ganador <b>por game</b> con BO3 automática</td><td>Carga de match completo / auto por replay</td><td>El auto-import de replays es Fase 5; cambiar la granularidad (match vs game) rompe la lógica BO3 ya construida.</td></tr>
+        <tr><td>Bracket</td><td><b>Exactamente 32 equipos, sin byes</b></td><td>Brackets con byes / tamaño variable</td><td>Admitir byes después obliga a tocar engine, UI de bracket y reglas de avance (Fase 1 entera).</td></tr>
+        <tr><td>Caster</td><td>Rol separado con dashboard <span class="file">/caster/*</span></td><td>Caster como admin de solo lectura</td><td>Simplifica Fase 4; pero hoy el redirect ya existe y da 404 — hay que resolverlo igual.</td></tr>
+        <tr><td>Admin</td><td><b>TODO editable desde UI</b>, nada de "ejecutá SQL"</td><td>Operación híbrida UI+SQL</td><td>Cada vez que el staff pisa la DB a mano se invalida la auditoría y se arriesga romper invariantes.</td></tr>
+        <tr><td>Fairness</td><td>Aleatorio real en server (crypto) + log interno; <b>sin commit-reveal público por ahora</b></td><td>Commit-reveal público desde el día 1</td><td>Agregar commit-reveal público después es aditivo (seeds ya se guardan); quitarlo después sería romper una promesa pública.</td></tr>
+        <tr><td>INVOCAR PRO</td><td>Descuento manual del admin, <b>sin chat ni flujo especial</b></td><td>Sistema de chat/coordinación in-app</td><td>Agregar chat luego es una feature nueva completa (Fase 5+); el flujo actual no se desperdicia.</td></tr>
+        <tr><td>Datos de prueba</td><td>Limpiar + seed de 32 sintéticos realistas</td><td>Mantener los 7 equipos actuales</td><td>Probar el flujo completo requiere bracket lleno; con 7 equipos no hay R32 que testear.</td></tr>
+        <tr><td>Emblemas</td><td>Avatares del Drive como emblemas reales</td><td>Placeholders generados</td><td>Cambio cosmético post-Fase 0: costo bajo siempre.</td></tr>
+        <tr><td>Navegación pública</td><td><span class="file">/bracket</span> = bracket + standings unificado; <span class="file">/torneo</span> se elimina/redirige</td><td>Dos páginas separadas</td><td>Decisión de IA (arquitectura de información); revertirla solo toca enlaces y una ruta.</td></tr>
+        <tr><td>Entregable de este documento</td><td><b>Solo el plan</b> — no escribir código todavía</td><td>Empezar implementación ya</td><td>Este plan es el contrato: implementar sin seguirlo genera difusión de decisiones entre chat y código.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>8.2 · Decisiones técnicas recomendadas (derivadas del análisis)</h3>
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr><th>Decisión técnica</th><th>Elegido</th><th>Alternativa descartada</th><th>Consecuencia si se cambia después</th></tr></thead>
+      <tbody>
+        <tr><td><b>Server decide / client anima</b></td><td>Resultado se decide y persiste en server; la UI solo lo anima</td><td>Sorteo en cliente (estado actual)</td><td>Cambiar a client-side después invalida auditoría, sync y fairness: es la base de Fase 2.</td></tr>
+        <tr><td><b>Aleatoriedad</b></td><td><code class="inl">crypto.randomInt</code> server-side, seed persistida, derivación determinista por fase</td><td><code class="inl">Math.random()</code> / seeds opacas</td><td>Sin seed reproducible no hay auditoría ni preparación para commit-reveal futuro.</td></tr>
+        <tr><td><b>Config de ruleta</b></td><td>En <code class="inl">preset_version</code> de DB, versionada, editable desde UI</td><td>localStorage / hardcode en el componente</td><td>Cada edición futura necesita su preset; sin versionado, retirar un mapa reescribe la historia.</td></tr>
+        <tr><td><b>Página de partido</b></td><td>Una sola página con overlays por rol</td><td>Páginas separadas público/capitán</td><td>Separarlas después duplica toda la suscripción realtime y el render del sorteo.</td></tr>
+        <tr><td><b>Avance de bracket</b></td><td>Propagación automática al <code class="inl">finished/forfeit</code> (transacción o trigger)</td><td>Asignación manual del admin</td><td>Manual = error humano en el dato más crítico del torneo; automatizarlo después requiere migrar matches ya jugados.</td></tr>
+        <tr><td><b>Timer de comodines</b></td><td>Expiración en server (<code class="inl">comodin_window_expires_at</code>), clientes solo cuentan</td><td>Timer local por cliente</td><td>Timers locales divergen y habilitan usos fuera de ventana; bug de fairness.</td></tr>
+        <tr><td><b>Comodines: stock</b></td><td>Decremento atómico + CHECK qty ≥ 0</td><td>Leer-modificar-escribir</td><td>Race de doble uso con stock 1: se detecta solo con constraint; fix posterior exige reconciliar historial.</td></tr>
+        <tr><td><b>Countdowns de READY</b></td><td>Timeout server-side (función/cron) → forfeit automático</td><td>Admin vigilando manualmente</td><td>Manual escala mal con 16 llaves simultáneas en R32; automatizar tarde deja precedentes inconsistentes.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ==================== 9 · RIESGOS ==================== -->
+<section id="s9">
+  <h2 class="sec"><span class="num">9</span>Riesgos y mitigaciones</h2>
+  <p class="sec-sub">Lo que puede salir mal en producción y cómo el plan lo absorbe.</p>
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr><th>Riesgo</th><th>Escenario</th><th>Mitigación</th></tr></thead>
+      <tbody>
+        <tr><td><b>Race condition en READY</b></td><td>Dos requests simultáneos del mismo equipo (doble clic, refresh) pisan <code class="inl">ready_a_at</code> o disparan el gating del sorteo dos veces.</td><td>Acciones idempotentes con <code class="inl">UPDATE ... WHERE ready_a_at IS NULL</code>, o lock de fila (<code class="inl">FOR UPDATE</code>) / función Postgres que transicione estado de forma atómica.</td></tr>
+        <tr><td><b>Dos admins en la misma llave</b></td><td>Ambos presionan "INICIAR SORTEO" o cargan resultados distintos a la vez.</td><td>Transición de estado con guarda (<code class="inl">WHERE status='open'</code>): el segundo recibe <b>409 Conflict</b> con UI clara ("otro admin ya inició el sorteo"). Log de quién hizo qué.</td></tr>
+        <tr><td><b>Ruleta desincronizada entre viewers</b></td><td>Espectadores ven resultados distintos o tiempos distintos.</td><td>Estructural del modelo: el server es fuente de verdad única, los clients solo animan el resultado persistido; quien entra tarde salta al estado actual. No hay nada que sincronizar: hay algo que reproducir.</td></tr>
+        <tr><td><b>Resultado inválido por roster</b></td><td>Sorteo da 1v1/2v2 pero el equipo no tiene quién juegue (anulaciones, ausencias) y el match queda en limbo.</td><td>Validación pre-draw (roster completo y disponible) + regla de forfeit documentada + admin puede pausar/forzar forfeit con auditoría.</td></tr>
+        <tr><td><b>Carga al publicar (pico de viewers)</b></td><td>Muchos espectadores en la misma ruleta presionan DB y Realtime.</td><td>Lectura pública cacheada del estado del match + Realtime solo para difusión de eventos (no polling); overlay OBS comparte la misma suscripción, sin queries extra.</td></tr>
+        <tr><td><b>Smurf / ELO maquillado</b></td><td>Un equipo inscribe cuentas secundarias para entrar bajo el cap 3500 con jugadores más fuertes.</td><td><code class="inl">linkedProfiles</code> de AoE2 Companion (pendiente de implementar como herramienta de revisión en aprobación de equipos), regla de maxRating observado + revisión manual del staff. Documentarlo en el handbook.</td></tr>
+        <tr><td><b>Datos de prueba contaminando producción</b></td><td>Quedan equipos/sorteos de prueba mezclados con el torneo real.</td><td>Seed limpio de Fase 0 con script idempotente y marca <code class="inl">is_test</code> donde aplique; el sorteo de prueba actual queda claramente identificado en auditoría (o se purga).</td></tr>
+        <tr><td><b>Admin cierra comodines antes de tiempo</b></td><td>Error humano corta la ventana y un comodín legítimo queda fuera.</td><td>Confirmaciones en dos pasos para acciones irreversibles + la acción de cerrar ventana espera a que no haya solicitudes pendientes (bloqueo, no solo warning).</td></tr>
+        <tr><td><b>Desconexión en medio de un game BO3</b></td><td>Caída de un jugador en P2: ¿replay, pausa, forfeit?</td><td><b>Regla manual del admin, documentada en el handbook</b> (no automática: las causas de fuerza mayor las juzga un humano). El sitio soporta los tres caminos y registra la decisión tomada.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ==================== 10 · CHECKLIST FINAL ==================== -->
+<section id="s10">
+  <h2 class="sec"><span class="num">10</span>Checklist final — "El sitio está terminado cuando…"</h2>
+  <p class="sec-sub">20 verificaciones end-to-end. Cuando las 20 pasan en producción con datos reales, VÉRTIGO Cup está terminado.</p>
+
+  <h4>A · Pre-torneo</h4>
+  <ul class="check">
+    <li><span class="box"></span><span class="n">01</span><span>Un equipo nuevo se inscribe por el wizard de 9 pasos con ELO validado server-side y queda pendiente de aprobación.</span></li>
+    <li><span class="box"></span><span class="n">02</span><span>El admin aprueba equipos desde UI hasta tener exactamente 32, todos con emblema real visible en todo el sitio.</span></li>
+    <li><span class="box"></span><span class="n">03</span><span>El admin edita la config del torneo (cap, tolerancia, timeouts) desde <span class="file">/admin/torneo</span> sin tocar SQL.</span></li>
+    <li><span class="box"></span><span class="n">04</span><span>El admin edita el preset de ruleta (modos, mapas, pesos) desde UI y la edición activa lo usa.</span></li>
+  </ul>
+  <h4>B · Bracket</h4>
+  <ul class="check">
+    <li><span class="box"></span><span class="n">05</span><span>El sorteo de seeds se hace con ruleta animada de equipos y queda persistido.</span></li>
+    <li><span class="box"></span><span class="n">06</span><span>La generación del bracket crea 5 rondas y 31 matches en una transacción; reintentar falla limpio (UNIQUE).</span></li>
+    <li><span class="box"></span><span class="n">07</span><span><span class="file">/bracket</span> público muestra las 5 rondas con los 32 equipos reales y horarios, sin datos inventados.</span></li>
+    <li><span class="box"></span><span class="n">08</span><span>El admin agenda horarios desde <span class="file">/admin/jornadas</span> y el público los ve en <span class="file">/fixture</span> con countdowns correctos.</span></li>
+  </ul>
+  <h4>C · El partido en vivo (el corazón)</h4>
+  <ul class="check">
+    <li><span class="box"></span><span class="n">09</span><span>Ambos capitanes hacen READY #1 desde <span class="file">/mis-partidos</span> y el admin lo ve en tiempo real.</span></li>
+    <li><span class="box"></span><span class="n">10</span><span>El admin presiona INICIAR SORTEO y <b>tres roles distintos</b> (admin, capitán, espectador anónimo) ven la ruleta girar con <b>exactamente el mismo resultado</b>.</span></li>
+    <li><span class="box"></span><span class="n">11</span><span>El sorteo completo (5+1 fases) termina con modo, formato, mapa, llave BO3/BO1 y civs por memotest, todo persistido en DB y auditable.</span></li>
+    <li><span class="box"></span><span class="n">12</span><span>Cada capitán declara su lineup según el formato sorteado y el público lo ve revelado al abrir la ventana de comodines.</span></li>
+    <li><span class="box"></span><span class="n">13</span><span>Un comodín Re-girar se solicita, el admin lo aprueba, la fase se re-gira para todos en vivo y el inventario descuenta 1 (atómico, verificable en DB).</span></li>
+    <li><span class="box"></span><span class="n">14</span><span>El admin marca INVOCAR PRO como usado manualmente desde su panel y queda registrado.</span></li>
+    <li><span class="box"></span><span class="n">15</span><span>El admin carga el resultado de P1 y P2; un 2-0 cierra el match y el ganador aparece automáticamente en el siguiente slot del bracket.</span></li>
+    <li><span class="box"></span><span class="n">16</span><span>Un 1-1 genera P3 con un nuevo sorteo <b>sin fase LLAVE</b>; al cargar P3 el match termina y avanza.</span></li>
+    <li><span class="box"></span><span class="n">17</span><span>Una disputa abierta congela el match (no se puede cargar resultado) y al resolverla el flujo continúa por el camino elegido.</span></li>
+  </ul>
+  <h4>D · Cierre, público y staff</h4>
+  <ul class="check">
+    <li><span class="box"></span><span class="n">18</span><span>La final habilita las 3 civs extra de los finalistas en el memotest (y solo la final).</span></li>
+    <li><span class="box"></span><span class="n">19</span><span>Un caster inicia sesión y vive su jornada desde <span class="file">/caster/*</span>; el overlay OBS muestra ruleta y marcador sin UI.</span></li>
+    <li><span class="box"></span><span class="n">20</span><span>Cualquier acción crítica (sorteo, comodín, resultado, ELO editado) se puede consultar después en <span class="file">/admin/auditoria</span> con actor y timestamp.</span></li>
+  </ul>
+
+  <div class="callout ok">
+    <span class="cap">Criterio de cierre</span>
+    Cuando los checks 09–17 pasan en <strong>una sola sesión en vivo con datos reales</strong> —un match jugado de punta a punta sin tocar la DB— el corazón del torneo existe. Los demás checks son el torneo entero funcionando. Ese día, VÉRTIGO Cup está terminado.
+  </div>
+</section>
+
+<footer>
+  <div class="sig">❖ VÉRTIGO CUP ❖</div>
+  <p>Plan Maestro de Desarrollo v1.0 · Generado el 2026-08-11 · Basado en auditoría del 100% del repo + DB en vivo del 2026-08-11.<br>Documento interno — decisiones confirmadas por el dueño del torneo. Footer discreto a propósito.</p>
+</footer>
+</div>
+</main>
+</div>
+<script>
+(function(){
+  var btn=document.getElementById('sb-toggle');
+  var mq=window.matchMedia('(max-width:1080px)');
+  function applyDef(){ if(mq.matches){document.body.classList.add('sb-collapsed')} }
+  applyDef();
+  btn.addEventListener('click',function(){document.body.classList.toggle('sb-collapsed')});
+  document.querySelectorAll('#toc a').forEach(function(a){
+    a.addEventListener('click',function(){ if(mq.matches){document.body.classList.add('sb-collapsed')} });
+  });
+  var links=Array.prototype.slice.call(document.querySelectorAll('#toc a'));
+  var map={};
+  links.forEach(function(a){ var id=a.getAttribute('href').slice(1); var el=document.getElementById(id); if(el) map[id]=a; });
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting){
+        links.forEach(function(l){l.classList.remove('active')});
+        var a=map[e.target.id]; if(a) a.classList.add('active');
+      }
+    });
+  },{rootMargin:'-10% 0px -80% 0px'});
+  Object.keys(map).forEach(function(id){obs.observe(document.getElementById(id))});
+})();
+</script>
+</body>
+</html>

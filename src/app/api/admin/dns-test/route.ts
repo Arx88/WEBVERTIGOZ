@@ -7,6 +7,12 @@ import { requireAdmin } from "@/lib/auth/admin-guard";
  * GET /api/admin/dns-test
  * Diagnóstico de conectividad TCP a los poolers de Supabase.
  * Requiere sesión admin autenticada.
+ *
+ * SEGURIDAD: SAFE para producción. Protegido con requireAdmin() (sesión
+ * autenticada con rol admin/super_admin via Supabase Auth), no por un header
+ * estático. Solo realiza conexiones TCP de solo-lectura a hosts conocidos
+ * (poolers de Supabase) — no ejecuta operaciones sensibles ni expone datos
+ * más allá de si un puerto responde o no. No requiere el dev-endpoint-guard.
  */
 export async function GET() {
   const account = await requireAdmin();

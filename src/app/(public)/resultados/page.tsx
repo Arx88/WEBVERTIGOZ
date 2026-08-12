@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Trophy } from "lucide-react";
 import { getSupabaseServer } from "@/lib/supabase/server";
+import DuelCard from "@/components/shared/duel-card";
 
 export const dynamic = "force-dynamic";
 
@@ -11,8 +12,8 @@ interface ResultadoRow {
   scheduledAtStart: string | null;
   finishedAt: string | null;
   roundName: string | null;
-  teamA: { id: string; name: string; seed: number | null } | null;
-  teamB: { id: string; name: string; seed: number | null } | null;
+  teamA: { id: string; name: string; seed: number | null; emblemUrl: string | null; tagline: string | null } | null;
+  teamB: { id: string; name: string; seed: number | null; emblemUrl: string | null; tagline: string | null } | null;
   scoreA: number;
   scoreB: number;
   winnerTeamId: string | null;
@@ -46,16 +47,18 @@ async function loadResultados(): Promise<ResultadoRow[]> {
       if (m.team_a_id) teamIds.push(m.team_a_id);
       if (m.team_b_id) teamIds.push(m.team_b_id);
     }
-    let teamMap: Record<string, { name: string; seed: number | null }> = {};
+    let teamMap: Record<string, { name: string; seed: number | null; emblemUrl: string | null; tagline: string | null }> = {};
     if (teamIds.length > 0) {
       const { data: teams } = (await supabase
         .from("team_registration")
-        .select("id, seed, team_account:team_account_id ( name )")
+        .select("id, seed, team_account:team_account_id ( name, tagline, emblem:emblem_id ( image_url ) )")
         .in("id", teamIds)) as { data: any };
       for (const t of teams ?? []) {
         teamMap[t.id] = {
           name: t.team_account?.name ?? "—",
           seed: t.seed ?? null,
+          emblemUrl: t.team_account?.emblem?.image_url ?? null,
+          tagline: t.team_account?.tagline ?? null,
         };
       }
     }
@@ -68,11 +71,9 @@ async function loadResultados(): Promise<ResultadoRow[]> {
       finishedAt: m.finished_at ?? null,
       roundName: m.round_id ? roundMap[m.round_id] ?? null : null,
       teamA: m.team_a_id
-        ? { id: m.team_a_id, name: teamMap[m.team_a_id]?.name ?? "—", seed: teamMap[m.team_a_id]?.seed ?? null }
-        : null,
+        ? { id: m.team_a_id, ...teamMap[m.team_a_id] } : null,
       teamB: m.team_b_id
-        ? { id: m.team_b_id, name: teamMap[m.team_b_id]?.name ?? "—", seed: teamMap[m.team_b_id]?.seed ?? null }
-        : null,
+        ? { id: m.team_b_id, ...teamMap[m.team_b_id] } : null,
       scoreA: m.score_a ?? 0,
       scoreB: m.score_b ?? 0,
       winnerTeamId: m.winner_team_id ?? null,
@@ -125,84 +126,44 @@ export default async function ResultadosPage() {
             </div>
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-4">
             {rows.map((m) => {
-              const isAWinner = m.winnerTeamId && m.teamA && m.winnerTeamId === m.teamA.id;
-              const isBWinner = m.winnerTeamId && m.teamB && m.winnerTeamId === m.teamB.id;
+              const isFinished = m.status === "finished";
               const disputed = m.status === "disputed";
               const forfeit = m.status === "forfeit";
               return (
-                <Link key={m.id} href={`/partido/${m.id}`} className="vertigo-link-card">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-[10px] tracking-[1.5px] uppercase text-[var(--vertigo-faint)]">
-                      {m.roundName ?? "—"}
-                      {m.format && ` · ${m.format}`}
+                <div key={m.id} style={{ position: "relative" }}>
+                  {/* Badges de estado sobre la card */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
+                    <span style={{ fontSize: 10, letterSpacing: "2px", textTransform: "uppercase", color: "var(--vertigo-faint)", fontWeight: 700 }}>
+                      {m.roundName ?? "—"}{m.format && ` · ${m.format}`}
                     </span>
-                    <div className="flex items-center gap-2">
-                      {disputed && <span className="vertigo-badge vertigo-badge-danger" style={{ fontSize: 9, padding: "3px 8px" }}>Disputa</span>}
-                      {forfeit && <span className="vertigo-badge vertigo-badge-danger" style={{ fontSize: 9, padding: "3px 8px" }}>W.O.</span>}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      {disputed && <span className="vertigo-badge vertigo-badge-danger" style={{ fontSize: 9, padding: "3px 10px" }}>Disputa</span>}
+                      {forfeit && <span className="vertigo-badge vertigo-badge-danger" style={{ fontSize: 9, padding: "3px 10px" }}>W.O.</span>}
                       {m.finishedAt && (
-                        <span className="text-[10px] text-[var(--vertigo-faint)]">
-                          {new Date(m.finishedAt).toLocaleDateString("es-AR", { day: "2-digit", month: "short" })}
+                        <span style={{ fontSize: 10, color: "var(--vertigo-faint)" }}>
+                          {new Date(m.finishedAt).toLocaleString("es-AR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
                         </span>
                       )}
                     </div>
                   </div>
 
-                  <div className="grid items-center gap-3" style={{ gridTemplateColumns: "1fr auto 1fr" }}>
-                    <ResultTeamSide
-                      name={m.teamA?.name ?? "—"}
-                      seed={m.teamA?.seed ?? null}
-                      score={m.scoreA}
-                      isWinner={!!isAWinner}
-                      align="right"
-                    />
-
-                    <div className="font-cinzel text-2xl font-bold text-[var(--vertigo-purple-pale)] flex-none">
-                      {m.scoreA}<span className="text-[var(--vertigo-faint)] mx-2">—</span>{m.scoreB}
-                    </div>
-
-                    <ResultTeamSide
-                      name={m.teamB?.name ?? "—"}
-                      seed={m.teamB?.seed ?? null}
-                      score={m.scoreB}
-                      isWinner={!!isBWinner}
-                      align="left"
-                    />
-                  </div>
-                </Link>
+                  <DuelCard
+                    teamA={m.teamA ? { id: m.teamA.id, name: m.teamA.name, seed: m.teamA.seed, emblemUrl: m.teamA.emblemUrl, tagline: m.teamA.tagline } : null}
+                    teamB={m.teamB ? { id: m.teamB.id, name: m.teamB.name, seed: m.teamB.seed, emblemUrl: m.teamB.emblemUrl, tagline: m.teamB.tagline } : null}
+                    scoreA={m.scoreA}
+                    scoreB={m.scoreB}
+                    winnerId={m.winnerTeamId}
+                    href={`/partido/${m.id}`}
+                    live={false}
+                  />
+                </div>
               );
             })}
           </div>
         )}
       </main>
-    </div>
-  );
-}
-
-function ResultTeamSide({
-  name,
-  seed,
-  score,
-  isWinner,
-  align,
-}: {
-  name: string;
-  seed: number | null;
-  score: number;
-  isWinner: boolean;
-  align: "left" | "right";
-}) {
-  return (
-    <div className={`flex items-center gap-2 min-w-0 ${align === "right" ? "justify-end flex-row-reverse" : ""}`}>
-      {seed != null && (
-        <span className="text-[10px] text-[var(--vertigo-faint)] flex-none">#{seed}</span>
-      )}
-      <span
-        className={`text-[14px] truncate ${isWinner ? "text-[var(--vertigo-text)] font-semibold" : "text-[var(--vertigo-muted)]"}`}
-      >
-        {name}
-      </span>
     </div>
   );
 }

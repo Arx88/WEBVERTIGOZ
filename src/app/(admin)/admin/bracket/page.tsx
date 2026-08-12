@@ -2,6 +2,7 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { generateBracketAction } from "@/server/actions/auth";
+import { generateRealBracketFormAction, deleteBracketFormAction } from "@/server/actions/tournament";
 import { generateBracket, ROUND_NAMES_32, BRACKET_SIZE, BRACKET_ROUNDS } from "@/lib/bracket/engine";
 import { Layers, Shuffle, AlertCircle, ChevronRight, Crown, Users } from "lucide-react";
 
@@ -131,7 +132,7 @@ export default async function AdminBracketPage() {
 
       {/* Sorteo inicial de seeds */}
       <section className="mb-8">
-        <div className="vertigo-subtitle">Sorteo inicial de seeds</div>
+        <div className="vertigo-subtitle">Sorteo inicial de seeds + generación del bracket</div>
         <div className="vertigo-card">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
             <div
@@ -157,17 +158,30 @@ export default async function AdminBracketPage() {
               </div>
             </div>
             {editionId && (
-              <form action={generateBracketAction}>
-                <input type="hidden" name="edition_id" value={editionId} />
-                <button
-                  type="submit"
-                  className="vertigo-btn vertigo-btn-primary flex-none"
-                  disabled={!canGenerate}
-                >
-                  <Shuffle style={{ width: 14, height: 14 }} />
-                  {hasBracket ? "Re-sortear seeds" : "Sortear seeds"}
-                </button>
-              </form>
+              <div className="flex gap-2 flex-none">
+                <form action={generateBracketAction}>
+                  <input type="hidden" name="edition_id" value={editionId} />
+                  <button
+                    type="submit"
+                    className="vertigo-btn vertigo-btn-ghost flex-none"
+                    disabled={approvedCount < BRACKET_SIZE}
+                  >
+                    <Shuffle style={{ width: 14, height: 14 }} />
+                    {seededCount > 0 ? "Re-sortear seeds" : "Sortear seeds"}
+                  </button>
+                </form>
+                <form action={generateRealBracketFormAction}>
+                  <input type="hidden" name="edition_id" value={editionId} />
+                  <button
+                    type="submit"
+                    className="vertigo-btn vertigo-btn-primary flex-none"
+                    disabled={seededCount !== BRACKET_SIZE}
+                  >
+                    <Layers style={{ width: 14, height: 14 }} />
+                    {hasBracket ? "Regenerar completo" : "Generar bracket"}
+                  </button>
+                </form>
+              </div>
             )}
           </div>
           {approvedCount < BRACKET_SIZE && (

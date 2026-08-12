@@ -2,8 +2,20 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import {
+  startDrawFormAction,
+  rerollDrawPhaseFormAction,
+  reportGameResultFormAction,
+  markForfeitFormAction,
+  executeComodinFormAction,
+  revokeComodinFormAction,
+} from "@/server/actions/match-day";
+import {
+  advanceToLineupAction,
+  closeComodinWindowAction,
+} from "@/server/actions/match-day";
+import {
   ChevronLeft, Clock, Shield, Trophy, Shuffle, Layers,
-  Users, Sparkles, AlertTriangle, Play, Pause, CheckCircle2,
+  Users, Sparkles, AlertTriangle, Play, CheckCircle2, Dices, ArrowRight, Swords,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -134,38 +146,59 @@ export default async function AdminPartidoPage({
         </div>
       </section>
 
-      {/* Acciones */}
+      {/* ═══ CENTRO DE OPERACIONES — acciones reales sobre la llave ═══ */}
       <section className="mb-8">
-        <div className="vertigo-subtitle">Acciones</div>
-        <div className="vertigo-card">
-          <div className="vertigo-action-bar">
+        <div className="vertigo-subtitle">Centro de operaciones</div>
+        <div className="vertigo-card premium">
+          <div className="vertigo-action-bar" style={{ alignItems: "stretch" }}>
+            {/* INICIAR SORTEO — habilitado solo cuando ambos están ready */}
             {isScheduled && (
-              <button className="vertigo-btn vertigo-btn-primary">
-                <Play style={{ width: 14, height: 14 }} />
-                Abrir partido
-              </button>
+              <div className="flex flex-col gap-2">
+                <form action={startDrawFormAction}>
+                  <input type="hidden" name="match_id" value={match.id} />
+                  <input type="hidden" name="game_number" value="1" />
+                  <button
+                    type="submit"
+                    className="vertigo-btn vertigo-btn-primary"
+                    disabled={!match.ready_a_at || !match.ready_b_at}
+                    title={!match.ready_a_at || !match.ready_b_at ? "Ambos equipos deben confirmar READY primero" : "Decidir resultado en server y reproducir la ruleta en vivo"}
+                  >
+                    <Dices style={{ width: 14, height: 14 }} />
+                    Iniciar sorteo (Partida 1)
+                  </button>
+                </form>
+                <p className="text-[11px] text-[var(--vertigo-faint)] max-w-xs leading-snug">
+                  {match.ready_a_at && match.ready_b_at
+                    ? "Ambos equipos confirmaron. El sorteo decide en server y se reproduce en vivo (admin, capitanes y overlay ven lo mismo)."
+                    : "Esperando READY #1 de ambos equipos para habilitar el sorteo."}
+                </p>
+              </div>
             )}
-            {!isFinished && !isScheduled && (
-              <button className="vertigo-btn vertigo-btn-success">
-                <CheckCircle2 style={{ width: 14, height: 14 }} />
-                Marcar finalizado
-              </button>
-            )}
-            {match.status !== "disputed" && (
+
+            {/* CONTINUAR A SIGUIENTE PARTIDA si BO3 sale 1-1 */}
+            {/* (se activa cuando la anterior terminó 1-1 — el detalle está en abajo) */}
+
+            {!isFinished && !isScheduled && match.status !== "disputed" && (
               <Link href="/admin/disputas" className="vertigo-btn vertigo-btn-danger">
                 <AlertTriangle style={{ width: 14, height: 14 }} />
                 Ver disputas
               </Link>
             )}
-            <button className="vertigo-btn vertigo-btn-ghost">
-              <Pause style={{ width: 14, height: 14 }} />
-              Pausar
-            </button>
+            {match.status === "disputed" && (
+              <Link href="/admin/disputas" className="vertigo-btn vertigo-btn-danger">
+                <Shield style={{ width: 14, height: 14 }} />
+                Resolver disputa
+              </Link>
+            )}
           </div>
-          <p className="text-xs text-[var(--vertigo-faint)] mt-3">
-            Las acciones avanzadas (sorteo, lineup, comodines) se ejecutan desde los paneles de cada capitán.
-            Acá solo se supervisa y se marcan resultados manuales si hace falta.
-          </p>
+          {match.status === "drawing" && (
+            <div className="mt-4 pt-4 border-t border-[var(--vertigo-line-soft)]">
+              <p className="text-sm text-[var(--vertigo-muted)]">
+                ◆ Sorteo en curso. La ruleta está reproduciéndose en la página pública del partido, en el overlay OBS
+                y en las pantallas de ambos capitanes (sincronizado por Realtime).
+              </p>
+            </div>
+          )}
         </div>
       </section>
 
@@ -211,6 +244,25 @@ export default async function AdminPartidoPage({
                     <div className="vertigo-info-card-value text-sm">{g.draw?.status ?? "—"}</div>
                   </div>
                 </div>
+
+                {/* Re-girar una fase (solo si el match está en drawing y es admin) */}
+                {match.status === "drawing" && g.draw && (
+                  <div className="mt-4 pt-4 border-t border-[var(--vertigo-line-soft)]">
+                    <div className="text-[10px] uppercase tracking-widest text-[var(--vertigo-faint)] mb-3">Re-girar una fase del sorteo (admin / comodín Re-girar)</div>
+                    <div className="flex flex-wrap gap-2">
+                      {(["MODO","ANTIMETA","FORMATO","MAPA","LLAVE","CIVS"] as const).map((phase) => (
+                        <form key={phase} action={rerollDrawPhaseFormAction}>
+                          <input type="hidden" name="match_id" value={match.id} />
+                          <input type="hidden" name="game_number" value={g.game_number} />
+                          <input type="hidden" name="phase" value={phase} />
+                          <button type="submit" className="vertigo-btn vertigo-btn-ghost" style={{ padding: "8px 14px", fontSize: 11 }}>
+                            <Shuffle style={{ width: 12, height: 12 }} /> {phase}
+                          </button>
+                        </form>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {(g.civs_a?.length > 0 || g.civs_b?.length > 0) && (
                   <div className="mt-4 pt-4 border-t border-[var(--vertigo-line-soft)] grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -324,6 +376,98 @@ export default async function AdminPartidoPage({
           </div>
         )}
       </section>
+
+      {/* ═══ TRANSICIONES DE FASE (la llave avanza paso a paso) ═══ */}
+      {!isFinished && match.status !== "disputed" && (
+        <section className="mb-8">
+          <div className="vertigo-subtitle">Operar la llave</div>
+          <div className="vertigo-card">
+            <div className="flex flex-wrap gap-3">
+              {/* drawing → lineup */}
+              {match.status === "drawing" && (
+                <form action={async () => { "use server"; const { advanceToLineupAction } = await import("@/server/actions/match-day"); await advanceToLineupAction(match.id); }}>
+                  <button type="submit" className="vertigo-btn vertigo-btn-primary">
+                    <ArrowRight style={{ width: 14, height: 14 }} /> Publicar sorteo → Lineup
+                  </button>
+                </form>
+              )}
+              {/* lineup → comodin_window */}
+              {match.status === "lineup" && (
+                <div className="flex flex-col gap-2">
+                  <div className="text-xs text-[var(--vertigo-muted)]">
+                    Esperando que ambos equipos declaren lineup y confirmen READY #2. Cuando lo hagan, la ventana de comodines se abre sola.
+                  </div>
+                </div>
+              )}
+              {/* comodin_window → in_progress */}
+              {match.status === "comodin_window" && (
+                <form action={async () => { "use server"; const { closeComodinWindowAction } = await import("@/server/actions/match-day"); await closeComodinWindowAction(match.id); }}>
+                  <button type="submit" className="vertigo-btn vertigo-btn-success">
+                    <Play style={{ width: 14, height: 14 }} /> Cerrar comodines → ¡Se juega!
+                  </button>
+                </form>
+              )}
+              {/* in_progress: mensaje */}
+              {match.status === "in_progress" && (
+                <div className="flex items-center gap-2 text-sm text-[var(--vertigo-success)]">
+                  <span className="vertigo-status-dot" style={{ background: "var(--vertigo-success)" }} />
+                  Partida en juego. Cargá el resultado abajo cuando termine.
+                </div>
+              )}
+              {/* Forfeit — siempre disponible si no terminó */}
+              <form action={markForfeitFormAction} onSubmit={(e) => { if (!confirm("¿Marcar W.O.? El otro equipo avanza.")) e.preventDefault(); }}>
+                <input type="hidden" name="match_id" value={match.id} />
+                <button type="submit" className="vertigo-btn vertigo-btn-danger">
+                  <AlertTriangle style={{ width: 14, height: 14 }} /> W.O.
+                </button>
+              </form>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ═══ CARGAR RESULTADO POR PARTIDA (BO3) ═══ */}
+      {match.status === "in_progress" && games.length > 0 && (
+        <section className="mb-8">
+          <div className="vertigo-subtitle">Cargar resultado</div>
+          <div className="flex flex-col gap-4">
+            {games.filter((g: any) => g.status !== "finished").map((g: any) => (
+              <div key={g.id} className="vertigo-card">
+                <div className="vertigo-card-header">
+                  <div className="flex items-center gap-3">
+                    <span className="vertigo-badge vertigo-badge-purple">Partida {g.game_number}</span>
+                    {g.llave_format && <span className="vertigo-badge vertigo-badge-purple">{g.llave_format}</span>}
+                    <span className="text-xs text-[var(--vertigo-faint)]">{g.map ?? "Mapa por sorteo"} · {g.player_mode ?? "?"}</span>
+                  </div>
+                </div>
+                <form action={reportGameResultFormAction} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 items-end">
+                  <input type="hidden" name="match_game_id" value={g.id} />
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[9px] uppercase tracking-widest text-[var(--vertigo-faint)]">Ganador</label>
+                    <select name="winner_team_id" required className="bg-[var(--vertigo-input-bg)] border border-[var(--vertigo-input-border)] rounded-md px-3 py-2.5 text-[13px] text-[var(--vertigo-text)]">
+                      <option value="">— Elegí ganador —</option>
+                      <option value={match.team_a?.id}>{match.team_a?.team_account?.name ?? "Equipo A"}</option>
+                      <option value={match.team_b?.id}>{match.team_b?.team_account?.name ?? "Equipo B"}</option>
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[9px] uppercase tracking-widest text-[var(--vertigo-faint)]">Replay URL (opcional)</label>
+                    <input type="url" name="replay_url" placeholder="https://…" className="bg-[var(--vertigo-input-bg)] border border-[var(--vertigo-input-border)] rounded-md px-3 py-2.5 text-[13px] text-[var(--vertigo-text)]" />
+                  </div>
+                  <button type="submit" className="vertigo-btn vertigo-btn-success">
+                    <CheckCircle2 style={{ width: 14, height: 14 }} /> Reportar
+                  </button>
+                </form>
+              </div>
+            ))}
+            {games.filter((g: any) => g.status === "finished").length > 0 && (
+              <p className="text-xs text-[var(--vertigo-faint)] italic">
+                Partidas ya finalizadas: {games.filter((g: any) => g.status === "finished").length}. {match.format === "BO3" ? "Si está 1-1, sorteá la partida decisiva." : ""}
+              </p>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Disputas */}
       {match.status === "disputed" && (

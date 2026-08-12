@@ -12,8 +12,8 @@ interface FixtureMatch {
   jornadaLabel: string | null;
   roundName: string | null;
   format: string | null;
-  teamA: { id: string; name: string; seed: number | null } | null;
-  teamB: { id: string; name: string; seed: number | null } | null;
+  teamA: { id: string; name: string; seed: number | null; emblemUrl: string | null } | null;
+  teamB: { id: string; name: string; seed: number | null; emblemUrl: string | null } | null;
   scoreA: number;
   scoreB: number;
   winnerTeamId: string | null;
@@ -62,16 +62,17 @@ async function loadFixture(): Promise<FixtureMatch[]> {
       if (m.team_a_id) teamIds.push(m.team_a_id);
       if (m.team_b_id) teamIds.push(m.team_b_id);
     }
-    let teamMap: Record<string, { name: string; seed: number | null }> = {};
+    let teamMap: Record<string, { name: string; seed: number | null; emblemUrl: string | null }> = {};
     if (teamIds.length > 0) {
       const { data: teams } = (await supabase
         .from("team_registration")
-        .select("id, seed, team_account:team_account_id ( name )")
+        .select("id, seed, team_account:team_account_id ( name, emblem:emblem_id ( image_url ) )")
         .in("id", teamIds)) as { data: any };
       for (const t of teams ?? []) {
         teamMap[t.id] = {
           name: t.team_account?.name ?? "—",
           seed: t.seed ?? null,
+          emblemUrl: t.team_account?.emblem?.image_url ?? null,
         };
       }
     }
@@ -85,10 +86,10 @@ async function loadFixture(): Promise<FixtureMatch[]> {
       roundName: m.round_id ? roundMap[m.round_id] ?? null : null,
       format: m.format ?? null,
       teamA: m.team_a_id
-        ? { id: m.team_a_id, name: teamMap[m.team_a_id]?.name ?? "—", seed: teamMap[m.team_a_id]?.seed ?? null }
+        ? { id: m.team_a_id, name: teamMap[m.team_a_id]?.name ?? "—", seed: teamMap[m.team_a_id]?.seed ?? null, emblemUrl: teamMap[m.team_a_id]?.emblemUrl ?? null }
         : null,
       teamB: m.team_b_id
-        ? { id: m.team_b_id, name: teamMap[m.team_b_id]?.name ?? "—", seed: teamMap[m.team_b_id]?.seed ?? null }
+        ? { id: m.team_b_id, name: teamMap[m.team_b_id]?.name ?? "—", seed: teamMap[m.team_b_id]?.seed ?? null, emblemUrl: teamMap[m.team_b_id]?.emblemUrl ?? null }
         : null,
       scoreA: m.score_a ?? 0,
       scoreB: m.score_b ?? 0,
@@ -184,12 +185,14 @@ export default async function FixturePage() {
                             seed={m.teamA?.seed ?? null}
                             score={m.scoreA}
                             isWinner={!!isAWinner}
+                            emblemUrl={m.teamA?.emblemUrl}
                           />
                           <FixtureTeamRow
                             name={m.teamB?.name ?? "Por definir"}
                             seed={m.teamB?.seed ?? null}
                             score={m.scoreB}
                             isWinner={!!isBWinner}
+                            emblemUrl={m.teamB?.emblemUrl}
                           />
                         </div>
                         {m.scheduledAtStart && (
@@ -230,15 +233,30 @@ function FixtureTeamRow({
   seed,
   score,
   isWinner,
+  emblemUrl,
 }: {
   name: string;
   seed: number | null;
   score: number;
   isWinner: boolean;
+  emblemUrl?: string | null;
 }) {
   return (
     <div className="flex items-center justify-between gap-2">
       <div className="flex items-center gap-2 min-w-0">
+        {/* Emblema del equipo */}
+        {emblemUrl && (
+          <div
+            className="flex-none rounded-full overflow-hidden border flex items-center justify-center"
+            style={{
+              width: 20, height: 20,
+              borderColor: isWinner ? "rgba(212,175,55,0.5)" : "var(--vertigo-line)",
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={emblemUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          </div>
+        )}
         {seed != null && (
           <span className="text-[10px] text-[var(--vertigo-faint)] flex-none">#{seed}</span>
         )}

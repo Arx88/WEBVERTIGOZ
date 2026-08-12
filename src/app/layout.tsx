@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Oswald, Cinzel, Anton, Inter } from "next/font/google";
+import { Oswald, Cinzel, Anton, Inter, Rajdhani } from "next/font/google";
 import { Toaster } from "@/components/ui/toaster";
 import "./globals.css";
 
@@ -31,6 +31,18 @@ const inter = Inter({
   weight: ["300", "400", "500", "600", "700"],
 });
 
+/*
+ * Rajdhani — tipografía de body/labels de la ruleta (carusel 3D).
+ * La ruleta es el único módulo que mantiene su estética original
+ * (standalone, scopada en .ruleta-wrapper). Esta fuente la necesita.
+ */
+const rajdhani = Rajdhani({
+  subsets: ["latin"],
+  variable: "--font-rajdhani",
+  display: "swap",
+  weight: ["400", "500", "600", "700"],
+});
+
 export const metadata: Metadata = {
   title: {
     default: "VÉRTIGO Cup — Age of Empires II Tournament",
@@ -54,7 +66,7 @@ export default function RootLayout({
   return (
     <html
       lang="es"
-      className={`${oswald.variable} ${cinzel.variable} ${anton.variable} ${inter.variable} dark`}
+      className={`${oswald.variable} ${cinzel.variable} ${anton.variable} ${inter.variable} ${rajdhani.variable} dark`}
     >
       <body className="bg-bg text-text antialiased min-h-screen">
         {children}

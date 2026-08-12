@@ -12,8 +12,8 @@ interface BracketMatchData {
   slotIndex: number;
   status: string;
   scheduledAtStart: string | null;
-  teamA: { id: string; name: string; seed: number | null } | null;
-  teamB: { id: string; name: string; seed: number | null } | null;
+  teamA: { id: string; name: string; seed: number | null; emblemUrl: string | null } | null;
+  teamB: { id: string; name: string; seed: number | null; emblemUrl: string | null } | null;
   scoreA: number;
   scoreB: number;
   winnerTeamId: string | null;
@@ -69,22 +69,23 @@ async function loadBracketMatches(): Promise<{
       roundMap[r.id] = { index: r.index, name: r.name };
     }
 
-    // Nombres de teams
+    // Datos de teams con emblema real
     const teamIds: string[] = [];
     for (const m of matchesRaw ?? []) {
       if (m.team_a_id) teamIds.push(m.team_a_id);
       if (m.team_b_id) teamIds.push(m.team_b_id);
     }
-    let teamMap: Record<string, { name: string; seed: number | null }> = {};
+    let teamMap: Record<string, { name: string; seed: number | null; emblemUrl: string | null }> = {};
     if (teamIds.length > 0) {
       const { data: teams } = (await supabase
         .from("team_registration")
-        .select("id, seed, team_account:team_account_id ( name )")
+        .select("id, seed, team_account:team_account_id ( name, emblem:emblem_id ( image_url ) )")
         .in("id", teamIds)) as { data: any };
       for (const t of teams ?? []) {
         teamMap[t.id] = {
           name: t.team_account?.name ?? "—",
           seed: t.seed ?? null,
+          emblemUrl: t.team_account?.emblem?.image_url ?? null,
         };
       }
     }
@@ -98,8 +99,8 @@ async function loadBracketMatches(): Promise<{
         slotIndex: m.slot_index,
         status: m.status,
         scheduledAtStart: m.scheduled_at_start ?? null,
-        teamA: m.team_a_id ? { id: m.team_a_id, name: teamMap[m.team_a_id]?.name ?? "—", seed: teamMap[m.team_a_id]?.seed ?? null } : null,
-        teamB: m.team_b_id ? { id: m.team_b_id, name: teamMap[m.team_b_id]?.name ?? "—", seed: teamMap[m.team_b_id]?.seed ?? null } : null,
+        teamA: m.team_a_id ? { id: m.team_a_id, ...teamMap[m.team_a_id] } : null,
+        teamB: m.team_b_id ? { id: m.team_b_id, ...teamMap[m.team_b_id] } : null,
         scoreA: m.score_a ?? 0,
         scoreB: m.score_b ?? 0,
         winnerTeamId: m.winner_team_id ?? null,
@@ -146,14 +147,62 @@ export default async function BracketPage() {
       </header>
 
       <main className="vertigo-content" style={{ maxWidth: "none", padding: "40px 32px" }}>
-        <div className="vertigo-page-title">
-          <span className="vertigo-kicker">BRACKET</span>
-          <h1 className="vertigo-title">Llaves del torneo</h1>
-          <div className="vertigo-divider"><span></span><i></i><span></span></div>
-          <p className="vertigo-desc">
-            Single elimination de 32 equipos · 5 rondas hasta la final. Hacé clic en cada llave para
-            ver el partido con su sorteo en vivo.
-          </p>
+        {/* ═══ HERO CINEMATOGRÁFICO ═══ */}
+        <div
+          style={{
+            position: "relative",
+            overflow: "hidden",
+            borderRadius: 18,
+            border: "1px solid var(--vertigo-line-soft)",
+            marginBottom: 28,
+            boxShadow: "var(--shadow-lg)",
+          }}
+        >
+          {/* Fondo: castillo + overlay violeta */}
+          <div
+            style={{
+              position: "absolute", inset: 0,
+              backgroundImage: "url('/landing/fondo-castillo.webp')",
+              backgroundSize: "cover",
+              backgroundPosition: "center 30%",
+              opacity: 0.32,
+              transform: "scale(1.04)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute", inset: 0,
+              background:
+                "linear-gradient(180deg, rgba(7,3,16,0.35) 0%, rgba(7,3,16,0.78) 70%, rgba(7,3,16,0.94) 100%)",
+            }}
+          />
+          {/* Línea dorada superior */}
+          <div
+            style={{
+              position: "absolute", top: 0, left: 0, right: 0, height: 2,
+              background: "linear-gradient(90deg, transparent, rgba(212,175,55,0.55), transparent)",
+            }}
+          />
+          <div style={{ position: "relative", zIndex: 2, padding: "44px 40px 36px" }}>
+            <span className="vertigo-kicker">
+              SINGLE ELIMINATION · 5 RONDAS
+            </span>
+            <h1
+              className="vertigo-title"
+              style={{
+                fontSize: "clamp(30px, 4.6vw, 54px)",
+                lineHeight: 0.95,
+                margin: "6px 0 12px",
+                textShadow: "0 4px 32px rgba(0,0,0,0.6)",
+              }}
+            >
+              Llaves del torneo
+            </h1>
+            <p className="vertigo-desc" style={{ maxWidth: 640, margin: 0, fontSize: 15 }}>
+              32 reinos entran. Uno queda en pie. Cada llave se sortea con la ruleta 15 minutos antes —
+              nadie sabe qué va a pasar hasta que se juega. Tocá una llave para ver el partido con su sorteo en vivo.
+            </p>
+          </div>
         </div>
 
         {/* Leyenda */}
@@ -248,8 +297,8 @@ function BracketMatchCard({
           {statusMeta.label}
         </span>
       </div>
-      <BracketTeamRow name={match.teamA?.name ?? "Por definir"} seed={match.teamA?.seed ?? seedA} score={match.scoreA} isWinner={!!isAWinner} />
-      <BracketTeamRow name={match.teamB?.name ?? "Por definir"} seed={match.teamB?.seed ?? seedB} score={match.scoreB} isWinner={!!isBWinner} />
+      <BracketTeamRow name={match.teamA?.name ?? "Por definir"} seed={match.teamA?.seed ?? seedA} score={match.scoreA} isWinner={!!isAWinner} emblemUrl={match.teamA?.emblemUrl} />
+      <BracketTeamRow name={match.teamB?.name ?? "Por definir"} seed={match.teamB?.seed ?? seedB} score={match.scoreB} isWinner={!!isBWinner} emblemUrl={match.teamB?.emblemUrl} />
       {match.scheduledAtStart && match.status === "scheduled" && (
         <div className="text-[10px] text-[var(--vertigo-faint)] mt-2 pt-2 border-t border-[var(--vertigo-line-soft)]">
           {new Date(match.scheduledAtStart).toLocaleString("es-AR", {
@@ -269,23 +318,39 @@ function BracketTeamRow({
   seed,
   score,
   isWinner,
+  emblemUrl,
 }: {
   name: string;
   seed: number | null;
   score: number;
   isWinner: boolean;
+  emblemUrl?: string | null;
 }) {
   return (
     <div className="flex items-center justify-between gap-2 py-1">
       <div className="flex items-center gap-2 min-w-0">
-        <Trophy
-          style={{
-            width: 12,
-            height: 12,
-            color: isWinner ? "var(--vertigo-purple-pale)" : "var(--vertigo-faint)",
-          }}
-          strokeWidth={1.25}
-        />
+        {emblemUrl ? (
+          <span
+            className="flex-none rounded-full overflow-hidden border"
+            style={{
+              width: 22, height: 22,
+              borderColor: isWinner ? "var(--vertigo-purple-soft)" : "var(--vertigo-line)",
+              boxShadow: isWinner ? "0 0 10px rgba(124,58,237,0.35)" : "none",
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={emblemUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          </span>
+        ) : (
+          <Trophy
+            style={{
+              width: 12,
+              height: 12,
+              color: isWinner ? "var(--vertigo-purple-pale)" : "var(--vertigo-faint)",
+            }}
+            strokeWidth={1.25}
+          />
+        )}
         <span
           className={`text-[13px] truncate ${isWinner ? "text-[var(--vertigo-text)] font-medium" : "text-[var(--vertigo-muted)]"}`}
         >

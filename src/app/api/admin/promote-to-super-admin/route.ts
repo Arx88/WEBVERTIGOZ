@@ -1,7 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { assertDevEndpointAllowed } from "@/lib/auth/dev-endpoint-guard";
 
+/**
+ * POST /api/admin/promote-to-super-admin
+ * Promueve un usuario existente a super_admin (herramienta de DESARROLLO).
+ *
+ * SEGURIDAD: en producción o sin ADMIN_EXEC_TOKEN responde 404 como si la
+ * ruta no existiera. En dev sigue exigiendo el header x-admin-token.
+ */
 export async function POST(req: NextRequest) {
+  // Bloqueo total en producción / sin token: 404 para no revelar la ruta.
+  const blocked = assertDevEndpointAllowed();
+  if (blocked) return blocked;
+
   try {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
       return NextResponse.json(

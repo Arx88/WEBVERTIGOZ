@@ -257,7 +257,15 @@ export default async function MisPartidosPage() {
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "12px", marginBottom: "20px" }}>
                       <div className="vertigo-info-card" style={{ padding: "16px" }}>
                         <div className="vertigo-info-card-label" style={{ marginBottom: "4px" }}>Rival</div>
-                        <div className="vertigo-info-card-value" style={{ fontSize: "15px" }}>{rivalName}</div>
+                        <div className="vertigo-info-card-value" style={{ fontSize: "15px" }}>
+                          {m.team_a_id && m.team_b_id ? (
+                            <Link href={`/equipos/${rivalId}`} style={{ color: "inherit", textDecoration: "none" }} title="Ver perfil del rival">
+                              {rivalName}
+                            </Link>
+                          ) : (
+                            rivalName
+                          )}
+                        </div>
                       </div>
                       <div className="vertigo-info-card" style={{ padding: "16px" }}>
                         <div className="vertigo-info-card-label" style={{ marginBottom: "4px" }}>Horario</div>

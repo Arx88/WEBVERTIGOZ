@@ -20,10 +20,34 @@ interface ResolvedMap { key: string; map: ConfigMap; stepNumber: number; }
  */
 export interface RouletteProps {
   onResult?: (resolved: ResolvedStep[], resolvedMap: ResolvedMap | null) => void;
+  /**
+   * Resultados decididos por el servidor ("server decide / client anima").
+   * Son los IDs de los modos ganadores (vienen de roulette_draw.result).
+   * Cuando está presente, la ruleta reproduce ese resultado en vez de sortear.
+   */
+  forced?: {
+    gameModeId: string;
+    antimetaModeId?: string;   // solo si aplica
+    playerModeId: string;
+    mapId: string;
+    llaveId?: string;          // solo si aplica (P1)
+  };
+  /** Admin: si es false, los viewers no pueden disparar el giro (solo miran) */
+  interactive?: boolean;
+  /**
+   * Override de la config de la ruleta (preset del server).
+   * Si viene, reemplaza el useConfig/localStorage — la ruleta usa la config
+   * del torneo, no la del navegador. Garantiza que todos los viewers ven
+   * exactamente el mismo set de opciones.
+   */
+  configOverride?: Partial<import("@/lib/ruleta/config").ConfigState>;
 }
 
 export function Roulette(props: RouletteProps = {}) {
-  const { config } = useConfig();
+  const { forced } = props;
+  const { config: localConfig } = useConfig();
+  // El server (configOverride) pisa el localStorage: es la fuente de verdad.
+  const config = { ...localConfig, ...props.configOverride };
   const GAME_MODES = config.gameModes, ANTIMETA_MODES = config.antimetaModes, PLAYER_MODES = config.playerModes, MAP_MODES = config.mapModes, LLAVE_MODES = config.llaveModes, firstRound = config.firstRound;
   const soundsEnabled = config.sounds.enabled, soundsVolume = config.sounds.volume;
   const musicEnabled = config.music.enabled, musicVolume = config.music.volume;
@@ -54,6 +78,8 @@ export function Roulette(props: RouletteProps = {}) {
   const [mapSpinning, setMapSpinning] = useState(false);
   const mapElsRef = useRef<HTMLDivElement[]>([]);
   const mapStateRef = useRef({ pos: 0, anim: 0, spinning: false });
+  const ringModesRef = useRef<readonly (ConfigMode|ConfigMap)[]>([]);
+  const FORCED_REF = useRef<RouletteProps["forced"]>(undefined);
 
   const antimetaStep = resolved.find(r => r.label === "ANTIMETA");
   const MAPS_ACTIVE = antimetaStep?.mode.mapPool && antimetaStep.mode.mapPool !== "global" && antimetaStep.mode.mapPool.length ? antimetaStep.mode.mapPool : MAP_MODES;
@@ -71,6 +97,8 @@ export function Roulette(props: RouletteProps = {}) {
     for(let i=0;i<MIN_RING;i++) out[i]=m[i%m.length];
     return out;
   },[activeModes]);
+  // Ref espejo para que getForcedIndexForPhase siempre lea la lista activa actual
+  ringModesRef.current=ringModes;
 
   const activeH = useCallback(()=>{const N=ringModes.length;return((Math.round(s.current.hPos)%N)+N)%N},[s,ringModes]);
   const activeV = useCallback(()=>{const N=ringModes.length;return((Math.round(s.current.vPos)%N)+N)%N},[s,ringModes]);
@@ -143,6 +171,28 @@ export function Roulette(props: RouletteProps = {}) {
       o.start(t);o.stop(t+0.09);
     }catch{}
   },[audioCtx,soundsEnabled,soundsVolume]);
+
+  // ── "server decide / client anima" ──────────────────────────
+  // `forced` trae los IDs de los modos ganadores decididos por el server.
+  // Mapeamos ID → índice dentro de la lista ACTIVA actual (ringModes), robusto
+  // aunque el anillo esté rellenado con repeticiones (< MIN_RING).
+  const FORCED=props.forced;
+  FORCED_REF.current=FORCED;
+  const getForcedIndexForPhase=(ph:Phase):number|null=>{
+    const F=FORCED_REF.current;
+    if(!F) return null;
+    const targetId =
+      ph==="spinning-game-mode"?F.gameModeId:
+      ph==="spinning-antimeta-mode"?F.antimetaModeId:
+      (ph==="spinning-player-mode-direct"||ph==="spinning-player-mode-after-antimeta")?F.playerModeId:
+      ph==="spinning-map-mode"?F.mapId:
+      ph==="spinning-llave-mode"?F.llaveId:undefined;
+    if(!targetId) return null;
+    // Leer la lista activa actual vía ref (siempre actualizada tras render)
+    const list=(ringModesRef.current??[]) as readonly {id:string}[];
+    for(let i=0;i<list.length;i++){ if(list[i].id===targetId) return i; }
+    return null;
+  };
 
   const dramaticEase = (p:number)=>1-Math.pow(1-p,9);
 
@@ -260,9 +310,12 @@ export function Roulette(props: RouletteProps = {}) {
     window.clearTimeout(s.current.entryTimer);
     s.current.spinningH=true;
     setSpinning(true);
-    const N=ringModes.length,start=s.current.hPos,cm=((start%N)+N)%N,ti=Math.floor(Math.random()*N);
-    let d=ti-cm;
-    while(d<=0) d+=N;
+    const N=ringModes.length,start=s.current.hPos,cm=((start%N)+N)%N;
+    // "server decide / client anima": si hay resultado forzado para esta fase, usarlo
+    const forcedIdx = getForcedIndexForPhase(phaseRef.current);
+    const ti=(forcedIdx!=null?forcedIdx:Math.floor(Math.random()*N))%N;
+    let d=((ti-cm)%N+N)%N;
+    if(d===0) d=N;
     const L=6+Math.floor(Math.random()*4);
     animateH(start+L*N+d,7000+Math.random()*1500,()=>{
       s.current.spinningH=false;
@@ -309,9 +362,11 @@ export function Roulette(props: RouletteProps = {}) {
     if(s.current.spinningV||s.current.spinningH) return;
     s.current.spinningV=true;
     setSpinning(true);
-    const N=ringModes.length,start=s.current.vPos,cm=((start%N)+N)%N,ti=Math.floor(Math.random()*N);
-    let d=ti-cm;
-    while(d<=0) d+=N;
+    const N=ringModes.length,start=s.current.vPos,cm=((start%N)+N)%N;
+    const forcedIdx = getForcedIndexForPhase(phaseRef.current);
+    const ti=(forcedIdx!=null?forcedIdx:Math.floor(Math.random()*N))%N;
+    let d=((ti-cm)%N+N)%N;
+    if(d===0) d=N;
     const L=6+Math.floor(Math.random()*4);
     animateV(start+L*N+d,7000+Math.random()*1500,()=>{
       s.current.spinningV=false;

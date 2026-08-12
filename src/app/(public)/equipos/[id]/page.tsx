@@ -47,6 +47,7 @@ interface PageData {
     name: string;
     tagline: string | null;
     emblemId: string | null;
+    emblemUrl: string | null;
   };
   edition: {
     name: string;
@@ -76,7 +77,7 @@ async function loadTeam(id: string): Promise<PageData | null> {
     const { data: reg } = (await supabase
       .from("team_registration")
       .select(
-        "id, seed, elo_freeze_snapshot, base_civ_ids, extra_civ_ids, status, team_account:team_account_id ( id, name, tagline, emblem_id ), tournament_edition:tournament_edition_id ( name, elo_cap, elo_tolerance )"
+        "id, seed, elo_freeze_snapshot, base_civ_ids, extra_civ_ids, status, team_account:team_account_id ( id, name, tagline, emblem_id, emblem:emblem_id ( image_url ) ), tournament_edition:tournament_edition_id ( name, elo_cap, elo_tolerance )"
       )
       .eq("id", id)
       .maybeSingle()) as { data: any };
@@ -307,6 +308,7 @@ async function loadTeam(id: string): Promise<PageData | null> {
         name: teamAccount?.name ?? "—",
         tagline: teamAccount?.tagline ?? null,
         emblemId: teamAccount?.emblem_id ?? null,
+        emblemUrl: teamAccount?.emblem?.image_url ?? null,
       },
       edition: edition
         ? {
@@ -354,6 +356,9 @@ export default async function EquipoDetallePage({
   const eloMax = (data.edition?.eloCap ?? 3500) + (data.edition?.eloTolerance ?? 20);
   const isEloOk = !data.registration.eloFreezeSnapshot || data.registration.eloFreezeSnapshot <= eloMax;
   const statusMeta = STATUS_BADGE[data.registration.status] ?? STATUS_BADGE.pending;
+  const emblemUrl = data.teamAccount.emblemUrl ?? null;
+  const captain = data.players.find((p) => p.isCaptain) ?? null;
+  const players = data.players;
 
   return (
     <div className="vertigo-page vertigo-shell vertigo-fade-in">
@@ -370,66 +375,143 @@ export default async function EquipoDetallePage({
       </header>
 
       <main className="vertigo-content">
-        {/* HEADER DEL REINO */}
-        <div className="flex items-start gap-5 flex-wrap mb-8">
+        {/* HEADER DEL REINO — banner cinematográfico con emblema real */}
+        <div
+          className="vertigo-card"
+          style={{
+            padding: 0,
+            overflow: "hidden",
+            marginBottom: 32,
+            borderRadius: 16,
+          }}
+        >
+          {/* Fondo: imagen de marca del torneo (guerrero con trofeo) */}
           <div
-            className="flex items-center justify-center flex-none rounded-xl border border-[var(--vertigo-purple)] text-[var(--vertigo-purple-soft)]"
-            style={{ width: 72, height: 72 }}
+            style={{
+              position: "relative",
+              height: 200,
+              backgroundImage: "url('/brand/hero-trofeo.png')",
+              backgroundSize: "cover",
+              backgroundPosition: "center 35%",
+            }}
           >
-            <Shield style={{ width: 30, height: 30 }} strokeWidth={1.25} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <span className="vertigo-kicker">EQUIPO</span>
-            <h1 className="vertigo-title" style={{ marginBottom: 4 }}>{data.teamAccount.name}</h1>
-            {data.teamAccount.tagline && (
-              <p className="italic text-[14px] text-[var(--vertigo-muted)] mb-2">
-                &ldquo;{data.teamAccount.tagline}&rdquo;
-              </p>
-            )}
-            <div className="flex items-center gap-2 flex-wrap">
-              {data.registration.seed != null && (
-                <span className="vertigo-badge vertigo-badge-purple">
-                  Seed #{data.registration.seed}
-                </span>
-              )}
-              {data.edition && (
-                <span className="vertigo-badge vertigo-badge-purple">{data.edition.name}</span>
-              )}
-              <span className={`vertigo-badge ${statusMeta.cls}`}>{statusMeta.label}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* STATS */}
-        <div className="vertigo-stats">
-          <div className="vertigo-stat">
-            <div className="vertigo-stat-label">ELO Total</div>
+            {/* Oscurecer para texto legible */}
             <div
-              className="vertigo-stat-value"
-              style={{ color: isEloOk ? "var(--vertigo-purple-pale)" : "var(--vertigo-danger)" }}
+              style={{
+                position: "absolute", inset: 0,
+                background: "linear-gradient(180deg, rgba(7,3,16,0.35) 0%, rgba(7,3,16,0.85) 70%, #070310 100%)",
+              }}
+            />
+            {/* Borde dorado inferior */}
+            <div
+              style={{
+                position: "absolute", bottom: 0, left: 0, right: 0,
+                height: 2,
+                background: "linear-gradient(90deg, transparent, rgba(212,175,55,0.5), transparent)",
+              }}
+            />
+            {/* Contenido superpuesto */}
+            <div
+              style={{
+                position: "relative", zIndex: 2,
+                padding: "32px 32px 20px",
+                display: "flex",
+                alignItems: "flex-end",
+                gap: 24,
+                height: "100%",
+                flexWrap: "wrap",
+              }}
             >
-              {data.registration.eloFreezeSnapshot ?? "—"}
+              {/* Emblema */}
+              <div
+                style={{
+                  width: 96,
+                  height: 96,
+                  borderRadius: 18,
+                  overflow: "hidden",
+                  border: `2px solid ${emblemUrl ? "rgba(212,175,55,0.55)" : "rgba(124,58,237,0.5)"}`,
+                  background: "rgba(13,9,19,0.85)",
+                  boxShadow: "0 12px 32px rgba(0,0,0,0.5), 0 0 24px rgba(124,58,237,0.25)",
+                  flexShrink: 0,
+                }}
+              >
+                {emblemUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={emblemUrl} alt={data.teamAccount.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                ) : (
+                  <Shield style={{ width: 40, height: 40, color: "var(--vertigo-purple-soft)", margin: "28px" }} strokeWidth={1.1} />
+                )}
+              </div>
+              {/* Nombre y metadata */}
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <div style={{ fontSize: 10, letterSpacing: "3px", textTransform: "uppercase", color: "var(--vertigo-purple-soft)", marginBottom: 6, fontWeight: 700 }}>
+                  Reino inscripto
+                </div>
+                <h1
+                  style={{
+                    fontFamily: "Cinzel, serif",
+                    fontSize: "clamp(28px, 4vw, 44px)",
+                    fontWeight: 700,
+                    lineHeight: 1,
+                    color: "var(--vertigo-text)",
+                    margin: 0,
+                    textShadow: "0 4px 30px rgba(0,0,0,0.7)",
+                  }}
+                >
+                  {data.teamAccount.name}
+                </h1>
+                {data.teamAccount.tagline && (
+                  <p
+                    style={{
+                      fontSize: 14,
+                      fontStyle: "italic",
+                      color: "var(--vertigo-muted)",
+                      margin: "8px 0 0 0",
+                      maxWidth: 520,
+                    }}
+                  >
+                    &ldquo;{data.teamAccount.tagline}&rdquo;
+                  </p>
+                )}
+              </div>
+              {/* Badges derecha */}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, marginLeft: "auto" }}>
+                {data.registration.seed != null && (
+                  <span className="vertigo-badge vertigo-badge-purple" style={{ fontSize: 10, padding: "6px 14px" }}>
+                    Seed #{data.registration.seed}
+                  </span>
+                )}
+                <span className={`vertigo-badge ${statusMeta.cls}`} style={{ fontSize: 10, padding: "6px 14px" }}>
+                  {statusMeta.label}
+                </span>
+              </div>
             </div>
-            <div className="vertigo-stat-sub">/ {eloMax}</div>
           </div>
-          <div className="vertigo-stat">
-            <div className="vertigo-stat-label">Victorias</div>
-            <div className="vertigo-stat-value" style={{ color: "var(--vertigo-success)" }}>
-              {data.wins}
-            </div>
-            <div className="vertigo-stat-sub">en el torneo</div>
-          </div>
-          <div className="vertigo-stat">
-            <div className="vertigo-stat-label">Derrotas</div>
-            <div className="vertigo-stat-value" style={{ color: "var(--vertigo-danger)" }}>
-              {data.losses}
-            </div>
-            <div className="vertigo-stat-sub">en el torneo</div>
-          </div>
-          <div className="vertigo-stat">
-            <div className="vertigo-stat-label">Jugadores</div>
-            <div className="vertigo-stat-value">{data.players.length}</div>
-            <div className="vertigo-stat-sub">de 3</div>
+
+          {/* Barra de datos clave debajo del banner */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+              gap: 1,
+              background: "var(--vertigo-line-soft)",
+            }}
+          >
+            {[
+              { label: "ELO TOTAL", value: data.registration.eloFreezeSnapshot ? data.registration.eloFreezeSnapshot.toLocaleString() : "—", accent: isEloOk ? "var(--vertigo-purple-pale)" : "var(--vertigo-danger)" },
+              { label: "Capitán", value: captain?.displayName ?? "—", accent: "var(--vertigo-gold)" },
+              { label: "Jugadores", value: `${players.length} / 3`, accent: "var(--vertigo-text)" },
+              { label: "Civs", value: `${(data.registration.baseCivIds ?? []).length} + ${(data.registration.extraCivIds ?? []).length} extra`, accent: "var(--vertigo-text)" },
+            ].map((s) => (
+              <div key={s.label} style={{ background: "var(--vertigo-bg-elevated)", padding: "18px 24px" }}>
+                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "2px", textTransform: "uppercase", color: "var(--vertigo-faint)", marginBottom: 4 }}>
+                  {s.label}
+                </div>
+                <div style={{ fontFamily: "Cinzel, serif", fontSize: 22, fontWeight: 700, color: s.accent, lineHeight: 1 }}>
+                  {s.value}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 

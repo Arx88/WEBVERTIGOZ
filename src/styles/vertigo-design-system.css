@@ -1,10 +1,10 @@
 /* ============================================================
    VÉRTIGO — Design System interno
-   Paleta y estética del wizard aplicada a todo el sitio interno.
+   Paleta púrpura del wizard aplicada a todo el sitio interno.
    Landing NO se toca.
-   
-   ACTUALIZADO: Mejoras de jerarquía visual, profundidad y pulido
-   profesional para equalizar la calidad del login/registro.
+
+   Sin "grain" global — el fondo se mantiene limpio, la identidad
+   viene de la atmósfera (orbes, viñetas suaves) y del contenido.
    ============================================================ */
 
 :root {
@@ -40,13 +40,25 @@
 }
 
 /* Reset del body para páginas internas (no landing, no registro) */
+/* Atmósfera global — viñeta suave y orbes púrpura que respiran lento
+   (sin texturas de ruido — el fondo permanece limpio y premium). */
 body:has(.vertigo-page) {
   background: var(--vertigo-bg) !important;
   background-image:
+    /* Viñeta sutil en bordes (~20% más oscuro que el centro) */
+    radial-gradient(ellipse at center, transparent 52%, rgba(7, 3, 16, 0.62) 100%),
+    /* Orbes atmosféricos — respiran y hacen drift */
     radial-gradient(900px 520px at 12% 8%, rgba(88, 28, 175, .16), transparent 60%),
     radial-gradient(800px 500px at 88% 85%, rgba(124, 58, 237, .10), transparent 60%),
     radial-gradient(1400px 900px at 50% 50%, rgba(20, 8, 40, .5), transparent 75%) !important;
-  animation: vertigoBgPulse 9s ease-in-out infinite alternate !important;
+  background-size:
+    100% 100%,
+    1800px 1040px,
+    1600px 1000px,
+    1400px 900px;
+  background-repeat: no-repeat;
+  animation:
+    vertigoBgPulse 14s ease-in-out infinite alternate !important;
   margin: 0 !important;
   color: var(--vertigo-text) !important;
   font-family: Inter, system-ui, sans-serif !important;
@@ -56,9 +68,35 @@ html:has(.vertigo-page) {
   background: var(--vertigo-bg) !important;
 }
 
+/* ============================================================
+   ATMÓSFERA GLOBAL — orbes púrpura que respiran + viñeta suave.
+   Sin ruido/grain — el fondo es limpio y premium, la magia está
+   en el contenido y las luces sutiles.
+   ============================================================ */
+
+/* Los orbes respiran lento y hacen drift suave (una sola keyframe) */
 @keyframes vertigoBgPulse {
-  from { background-position: 0 0, 0 0, 0 0; }
-  to { background-position: 30px -20px, -30px 20px, 0 0; }
+  0% {
+    background-position:
+      0 0,
+      -14px 8px,
+      10px -6px,
+      0 0;
+  }
+  50% {
+    background-position:
+      0 0,
+      18px -12px,
+      -14px 10px,
+      0 0;
+  }
+  100% {
+    background-position:
+      0 0,
+      -12px 14px,
+      16px -12px,
+      0 0;
+  }
 }
 
 /* ============================================================
@@ -220,12 +258,16 @@ html:has(.vertigo-page) {
 .vertigo-title {
   font-family: Cinzel, serif;
   font-weight: 700;
-  font-size: 32px;
-  letter-spacing: 1.5px;
+  font-size: 40px;
+  letter-spacing: -0.02em;
   text-transform: uppercase;
   color: var(--vertigo-text);
   margin-bottom: 10px;
-  line-height: 1.1;
+  line-height: 1.08;
+  /* Glow sutil violeta — hace que "flote" */
+  text-shadow:
+    0 2px 20px rgba(124, 58, 237, 0.25),
+    0 0 1px rgba(196, 181, 253, 0.35);
 }
 
 .vertigo-desc {
@@ -279,27 +321,96 @@ html:has(.vertigo-page) {
 .vertigo-card {
   background: rgba(13, 9, 19, 0.85);
   border: 1px solid var(--vertigo-line-soft);
-  border-radius: 14px;
+  border-radius: 16px;
   padding: 28px;
   transition: all 0.3s var(--vertigo-ease);
   box-shadow: var(--shadow-sm);
   position: relative;
+  overflow: hidden;
+  will-change: transform;
 }
 
-/* Línea dorada sutil en top de cards importantes */
+/* Highlight superior 1px + inner glow sutil */
+.vertigo-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, transparent 40%);
+  /* inner violet glow muy tenue */
+  box-shadow: inset 0 1px 10px rgba(124, 58, 237, 0.07);
+}
+
+.vertigo-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Hover — la card se levanta y respira luz */
+.vertigo-card:hover {
+  transform: translateY(-2px);
+  border-color: #2d2440;
+  box-shadow:
+    var(--shadow-lg),
+    var(--shadow-purple),
+    0 0 0 1px rgba(124, 58, 237, 0.08);
+}
+
+/* ============================================================
+   PREMIUM — se distingue DE VERDAD
+   ============================================================ */
+.vertigo-card.premium {
+  background-color: rgba(16, 11, 24, 0.92);
+  /* Sweep diagonal de luz — cruza lento cada ~8s */
+  background-image: linear-gradient(
+    115deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.10) 49%,
+    rgba(255, 255, 255, 0.04) 53%,
+    transparent 62%
+  );
+  background-size: 320% 320%;
+  background-position: 180% 180%;
+  animation: vertigoPremiumSweep 8.5s ease-in-out infinite;
+  border-color: var(--vertigo-line);
+  box-shadow:
+    0 6px 20px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(212, 175, 55, 0.04);
+}
+
+/* Línea dorada top + highlight muy sutil */
 .vertigo-card.premium::before {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0%, transparent 42%);
+  box-shadow: inset 0 1px 10px rgba(124, 58, 237, 0.07),
+              inset 0 1px 0 rgba(212, 175, 55, 0.08);
+}
+
+/* Línea dorada top — explícita y con caída radial desde arriba */
+.vertigo-card.premium::after {
   content: '';
   position: absolute;
   top: 0;
-  left: 24px;
-  right: 24px;
+  left: 5%;
+  right: 5%;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.2), transparent);
+  pointer-events: none;
+  background: radial-gradient(ellipse 70% 100% at 50% 0%, rgba(212, 175, 55, 0.42), transparent 70%);
 }
 
-.vertigo-card:hover {
-  border-color: var(--vertigo-line);
-  box-shadow: var(--shadow-md);
+/* Contenido por encima del sweep */
+.vertigo-card.premium .vertigo-card-header,
+.vertigo-card.premium .vertigo-card-body {
+  position: relative;
+  z-index: 2;
+}
+
+/* Sweep diagonal — animación lenta con pseudo-elemento extra */
+@keyframes vertigoPremiumSweep {
+  0%   { background-position: 180% 180%; }
+  55%  { background-position: -20% -20%; }
+  100% { background-position: -20% -20%; }
 }
 
 .vertigo-card-header {
@@ -402,10 +513,13 @@ html:has(.vertigo-page) {
 }
 
 .vertigo-btn-ghost:hover {
-  border-color: #5a4f78;
-  color: var(--vertigo-text);
-  background: rgba(124, 58, 237, 0.08);
-  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.1);
+  border-color: rgba(124, 58, 237, 0.45);
+  color: var(--vertigo-purple-pale);
+  background: rgba(124, 58, 237, 0.10);
+  box-shadow:
+    0 4px 16px rgba(124, 58, 237, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transform: translateY(-1px);
 }
 
 .vertigo-btn-primary {
@@ -413,26 +527,35 @@ html:has(.vertigo-page) {
   overflow: hidden;
   padding: 15px 32px;
   color: #fff;
-  background: linear-gradient(180deg, #7c3aed 0%, #5b21b6 100%);
-  box-shadow: 0 4px 20px rgba(124, 58, 237, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.10) 0%, transparent 18%),
+    linear-gradient(180deg, #7c3aed 0%, #5b21b6 100%);
+  box-shadow:
+    0 4px 20px rgba(124, 58, 237, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  will-change: transform;
 }
 
-/* Sweep effect en hover */
+/* Sweep effect en hover — cruzada skewed */
 .vertigo-btn-primary::after {
   content: '';
   position: absolute;
-  top: 0;
-  left: -70%;
-  width: 45%;
-  height: 100%;
-  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+  top: -20%;
+  left: -80%;
+  width: 55%;
+  height: 140%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.28), transparent);
   transform: skewX(-20deg);
-  transition: left 0.55s ease;
+  transition: left 0.6s cubic-bezier(.22, 1, .36, 1);
+  pointer-events: none;
 }
 
 .vertigo-btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 32px rgba(124, 58, 237, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  box-shadow:
+    0 10px 32px rgba(124, 58, 237, 0.55),
+    0 0 24px rgba(124, 58, 237, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24);
 }
 
 .vertigo-btn-primary:hover::after {
@@ -441,6 +564,10 @@ html:has(.vertigo-page) {
 
 .vertigo-btn-primary:active {
   transform: translateY(0);
+  box-shadow:
+    0 4px 20px rgba(124, 58, 237, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  transition-duration: 0.08s;
 }
 
 .vertigo-btn-danger {
@@ -498,25 +625,70 @@ html:has(.vertigo-page) {
   box-shadow: 0 4px 12px rgba(124, 58, 237, 0.2);
 }
 
+/* Status activo: punto con ping/pulse — hereda el color del badge (currentColor) */
+.vertigo-badge .vertigo-status-dot,
+.vertigo-status .vertigo-status-dot {
+  position: relative;
+  animation: vertigoDotPulse 2.2s ease-in-out infinite;
+}
+
+@keyframes vertigoDotPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 currentColor;
+    opacity: 1;
+  }
+  50% {
+    box-shadow: 0 0 6px 2px currentColor;
+    opacity: 0.85;
+  }
+}
+
+/* SUCCESS — punto verde con pulso */
 .vertigo-badge-success {
   color: var(--vertigo-success);
   border: 1px solid rgba(34, 197, 94, 0.35);
   background: rgba(34, 197, 94, 0.1);
-  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.1);
+  box-shadow:
+    0 2px 8px rgba(34, 197, 94, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  animation: vertigoBadgeBreathSuccess 3.4s ease-in-out infinite;
 }
 
+@keyframes vertigoBadgeBreathSuccess {
+  0%, 100% { box-shadow: 0 2px 8px rgba(34, 197, 94, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.03); }
+  50%      { box-shadow: 0 2px 14px rgba(34, 197, 94, 0.20), inset 0 1px 0 rgba(255, 255, 255, 0.05); }
+}
+
+/* DANGER — rojo con toque de urgencia */
 .vertigo-badge-danger {
   color: var(--vertigo-danger);
   border: 1px solid rgba(251, 113, 133, 0.35);
   background: rgba(251, 113, 133, 0.1);
-  box-shadow: 0 2px 8px rgba(251, 113, 133, 0.1);
+  box-shadow:
+    0 2px 8px rgba(251, 113, 133, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  animation: vertigoBadgeBreathDanger 1.9s ease-in-out infinite;
 }
 
+@keyframes vertigoBadgeBreathDanger {
+  0%, 100% { box-shadow: 0 2px 8px rgba(251, 113, 133, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.03); }
+  50%      { box-shadow: 0 2px 16px rgba(251, 113, 133, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.05); }
+}
+
+/* WARNING — ámbar que respira */
 .vertigo-badge-warning {
   color: var(--vertigo-warning);
   border: 1px solid rgba(251, 191, 36, 0.35);
   background: rgba(251, 191, 36, 0.1);
-  box-shadow: 0 2px 8px rgba(251, 191, 36, 0.1);
+  box-shadow:
+    0 2px 8px rgba(251, 191, 36, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  animation: vertigoBadgeBreathWarning 3s ease-in-out infinite;
+}
+
+@keyframes vertigoBadgeBreathWarning {
+  0%, 100% { box-shadow: 0 2px 8px rgba(251, 191, 36, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.03); }
+  50%      { box-shadow: 0 2px 14px rgba(251, 191, 36, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.05); }
 }
 
 /* ============================================================
@@ -586,6 +758,7 @@ html:has(.vertigo-page) {
   margin-bottom: 6px;
 }
 
+/* Números grandes con presencia — Cinzel, tabular, glow violeta tenue */
 .vertigo-stat-value {
   font-family: Cinzel, serif;
   font-size: 30px;
@@ -593,6 +766,9 @@ html:has(.vertigo-page) {
   color: var(--vertigo-purple-pale);
   margin-top: 6px;
   line-height: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  text-shadow: 0 0 14px rgba(124, 58, 237, 0.18);
 }
 
 .vertigo-stat-sub {
@@ -917,6 +1093,16 @@ html:has(.vertigo-page) {
   background: linear-gradient(180deg, var(--vertigo-purple), var(--vertigo-purple-deep));
   border-radius: 2px;
   box-shadow: 0 0 8px rgba(124, 58, 237, 0.5);
+  animation: vertigoSubtitleGlow 2.8s ease-in-out infinite;
+}
+
+@keyframes vertigoSubtitleGlow {
+  0%, 100% {
+    box-shadow: 0 0 4px rgba(124, 58, 237, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(124, 58, 237, 0.75);
+  }
 }
 
 /* ============================================================
@@ -980,6 +1166,18 @@ html:has(.vertigo-page) {
   height: 6px;
   border-radius: 50%;
   flex: none;
+  position: relative;
+  /* Pulse/ping — hereda color del ancestro */
+  animation: vertigoDotPing 2s ease-in-out infinite;
+}
+
+@keyframes vertigoDotPing {
+  0%, 100% {
+    box-shadow: 0 0 0 0 currentColor;
+  }
+  50% {
+    box-shadow: 0 0 8px 2px currentColor;
+  }
 }
 
 /* ============================================================
@@ -1194,9 +1392,42 @@ html:has(.vertigo-page) {
   .vertigo-stats {
     grid-template-columns: repeat(2, 1fr);
   }
-  
+
   .vertigo-stat-value {
     font-size: 24px;
+  }
+}
+
+/* ============================================================
+   DEGRADACIÓN ELEGANTE — efectos reducidos en pantallas chicas
+   ============================================================ */
+@media (max-width: 768px) {
+  /* Cards: sin hover-lift en touch */
+  .vertigo-card:hover {
+    transform: none;
+  }
+
+  /* Título escala con presencia */
+  .vertigo-title {
+    text-shadow: 0 1px 14px rgba(124, 58, 237, 0.22);
+  }
+}
+
+/* Respeta la preferencia de movimiento reducido */
+@media (prefers-reduced-motion: reduce) {
+  body:has(.vertigo-page),
+  .vertigo-card.premium,
+  .vertigo-badge-success,
+  .vertigo-badge-warning,
+  .vertigo-badge-danger,
+  .vertigo-status-dot,
+  .vertigo-badge .vertigo-status-dot,
+  .vertigo-subtitle::before,
+  .vertigo-divider i {
+    animation: none !important;
+  }
+  .vertigo-btn-primary::after {
+    display: none;
   }
 }
 
@@ -1233,25 +1464,5 @@ html:has(.vertigo-page) {
 }
 
 /* ============================================================
-   GRAIN TEXTURE — sutil textura de ruido en fondos
-   Se aplica a las cards principales para dar profundidad
+   UTILIDADES PREMIUM
    ============================================================ */
-.vertigo-card {
-  position: relative;
-}
-
-.vertigo-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
-  opacity: 0.4;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.vertigo-card > * {
-  position: relative;
-  z-index: 1;
-}

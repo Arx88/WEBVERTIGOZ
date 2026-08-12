@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import postgres from "postgres";
+import { assertDevEndpointAllowed } from "@/lib/auth/dev-endpoint-guard";
 
 /**
  * POST /api/admin/exec-sql
- * Endpoint TEMPORAL para ejecutar SQL en Supabase desde Vercel.
+ * Endpoint TEMPORAL de DESARROLLO para ejecutar SQL en Supabase (útil para migraciones).
  *
- * Estrategia: probar varias URLs de conexión al pooler IPv4 de Supabase,
- * porque la conexión directa db.{ref}.supabase.co solo tiene AAAA (IPv6)
- * y Vercel no lo resuelve.
- *
- * Header: x-admin-token
- * Body: { sql: string }
+ * SEGURIDAD:
+ *  - En producción (NODE_ENV === "production") o sin ADMIN_EXEC_TOKEN seteado,
+ *    responde 404 como si la ruta no existiera (ver assertDevEndpointAllowed).
+ *  - En dev, además del guard, exige el header x-admin-token correcto (doble check,
+ *    defensa en profundidad), con comparación de longitud constante contra el env var.
  */
 
 const ADMIN_TOKEN = process.env.ADMIN_EXEC_TOKEN;
@@ -69,16 +69,16 @@ async function tryConnect(): Promise<ReturnType<typeof postgres> | null> {
 }
 
 export async function POST(req: NextRequest) {
+  // PRIMERA LÍNEA DE DEFENSA: este endpoint no existe en producción ni sin
+  // ADMIN_EXEC_TOKEN configurado. 404 genérico para no revelar su existencia.
+  const blocked = assertDevEndpointAllowed();
+  if (blocked) return blocked;
+
   try {
-    if (!ADMIN_TOKEN) {
-      console.error("[exec-sql] ADMIN_EXEC_TOKEN no configurado");
-      return NextResponse.json(
-        { error: "Endpoint no configurado" },
-        { status: 503 }
-      );
-    }
+    // SEGUNDA LÍNEA DE DEFENSA (defensa en profundidad): el guard ya garantiza
+    // que ADMIN_EXEC_TOKEN existe; acá validamos el header igual que antes.
     const token = req.headers.get("x-admin-token");
-    if (token !== ADMIN_TOKEN) {
+    if (!token || token !== ADMIN_TOKEN) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 

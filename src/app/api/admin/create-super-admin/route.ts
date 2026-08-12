@@ -1,15 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { assertDevEndpointAllowed } from "@/lib/auth/dev-endpoint-guard";
 
 /**
  * POST /api/admin/create-super-admin
- * Crea un usuario super_admin en Supabase.
+ * Crea un usuario super_admin en Supabase (herramienta de DESARROLLO).
+ *
+ * SEGURIDAD: en producción o sin ADMIN_EXEC_TOKEN responde 404 como si la
+ * ruta no existiera. En dev sigue exigiendo el header x-admin-token.
  */
 
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
 export async function POST(req: NextRequest) {
+  // Bloqueo total en producción / sin token: 404 para no revelar la ruta.
+  const blocked = assertDevEndpointAllowed();
+  if (blocked) return blocked;
+
   try {
     if (!SERVICE_KEY || !SUPABASE_URL) {
       return NextResponse.json(
