@@ -56,3 +56,5 @@ drizzle/*.json
 .idea/
 *.swp
 *.swo
+
+dev-server.log
