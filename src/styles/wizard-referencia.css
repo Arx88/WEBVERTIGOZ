@@ -39,6 +39,7 @@ body:has(.wizard-page), html:has(.wizard-page) {
   --bg:#070310; --modal:#0d0913; --modal-border:#231a2e; --side:#0a0711;
   --line:#241d2f; --line-soft:#1a1424;
   --purple:#7c3aed; --purple-deep:#5b21b6; --purple-soft:#a78bfa; --purple-pale:#c4b5fd;
+  --vertigo-primary:#7c3aed;
   --text:#f2eef7; --muted:#9a92a6; --faint:#6b6378;
   --input-bg:#130f1b; --input-border:#2a2334; --danger:#fb7185;
   --ease:cubic-bezier(.22,1,.36,1);
