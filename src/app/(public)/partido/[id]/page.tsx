@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Swords } from "lucide-react";
 import { getSupabaseServer } from "@/lib/supabase/server";
-import MatchRealtimeWrapper, { loadMatch } from "./match-realtime-wrapper";
+import { loadMatch } from "./match-data";
+import MatchRealtimeWrapper from "./match-realtime-wrapper";
 
 export const dynamic = "force-dynamic";
 

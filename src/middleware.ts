@@ -38,7 +38,10 @@ export async function middleware(req: NextRequest) {
   } = await supabase.auth.getUser();
 
   // Rutas protegidas (requieren sesión)
-  const protectedPaths = ["/admin", "/captain", "/caster"];
+  // IMPORTANTE: NO incluir "/caster" — la página /casters es pública y
+  // startsWith("/caster") la mandaba a login. No existen rutas /caster/* privadas.
+  // /overlay es para OBS Browser Source (sin sesión) — también público.
+  const protectedPaths = ["/admin", "/captain"];
   const isProtected = protectedPaths.some((p) =>
     req.nextUrl.pathname.startsWith(p)
   );

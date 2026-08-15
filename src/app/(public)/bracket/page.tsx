@@ -1,7 +1,10 @@
 import Link from "next/link";
-import { Trophy, Brackets } from "lucide-react";
+import { Trophy, Brackets, Swords, Radio, ChevronRight } from "lucide-react";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { generateBracket } from "@/lib/bracket/engine";
+import BracketTree, {
+  type BracketMatchInfo,
+} from "@/components/bracket/bracket-tree";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +25,7 @@ interface BracketMatchData {
 async function loadBracketMatches(): Promise<{
   matches: BracketMatchData[];
   editionName: string | null;
+  championName: string | null;
 } | null> {
   try {
     const supabase = await getSupabaseServer();
@@ -45,7 +49,7 @@ async function loadBracketMatches(): Promise<{
       .limit(1)) as { data: any };
 
     const bracket = brackets?.[0];
-    if (!bracket) return { matches: [], editionName: edition.name };
+    if (!bracket) return { matches: [], editionName: edition.name, championName: null };
 
     const { data: rounds } = (await supabase
       .from("round")
@@ -53,7 +57,7 @@ async function loadBracketMatches(): Promise<{
       .eq("bracket_id", bracket.id)
       .order("index", { ascending: true })) as { data: any };
 
-    if (!rounds || rounds.length === 0) return { matches: [], editionName: edition.name };
+    if (!rounds || rounds.length === 0) return { matches: [], editionName: edition.name, championName: null };
 
     const roundIds = rounds.map((r: any) => r.id);
 
@@ -107,24 +111,22 @@ async function loadBracketMatches(): Promise<{
       };
     });
 
-    return { matches, editionName: edition.name };
+    // Campeón: ganador de la final (ronda de mayor índice)
+    let championName: string | null = null;
+    const finalRound = rounds[rounds.length - 1];
+    const finalMatch = matches.find(
+      (m) => m.roundIndex === (finalRound?.index ?? 0) && m.winnerTeamId
+    );
+    if (finalMatch) {
+      const champ = finalMatch.winnerTeamId === finalMatch.teamA?.id ? finalMatch.teamA : finalMatch.teamB;
+      championName = champ?.name ?? null;
+    }
+
+    return { matches, editionName: edition.name, championName };
   } catch {
     return null;
   }
 }
-
-const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
-  scheduled: { label: "Programado", cls: "vertigo-badge-purple" },
-  open: { label: "Abierto", cls: "vertigo-badge-success" },
-  drawing: { label: "Sorteando", cls: "vertigo-badge-warning" },
-  lineup: { label: "Lineup", cls: "vertigo-badge-warning" },
-  comodin_window: { label: "Comodines", cls: "vertigo-badge-warning" },
-  in_progress: { label: "En juego", cls: "vertigo-badge-success" },
-  finished: { label: "Finalizado", cls: "vertigo-badge-purple" },
-  disputed: { label: "Disputa", cls: "vertigo-badge-danger" },
-  forfeit: { label: "W.O.", cls: "vertigo-badge-danger" },
-  cancelled: { label: "Cancelado", cls: "vertigo-badge-danger" },
-};
 
 export default async function BracketPage() {
   const data = await loadBracketMatches();
@@ -132,6 +134,26 @@ export default async function BracketPage() {
   const structure = generateBracket(bracketSize);
   const matches = data?.matches ?? [];
   const editionName = data?.editionName ?? null;
+
+  // Live: partidos en estado dinámico ahora mismo
+  const liveNow = matches.filter((m) =>
+    ["drawing", "lineup", "comodin_window", "in_progress", "open"].includes(m.status)
+  );
+
+  const treeMatches: BracketMatchInfo[] = matches.map((m) => ({
+    id: m.id,
+    roundIndex: m.roundIndex,
+    slotIndex: m.slotIndex,
+    seedA: m.teamA?.seed ?? null,
+    seedB: m.teamB?.seed ?? null,
+    status: m.status,
+    scheduledAtStart: m.scheduledAtStart,
+    teamA: m.teamA,
+    teamB: m.teamB,
+    scoreA: m.scoreA,
+    scoreB: m.scoreB,
+    winnerTeamId: m.winnerTeamId,
+  }));
 
   return (
     <div className="vertigo-page vertigo-shell vertigo-fade-in">
@@ -141,20 +163,21 @@ export default async function BracketPage() {
           <span className="vertigo-section-tag">BRACKET</span>
         </div>
         <div className="vertigo-header-right">
-          {editionName && <span className="vertigo-badge vertigo-badge-purple">{editionName}</span>}
-          <span className="vertigo-badge vertigo-badge-warning">SE · 32 equipos</span>
+          <Link href="/resultados" className="vertigo-btn vertigo-btn-ghost" style={{ padding: "8px 16px", fontSize: "11px" }}>
+            Resultados
+          </Link>
         </div>
       </header>
 
       <main className="vertigo-content" style={{ maxWidth: "none", padding: "40px 32px" }}>
-        {/* ═══ HERO CINEMATOGRÁFICO ═══ */}
+        {/* ═══ HERO ═══ */}
         <div
           style={{
             position: "relative",
             overflow: "hidden",
             borderRadius: 18,
             border: "1px solid var(--vertigo-line-soft)",
-            marginBottom: 28,
+            marginBottom: 24,
             boxShadow: "var(--shadow-lg)",
           }}
         >
@@ -185,7 +208,7 @@ export default async function BracketPage() {
           />
           <div style={{ position: "relative", zIndex: 2, padding: "44px 40px 36px" }}>
             <span className="vertigo-kicker">
-              SINGLE ELIMINATION · 5 RONDAS
+              SINGLE ELIMINATION · 32 REINOS · 5 RONDAS
             </span>
             <h1
               className="vertigo-title"
@@ -202,15 +225,45 @@ export default async function BracketPage() {
               32 reinos entran. Uno queda en pie. Cada llave se sortea con la ruleta 15 minutos antes —
               nadie sabe qué va a pasar hasta que se juega. Tocá una llave para ver el partido con su sorteo en vivo.
             </p>
+
+            {/* Stats rápidas */}
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 24 }}>
+              {editionName && (
+                <span className="vertigo-badge vertigo-badge-purple" style={{ padding: "7px 14px", fontSize: 11 }}>
+                  <Trophy style={{ width: 12, height: 12 }} />
+                  {editionName}
+                </span>
+              )}
+              <span className="vertigo-badge vertigo-badge-warning" style={{ padding: "7px 14px", fontSize: 11 }}>
+                <Swords style={{ width: 12, height: 12 }} />
+                {matches.length > 0 ? `${matches.length} llaves` : "32 llaves"}
+              </span>
+              {liveNow.length > 0 && (
+                <span className="vertigo-badge vertigo-badge-success" style={{ padding: "7px 14px", fontSize: 11 }}>
+                  <Radio style={{ width: 12, height: 12 }} />
+                  {liveNow.length} en vivo
+                </span>
+              )}
+              {data?.championName && (
+                <span className="vertigo-badge vertigo-badge-success" style={{ padding: "7px 14px", fontSize: 11 }}>
+                  <Trophy style={{ width: 12, height: 12 }} />
+                  Campeón: {data.championName}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Leyenda */}
-        <div className="vertigo-action-bar" style={{ marginBottom: "28px" }}>
+        <div className="vertigo-action-bar" style={{ marginBottom: "22px" }}>
           <span className="vertigo-badge vertigo-badge-purple">Programado</span>
           <span className="vertigo-badge vertigo-badge-success">En juego / Abierto</span>
           <span className="vertigo-badge vertigo-badge-warning">Sorteo / Comodines</span>
           <span className="vertigo-badge vertigo-badge-danger">Disputa / W.O.</span>
+          <Link href="/fixture" className="vertigo-btn vertigo-btn-ghost" style={{ marginLeft: "auto", padding: "6px 14px", fontSize: "11px" }}>
+            Ver fixture
+            <ChevronRight style={{ width: 12, height: 12 }} />
+          </Link>
         </div>
 
         {!data || matches.length === 0 ? (
@@ -228,143 +281,14 @@ export default async function BracketPage() {
             </div>
           </div>
         ) : (
-          <div className="vertigo-card" style={{ padding: 16 }}>
-            <div className="vertigo-scroll" style={{ overflowX: "auto" }}>
-              <div className="flex gap-4 min-w-max p-2">
-                {structure.rounds.map((round) => {
-                  const roundMatches = matches.filter((m) => m.roundIndex === round.index);
-                  return (
-                    <div key={round.index} style={{ width: 240, flex: "none" }}>
-                      <div className="vertigo-subtitle" style={{ marginBottom: 14 }}>
-                        {round.name}
-                      </div>
-                      <div className="flex flex-col gap-3">
-                        {round.matches.map((slot) => {
-                          const matchData = roundMatches.find((m) => m.slotIndex === slot.slotIndex);
-                          return (
-                            <BracketMatchCard
-                              key={slot.tempId}
-                              seedA={slot.seedA}
-                              seedB={slot.seedB}
-                              match={matchData ?? null}
-                            />
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )}
-      </main>
-    </div>
-  );
-}
-
-function BracketMatchCard({
-  seedA,
-  seedB,
-  match,
-}: {
-  seedA: number | null;
-  seedB: number | null;
-  match: BracketMatchData | null;
-}) {
-  if (!match) {
-    return (
-      <div className="vertigo-link-card" style={{ cursor: "default", opacity: 0.5 }}>
-        <div className="flex items-center justify-between text-[11px] text-[var(--vertigo-faint)] mb-2">
-          <span>#{seedA ?? "?"} vs #{seedB ?? "?"}</span>
-        </div>
-        <div className="text-[13px] text-[var(--vertigo-faint)] italic">Por definir</div>
-      </div>
-    );
-  }
-
-  const statusMeta = STATUS_BADGE[match.status] ?? STATUS_BADGE.scheduled;
-  const isAWinner = match.winnerTeamId && match.teamA && match.winnerTeamId === match.teamA.id;
-  const isBWinner = match.winnerTeamId && match.teamB && match.winnerTeamId === match.teamB.id;
-
-  return (
-    <Link href={`/partido/${match.id}`} className="vertigo-link-card" style={{ padding: 14 }}>
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-[10px] tracking-[1.5px] uppercase text-[var(--vertigo-faint)]">
-          #{match.teamA?.seed ?? seedA ?? "?"} vs #{match.teamB?.seed ?? seedB ?? "?"}
-        </span>
-        <span className={`vertigo-badge ${statusMeta.cls}`} style={{ padding: "2px 8px", fontSize: 9 }}>
-          {statusMeta.label}
-        </span>
-      </div>
-      <BracketTeamRow name={match.teamA?.name ?? "Por definir"} seed={match.teamA?.seed ?? seedA} score={match.scoreA} isWinner={!!isAWinner} emblemUrl={match.teamA?.emblemUrl} />
-      <BracketTeamRow name={match.teamB?.name ?? "Por definir"} seed={match.teamB?.seed ?? seedB} score={match.scoreB} isWinner={!!isBWinner} emblemUrl={match.teamB?.emblemUrl} />
-      {match.scheduledAtStart && match.status === "scheduled" && (
-        <div className="text-[10px] text-[var(--vertigo-faint)] mt-2 pt-2 border-t border-[var(--vertigo-line-soft)]">
-          {new Date(match.scheduledAtStart).toLocaleString("es-AR", {
-            day: "2-digit",
-            month: "short",
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
-        </div>
-      )}
-    </Link>
-  );
-}
-
-function BracketTeamRow({
-  name,
-  seed,
-  score,
-  isWinner,
-  emblemUrl,
-}: {
-  name: string;
-  seed: number | null;
-  score: number;
-  isWinner: boolean;
-  emblemUrl?: string | null;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-2 py-1">
-      <div className="flex items-center gap-2 min-w-0">
-        {emblemUrl ? (
-          <span
-            className="flex-none rounded-full overflow-hidden border"
-            style={{
-              width: 22, height: 22,
-              borderColor: isWinner ? "var(--vertigo-purple-soft)" : "var(--vertigo-line)",
-              boxShadow: isWinner ? "0 0 10px rgba(124,58,237,0.35)" : "none",
-            }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={emblemUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-          </span>
-        ) : (
-          <Trophy
-            style={{
-              width: 12,
-              height: 12,
-              color: isWinner ? "var(--vertigo-purple-pale)" : "var(--vertigo-faint)",
-            }}
-            strokeWidth={1.25}
+          <BracketTree
+            rounds={structure.rounds}
+            matches={treeMatches}
+            hrefPrefix="/partido"
+            championName={data.championName}
           />
         )}
-        <span
-          className={`text-[13px] truncate ${isWinner ? "text-[var(--vertigo-text)] font-medium" : "text-[var(--vertigo-muted)]"}`}
-        >
-          {name}
-        </span>
-        {seed != null && (
-          <span className="text-[10px] text-[var(--vertigo-faint)] flex-none">#{seed}</span>
-        )}
-      </div>
-      <span
-        className={`font-cinzel text-[14px] font-bold tabular-nums flex-none ${isWinner ? "text-[var(--vertigo-purple-pale)]" : "text-[var(--vertigo-faint)]"}`}
-      >
-        {score}
-      </span>
+      </main>
     </div>
   );
 }

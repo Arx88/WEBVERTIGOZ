@@ -17,6 +17,7 @@ import {
   ChevronLeft, Clock, Shield, Trophy, Shuffle, Layers,
   Users, Sparkles, AlertTriangle, Play, CheckCircle2, Dices, ArrowRight, Swords,
 } from "lucide-react";
+import ForfeitForm from "./forfeit-form";
 
 export const dynamic = "force-dynamic";
 
@@ -415,12 +416,7 @@ export default async function AdminPartidoPage({
                 </div>
               )}
               {/* Forfeit — siempre disponible si no terminó */}
-              <form action={markForfeitFormAction} onSubmit={(e) => { if (!confirm("¿Marcar W.O.? El otro equipo avanza.")) e.preventDefault(); }}>
-                <input type="hidden" name="match_id" value={match.id} />
-                <button type="submit" className="vertigo-btn vertigo-btn-danger">
-                  <AlertTriangle style={{ width: 14, height: 14 }} /> W.O.
-                </button>
-              </form>
+              <ForfeitForm matchId={match.id} action={markForfeitFormAction} />
             </div>
           </div>
         </section>
