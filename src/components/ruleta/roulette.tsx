@@ -35,6 +35,11 @@ export interface RouletteProps {
   /** Admin: si es false, los viewers no pueden disparar el giro (solo miran) */
   interactive?: boolean;
   /**
+   * Demo/tutorial: dispara el primer giro automáticamente cuando termina el
+   * loader. Las fases siguientes ya avanzan solas. `/ruleta/demo` no lo usa.
+   */
+  autoStart?: boolean;
+  /**
    * Override de la config de la ruleta (preset del server).
    * Si viene, reemplaza el useConfig/localStorage — la ruleta usa la config
    * del torneo, no la del navegador. Garantiza que todos los viewers ven
@@ -80,6 +85,8 @@ export function Roulette(props: RouletteProps = {}) {
   const mapStateRef = useRef({ pos: 0, anim: 0, spinning: false });
   const ringModesRef = useRef<readonly (ConfigMode|ConfigMap)[]>([]);
   const FORCED_REF = useRef<RouletteProps["forced"]>(undefined);
+  // Demo/tutorial: dispara el primer giro solo (sin click) cuando carga todo
+  const autoStartedRef = useRef(false);
 
   const antimetaStep = resolved.find(r => r.label === "ANTIMETA");
   const MAPS_ACTIVE = antimetaStep?.mode.mapPool && antimetaStep.mode.mapPool !== "global" && antimetaStep.mode.mapPool.length ? antimetaStep.mode.mapPool : MAP_MODES;
@@ -464,6 +471,19 @@ export function Roulette(props: RouletteProps = {}) {
       return()=>window.clearTimeout(t);
     }
   },[phase,activeModes,dynIsV,setVFadeAnim,spinV,spinH,s]);
+
+  // Demo/tutorial: con `autoStart` el primer giro se dispara solo
+  // (las fases siguientes ya avanzan automáticamente).
+  useEffect(() => {
+    if (!props.autoStart || autoStartedRef.current) return;
+    const hasForced = !!props.forced;
+    // sin forced (ruleta libre): la demo no avanza sola, el humano gira
+    if (!hasForced) return;
+    autoStartedRef.current = true;
+    const t = window.setTimeout(() => handleSpinClick(), 1600);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.autoStart, props.forced]);
 
   useEffect(()=>{
     const audio=musicRef.current;

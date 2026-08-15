@@ -11,9 +11,17 @@ export default function Footer() {
           </span>
         </Link>
 
-        <span className="font-cinzel text-[10px] tracking-[0.42em] uppercase text-[#7a5a90]">
-          Vértigo Cup 2026 &nbsp;·&nbsp; Derechos Reservados
-        </span>
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-6">
+          <Link
+            href="/tutorial"
+            className="font-cinzel text-[10px] tracking-[0.42em] uppercase text-[#ffb4dc]/80 border border-[#ff2e9e]/30 px-4 py-2 rounded-sm hover:bg-[#ff2e9e]/10 transition-colors"
+          >
+            ▶ Tutorial en vivo
+          </Link>
+          <span className="font-cinzel text-[10px] tracking-[0.42em] uppercase text-[#7a5a90]">
+            Vértigo Cup 2026 &nbsp;·&nbsp; Derechos Reservados
+          </span>
+        </div>
       </div>
     </footer>
   );
