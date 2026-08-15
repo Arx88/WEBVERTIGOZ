@@ -35,9 +35,11 @@ function WizardShell({ children }: { children: ReactNode }) {
       case 1: return data.email.length > 0 && data.password.length >= 6;
       case 2: return data.teamName.length >= 3 && data.emblemId !== null;
       case 3: {
-        // Los 3 jugadores deben estar cargados Y el ELO total no debe superar el máximo
+        // Los 3 jugadores deben estar cargados, sin duplicados, Y el ELO total no debe superar el máximo
         const allLoaded = data.players.every((p) => p.aoe2ProfileId !== null);
         if (!allLoaded) return false;
+        const ids = data.players.map((p) => p.aoe2ProfileId);
+        if (new Set(ids).size !== 3) return false;
         const totalElo = data.players.reduce((s, p) => s + (p.maxRatingRm1v1 ?? 0), 0);
         return totalElo <= config.eloMax;
       }

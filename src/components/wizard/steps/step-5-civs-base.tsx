@@ -32,9 +32,9 @@ const CIVS = [
 ];
 
 export default function Step5CivsBase() {
-  const { data, updateData } = useWizard();
+  const { data, updateData, config } = useWizard();
   const sel = data.baseCivIds;
-  const MAX = 9;
+  const MAX = config.civsBase;
 
   const toggle = (civId: string) => {
     if (sel.includes(civId)) updateData({ baseCivIds: sel.filter((x) => x !== civId) });

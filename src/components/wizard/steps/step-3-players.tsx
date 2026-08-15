@@ -177,34 +177,58 @@ export default function Step3Players() {
   const totalElo = data.players.reduce((s, p) => s + (p.maxRatingRm1v1 ?? 0), 0);
   const eloCap = config.eloMax;
   const [loading, setLoading] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const canAdvance = data.players.every((p) => p.aoe2ProfileId !== null);
   const allLoaded = data.players.every((p) => p.aoe2ProfileId !== null);
+  const loadedIds = data.players.map((p) => p.aoe2ProfileId).filter((id): id is number => id !== null);
+  const hasDuplicates = loadedIds.length !== new Set(loadedIds).size;
 
-  async function fetchPlayer(profileId: number, index: number) {
+  async function fetchPlayer(result: SearchResult, index: number) {
     setLoading(index);
+    setError(null);
     try {
-      const res = await fetch(`/api/aoe2/profile?id=${profileId}`);
+      const res = await fetch(`/api/aoe2/profile?id=${result.profileId}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const playerData = await res.json();
       updatePlayer(index as 0 | 1 | 2, {
-        aoe2ProfileId: profileId,
-        displayName: playerData.name || "",
-        steamId: playerData.steamId,
-        country: playerData.country,
-        clan: playerData.clan,
-        isVerified: playerData.verificationStatus === "verified",
-        maxRatingRm1v1: playerData.maxRating ?? -1,
-        ratingRm1v1Current: playerData.currentRating,
+        aoe2ProfileId: result.profileId,
+        displayName: playerData.name || result.name || `Jugador #${result.profileId}`,
+        steamId: playerData.steamId || result.steamId,
+        country: playerData.country || result.country,
+        clan: playerData.clan || result.clan,
+        isVerified: playerData.verificationStatus === "verified" || result.verified === true,
+        maxRatingRm1v1: playerData.maxRating ?? null,
+        ratingRm1v1Current: playerData.currentRating ?? null,
       });
     } catch {
       updatePlayer(index as 0 | 1 | 2, {
-        aoe2ProfileId: profileId,
-        displayName: "Error al cargar",
-        maxRatingRm1v1: -1,
+        aoe2ProfileId: null,
+        displayName: "",
+        steamId: undefined,
+        country: undefined,
+        clan: undefined,
+        isVerified: false,
+        maxRatingRm1v1: null,
+        ratingRm1v1Current: null,
       });
+      setError(`No se pudo cargar el jugador ${index + 1}. Probá de nuevo.`);
     } finally {
       setLoading(null);
     }
+  }
+
+  function removePlayer(index: number) {
+    updatePlayer(index as 0 | 1 | 2, {
+      aoe2ProfileId: null,
+      displayName: "",
+      steamId: undefined,
+      country: undefined,
+      clan: undefined,
+      isVerified: false,
+      isCaptain: false,
+      maxRatingRm1v1: null,
+      ratingRm1v1Current: null,
+    });
   }
 
   return (
@@ -280,14 +304,7 @@ export default function Step3Players() {
                 key={idx}
                 player={player}
                 index={idx}
-                onRemove={() =>
-                  updatePlayer(idx as 0 | 1 | 2, {
-                    aoe2ProfileId: null,
-                    displayName: "",
-                    maxRatingRm1v1: undefined,
-                    isVerified: false,
-                  })
-                }
+                onRemove={() => removePlayer(idx)}
               />
             );
           }
@@ -296,7 +313,7 @@ export default function Step3Players() {
               key={idx}
               index={idx}
               onSelect={(r) => {
-                fetchPlayer(r.profileId, idx);
+                fetchPlayer(r, idx);
               }}
               isLoading={loading === idx}
             />
@@ -305,6 +322,45 @@ export default function Step3Players() {
       </div>
 
       {/* Mensajes de estado */}
+      {error && (
+        <div
+          style={{
+            marginTop: "20px",
+            padding: "14px 18px",
+            background: "rgba(251,113,133,0.08)",
+            border: "1px solid rgba(251,113,133,0.25)",
+            borderRadius: "10px",
+            fontSize: "13px",
+            color: "var(--vertigo-danger)",
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+          }}
+        >
+          <AlertCircle style={{ width: 16, height: 16, flex: "none" }} />
+          {error}
+        </div>
+      )}
+
+      {hasDuplicates && (
+        <div
+          style={{
+            marginTop: "20px",
+            padding: "14px 18px",
+            background: "rgba(251,113,133,0.08)",
+            border: "1px solid rgba(251,113,133,0.25)",
+            borderRadius: "10px",
+            fontSize: "13px",
+            color: "var(--vertigo-danger)",
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+          }}
+        >
+          <AlertCircle style={{ width: 16, height: 16, flex: "none" }} />
+          Hay un jugador repetido. Cada jugador debe tener un perfil distinto de AoE2 Companion.
+        </div>
+      )}
       {allLoaded && totalElo > eloCap && (
         <div
           style={{

@@ -32,10 +32,10 @@ const CIVS = [
 ];
 
 export default function Step6CivsExtra() {
-  const { data, updateData } = useWizard();
+  const { data, updateData, config } = useWizard();
   const sel = data.extraCivIds;
   const base = data.baseCivIds;
-  const MAX = 3;
+  const MAX = config.civsExtra;
 
   const available = CIVS.filter((c) => !base.includes(c.id));
 
@@ -91,7 +91,7 @@ export default function Step6CivsExtra() {
           }}
         >
           Elegí <strong>{MAX} civilizaciones adicionales</strong> para la gran final. 
-          Solo activas si ganás el bracket. Se suman a tus {9} civs base — elegí distintas.
+          Solo activas si ganás el bracket. Se suman a tus {config.civsBase} civs base — elegí distintas.
         </p>
       </div>
 

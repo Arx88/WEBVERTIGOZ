@@ -76,6 +76,54 @@ export async function getProfiles(profileIds: number[]): Promise<Aoe2ProfileSumm
 }
 
 /**
+ * Calcula el maxRating RM 1v1 a partir de un perfil ya descargado.
+ * Fuente principal: ratings history (extend=stats,ratings).
+ * Fallback: leaderboards.
+ */
+export function getMaxRatingFromProfile(profile: Aoe2Profile): {
+  maxRating: number | null;
+  currentRating: number | null;
+  rank: number | null;
+  verificationStatus: "verified" | "hidden" | "failed";
+} {
+  const ratingsHistory = profile.ratings as
+    | Array<{ leaderboardId: string; ratings: Array<{ rating: number; date: string }> }>
+    | undefined;
+
+  const rm1v1Ratings = ratingsHistory?.find((r) => r.leaderboardId === "rm_1v1");
+
+  if (rm1v1Ratings && rm1v1Ratings.ratings && rm1v1Ratings.ratings.length > 0) {
+    const allRatings = rm1v1Ratings.ratings.map((r) => r.rating);
+    return {
+      maxRating: Math.max(...allRatings),
+      currentRating: allRatings[allRatings.length - 1],
+      rank: null,
+      verificationStatus: profile.verified ? "verified" : "hidden",
+    };
+  }
+
+  const rm1v1Leaderboard = profile.leaderboards?.find(
+    (l) => l.leaderboardId === "rm_1v1"
+  );
+
+  if (rm1v1Leaderboard && rm1v1Leaderboard.maxRating != null) {
+    return {
+      maxRating: rm1v1Leaderboard.maxRating,
+      currentRating: rm1v1Leaderboard.rating ?? null,
+      rank: rm1v1Leaderboard.rank ?? null,
+      verificationStatus: profile.verified ? "verified" : "hidden",
+    };
+  }
+
+  return {
+    maxRating: null,
+    currentRating: null,
+    rank: null,
+    verificationStatus: profile.verified ? "verified" : "hidden",
+  };
+}
+
+/**
  * Obtiene el maxRating RM 1v1 histórico de un jugador.
  * Usado para el ELO cap.
  *
@@ -90,52 +138,8 @@ export async function getMaxRatingRm1v1(profileId: number): Promise<{
   verificationStatus: "verified" | "hidden" | "failed";
 }> {
   try {
-    // Buscar directamente en ratings history
     const profile = await getProfile(profileId, "stats,ratings");
-    const ratingsHistory = profile.ratings as
-      | Array<{ leaderboardId: string; ratings: Array<{ rating: number; date: string }> }>
-      | undefined;
-
-    const rm1v1Ratings = ratingsHistory?.find(
-      (r: { leaderboardId: string }) => r.leaderboardId === "rm_1v1"
-    );
-
-    if (rm1v1Ratings && rm1v1Ratings.ratings && rm1v1Ratings.ratings.length > 0) {
-      // El maxRating es el rating más alto del historial
-      const allRatings = rm1v1Ratings.ratings.map((r: { rating: number }) => r.rating);
-      const maxRating = Math.max(...allRatings);
-      const currentRating = allRatings[allRatings.length - 1];
-
-      return {
-        maxRating,
-        currentRating,
-        rank: null,
-        verificationStatus: profile.verified ? "verified" : "hidden",
-      };
-    }
-
-    // Fallback: si ratings no tiene RM 1v1, intentar con leaderboards
-    const rm1v1Leaderboard = profile.leaderboards?.find(
-      (l: { leaderboardId: string; maxRating?: number; rating?: number; rank?: number }) =>
-        l.leaderboardId === "rm_1v1"
-    );
-
-    if (rm1v1Leaderboard && rm1v1Leaderboard.maxRating != null) {
-      return {
-        maxRating: rm1v1Leaderboard.maxRating,
-        currentRating: rm1v1Leaderboard.rating ?? null,
-        rank: rm1v1Leaderboard.rank ?? null,
-        verificationStatus: profile.verified ? "verified" : "hidden",
-      };
-    }
-
-    // Si no hay ni ratings ni leaderboards, el perfil no tiene partidas ranked
-    return {
-      maxRating: null,
-      currentRating: null,
-      rank: null,
-      verificationStatus: profile.verified ? "verified" : "hidden",
-    };
+    return getMaxRatingFromProfile(profile);
   } catch {
     return {
       maxRating: null,

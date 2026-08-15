@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getMaxRatingRm1v1, getProfile } from "@/lib/aoe2";
+import { getMaxRatingFromProfile, getProfile } from "@/lib/aoe2";
 
 /**
  * GET /api/aoe2/profile?id=<profile_id>
- * Devuelve el maxRating RM 1v1 histórico + steamId + datos básicos del jugador.
+ * Devuelve el perfil completo: nombre, país, clan, steamId,
+ * verificación y maxRating RM 1v1 histórico.
+ * Un solo fetch a AoE2 Companion (extend=stats,ratings).
  */
 export async function GET(req: NextRequest) {
   const id = req.nextUrl.searchParams.get("id");
@@ -13,23 +15,20 @@ export async function GET(req: NextRequest) {
 
   try {
     const profileId = parseInt(id, 10);
-    const result = await getMaxRatingRm1v1(profileId);
-
-    // Obtener el full profile para tener steamId (no viene en getMaxRatingRm1v1)
-    let steamId: string | undefined;
-    try {
-      const fullProfile = await getProfile(profileId, "stats,ratings");
-      steamId = fullProfile.steamId;
-    } catch {
-      // Si falla, continuamos sin steamId (no es crítico para el ELO cap)
-    }
+    const profile = await getProfile(profileId, "stats,ratings");
+    const result = getMaxRatingFromProfile(profile);
 
     return NextResponse.json({
-      profileId,
+      profileId: profile.profileId ?? profileId,
+      name: profile.name ?? null,
+      steamId: profile.steamId ?? null,
+      country: profile.country ?? null,
+      clan: profile.clan ?? null,
+      platform: profile.platform ?? null,
+      verified: profile.verified ?? false,
       maxRating: result.maxRating,
       currentRating: result.currentRating,
       rank: result.rank,
-      steamId, // ← fix bug #14: antes no se devolvía
       verificationStatus: result.verificationStatus,
     });
   } catch (err) {
