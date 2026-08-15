@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { logoutAction } from "@/server/actions/auth";
 import { AdminSidebarNav } from "./admin-sidebar-nav";
-import { LogOut } from "lucide-react";
+import { LogOut, ExternalLink } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -27,29 +27,34 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="vertigo-admin-shell">
-      <AdminSidebarNav />
+      <AdminSidebarNav
+        userName={displayName}
+        userRole={account.role === "super_admin" ? "Super Admin" : "Admin"}
+        initials={initials}
+      />
 
       {/* Contenido principal */}
       <div className="vertigo-admin-main vertigo-scroll">
-        {/* Topbar —Nombre usuario y logout */}
+        {/* Topbar — breadcrumb contexto + link al sitio + logout */}
         <div className="vertigo-admin-topbar">
-          <div className="vertigo-admin-topbar-user">
-            <div className="vertigo-sidebar-user-avatar" style={{ width: "34px", height: "34px", fontSize: "13px" }}>
-              {initials}
-            </div>
-            <div>
-              <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--vertigo-text)" }}>{displayName}</div>
-              <div style={{ fontSize: "10px", color: "var(--vertigo-faint)", letterSpacing: "1.5px", textTransform: "uppercase" }}>
-                {account.role === "super_admin" ? "Super Admin" : "Admin"}
-              </div>
-            </div>
+          <div className="vertigo-admin-topbar-crumb">
+            <span className="vertigo-admin-topbar-crumb-tag">Vértigo</span>
+            <span className="vertigo-admin-topbar-crumb-sep" />
+            <span className="vertigo-admin-topbar-crumb-current">Administración</span>
           </div>
-          <form action={logoutAction}>
-            <button type="submit" className="vertigo-btn vertigo-btn-ghost" style={{ padding: "8px 16px", fontSize: "10px" }}>
-              <LogOut size={12} />
-              Salir
-            </button>
-          </form>
+
+          <div className="vertigo-admin-topbar-actions">
+            <Link href="/" className="vertigo-btn vertigo-btn-ghost vertigo-topbar-link">
+              <ExternalLink size={12} />
+              Ver sitio
+            </Link>
+            <form action={logoutAction}>
+              <button type="submit" className="vertigo-btn vertigo-btn-ghost vertigo-topbar-link">
+                <LogOut size={12} />
+                Salir
+              </button>
+            </form>
+          </div>
         </div>
 
         <div className="vertigo-admin-content">

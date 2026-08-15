@@ -863,6 +863,9 @@ html:has(.vertigo-page) {
 .vertigo-stagger > *:nth-child(4) { animation-delay: 0.20s; }
 .vertigo-stagger > *:nth-child(5) { animation-delay: 0.25s; }
 .vertigo-stagger > *:nth-child(6) { animation-delay: 0.30s; }
+.vertigo-stagger > *:nth-child(7) { animation-delay: 0.35s; }
+.vertigo-stagger > *:nth-child(8) { animation-delay: 0.40s; }
+.vertigo-stagger > *:nth-child(9) { animation-delay: 0.45s; }
 
 /* ============================================================
    ADMIN SIDEBAR LAYOUT — MEJORADO
@@ -986,12 +989,12 @@ html:has(.vertigo-page) {
 .vertigo-sidebar-nav a.active::before {
   content: '';
   position: absolute;
-  left: -14px;
+  left: 0;
   top: 50%;
   transform: translateY(-50%);
   width: 3px;
-  height: 28px;
-  background: linear-gradient(180deg, var(--vertigo-purple), var(--vertigo-purple-deep));
+  height: 26px;
+  background: linear-gradient(180deg, var(--vertigo-purple-soft), var(--vertigo-purple-deep));
   border-radius: 0 3px 3px 0;
   box-shadow: 0 0 16px rgba(124, 58, 237, 0.6);
 }
@@ -1259,6 +1262,62 @@ html:has(.vertigo-page) {
   font-family: Inter, system-ui, sans-serif;
 }
 
+/* CTA que aparece al fondo de la card */
+.vertigo-link-card-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 18px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--vertigo-faint);
+  transition: all 0.3s var(--vertigo-ease);
+}
+
+.vertigo-link-card:hover .vertigo-link-card-cta {
+  color: var(--vertigo-purple-soft);
+}
+
+.vertigo-link-card:hover .vertigo-link-card-cta svg {
+  transform: translateX(4px);
+}
+
+.vertigo-link-card-cta svg {
+  transition: transform 0.3s var(--vertigo-ease);
+}
+
+/* ============================================================
+   LINK CARD PREMIUM — línea dorada + sweep de luz (como las cards)
+   ============================================================ */
+.vertigo-link-card.premium {
+  background-color: rgba(16, 11, 24, 0.92);
+  border-color: var(--vertigo-line);
+  box-shadow:
+    0 6px 20px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(212, 175, 55, 0.04);
+}
+
+.vertigo-link-card.premium::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 8%;
+  right: 8%;
+  height: 1px;
+  background: radial-gradient(ellipse 70% 100% at 50% 0%, rgba(212, 175, 55, 0.4), transparent 70%);
+  pointer-events: none;
+}
+
+.vertigo-link-card.premium:hover {
+  border-color: rgba(212, 175, 55, 0.3);
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(212, 175, 55, 0.15),
+    0 0 24px rgba(124, 58, 237, 0.12);
+}
+
 /* ============================================================
    RESPONSIVE
    ============================================================ */
@@ -1317,18 +1376,72 @@ html:has(.vertigo-page) {
 }
 
 /* ============================================================
-   ADMIN TOPBAR (mobile header con user info)
+   ADMIN TOPBAR — breadcrumb de contexto + acciones
    ============================================================ */
 .vertigo-admin-topbar {
-  display: none;
+  display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 20px;
-  background: rgba(7, 3, 16, 0.95);
+  gap: 16px;
+  padding: 14px 32px;
+  background: rgba(10, 7, 17, 0.82);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--vertigo-line-soft);
   position: sticky;
   top: 0;
   z-index: 40;
+  box-shadow: 0 1px 0 rgba(124, 58, 237, 0.06);
+}
+
+/* Breadcrumb */
+.vertigo-admin-topbar-crumb {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.vertigo-admin-topbar-crumb-tag {
+  font-family: Cinzel, serif;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--vertigo-purple-soft);
+  text-shadow: 0 0 14px rgba(124, 58, 237, 0.45);
+  white-space: nowrap;
+}
+
+.vertigo-admin-topbar-crumb-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--vertigo-line);
+  flex: none;
+}
+
+.vertigo-admin-topbar-crumb-current {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--vertigo-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Acciones (ver sitio + logout) */
+.vertigo-admin-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}
+
+.vertigo-topbar-link {
+  padding: 9px 16px;
+  font-size: 10px;
 }
 
 .vertigo-admin-topbar-user {
