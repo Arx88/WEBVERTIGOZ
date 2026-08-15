@@ -2,7 +2,7 @@
 
 import { useState, Fragment, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { WizardProvider, useWizard, WIZARD_STEPS } from "@/components/wizard/wizard-context";
+import { WizardProvider, useWizard, WIZARD_STEPS, isValidEmblemId } from "@/components/wizard/wizard-context";
 import { toast } from "sonner";
 import { signUpOrLogin, submitWizard } from "@/server/actions/wizard";
 import "@/styles/wizard-referencia.css";
@@ -33,7 +33,7 @@ function WizardShell({ children }: { children: ReactNode }) {
   const canProceed = (): boolean => {
     switch (step) {
       case 1: return data.email.length > 0 && data.password.length >= 6;
-      case 2: return data.teamName.length >= 3 && data.emblemId !== null;
+      case 2: return data.teamName.length >= 3 && isValidEmblemId(data.emblemId);
       case 3: {
         // Los 3 jugadores deben estar cargados, sin duplicados, Y el ELO total no debe superar el máximo
         const allLoaded = data.players.every((p) => p.aoe2ProfileId !== null);

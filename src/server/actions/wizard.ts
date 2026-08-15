@@ -109,6 +109,22 @@ export async function submitWizard(data: WizardData) {
       return { ok: false as const, error: "Los 3 jugadores deben tener perfiles de AoE2 Companion distintos. No podés cargar el mismo jugador dos veces." };
     }
 
+    // 3b. Validar emblemId: formato UUID + existe y está activo en la BD
+    // (la columna emblem_id es uuid con FK a emblem — un valor tipo "reino-4" revienta en Postgres)
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!data.emblemId || !UUID_RE.test(data.emblemId)) {
+      return { ok: false as const, error: "El escudo elegido no es válido. Volvé al paso 2 y elegí un escudo de la lista." };
+    }
+    const { data: emblemRow } = await supabase
+      .from("emblem")
+      .select("id")
+      .eq("id", data.emblemId)
+      .eq("is_active", true)
+      .maybeSingle();
+    if (!emblemRow) {
+      return { ok: false as const, error: "El escudo elegido no existe o ya no está disponible. Volvé al paso 2 y elegí otro." };
+    }
+
     // 4. Re-validar ELO server-side contra AoE2 Companion (no confiar en cliente)
     const eloCap = edition.elo_cap ?? 3500;
     const eloTolerance = edition.elo_tolerance ?? 20;

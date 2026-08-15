@@ -30,6 +30,11 @@ export interface WizardData {
   tournamentEditionId: string | null;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export function isValidEmblemId(id: string | null | undefined): boolean {
+  return !!id && UUID_RE.test(id);
+}
+
 const DEFAULT_PLAYER: PlayerDraft = {
   aoe2ProfileId: null, displayName: "", isVerified: false, isCaptain: false,
 };
