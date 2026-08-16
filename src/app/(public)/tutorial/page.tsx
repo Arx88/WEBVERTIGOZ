@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Play, Sparkles } from "lucide-react";
 import { TEAM_A, TEAM_B } from "@/components/tutorial/demo-data";
 
@@ -11,9 +11,12 @@ const TutorialDirector = dynamic(
 );
 
 export default function TutorialPage() {
-  const [started, setStarted] = useState(() =>
-    typeof window !== "undefined" && window.location.hash.includes("play")
-  );
+  const [started, setStarted] = useState(false);
+
+  // Deep-link #play → arranca directo (en efecto, evita hydration mismatch)
+  useEffect(() => {
+    if (window.location.hash.includes("play")) setStarted(true);
+  }, []);
 
   if (started) {
     return <TutorialDirector onClose={() => setStarted(false)} />;
@@ -39,13 +42,13 @@ export default function TutorialPage() {
 
         <div className="tut-vs" style={{ marginTop: 8 }}>
           <div className="tut-teamcard" style={{ "--team-color": TEAM_A.color } as React.CSSProperties}>
-            <img className="emb" src={TEAM_A.emblem} alt={TEAM_A.name} />
+            <div className="emb-wrap"><img className="emb" src={TEAM_A.emblem} alt={TEAM_A.name} /></div>
             <div className="tname">{TEAM_A.name}</div>
             <div className="tseed">SEED #{TEAM_A.seed}</div>
           </div>
           <div className="tut-vs-sep">VS</div>
           <div className="tut-teamcard" style={{ "--team-color": TEAM_B.color } as React.CSSProperties}>
-            <img className="emb" src={TEAM_B.emblem} alt={TEAM_B.name} />
+            <div className="emb-wrap"><img className="emb" src={TEAM_B.emblem} alt={TEAM_B.name} /></div>
             <div className="tname">{TEAM_B.name}</div>
             <div className="tseed">SEED #{TEAM_B.seed}</div>
           </div>
@@ -62,9 +65,9 @@ export default function TutorialPage() {
           }}
         >
           Este demo reproduce una llave completa en modo automático: verás el
-          punto de vista de <b style={{ color: "#fbbf24" }}>cada equipo</b>, del{" "}
-          <b style={{ color: "#fbbf24" }}>ADMIN</b>, y del{" "}
-          <b style={{ color: "#ff6b00" }}>stream en vivo</b> (ruleta real +
+          punto de vista de <b style={{ color: "#a78bfa" }}>cada equipo</b>, del{" "}
+          <b style={{ color: "#c4b5fd" }}>ADMIN</b>, y del{" "}
+          <b style={{ color: "#fb7185" }}>stream en vivo</b> (ruleta real +
           memotest + comodines). Podés pausar, saltar escenas y acelerar.
         </p>
 
@@ -75,7 +78,7 @@ export default function TutorialPage() {
           </button>
 
           <div className="tut-chip-group" style={{ justifyContent: "center", margin: 0 }}>
-            <span className="tut-chip"><Sparkles style={{ width: 12, height: 12, display: "inline", marginRight: 6, verticalAlign: "-2px" }} />15 escenas</span>
+            <span className="tut-chip"><Sparkles style={{ width: 12, height: 12, display: "inline", marginRight: 6, verticalAlign: "-2px" }} />17 escenas</span>
             <span className="tut-chip">Ruleta y memotest REALES</span>
             <span className="tut-chip">Sin cuenta · 100% demo</span>
           </div>

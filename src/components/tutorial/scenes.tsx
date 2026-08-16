@@ -16,7 +16,7 @@ import {
 import Memotest, { type MemotestCard } from "@/components/memotest/memotest";
 import { ConfigProvider } from "@/lib/ruleta/config";
 import {
-  DEMO_FORCED, DEMO_RESULT, DEMO_REROLL_MAP_ID,
+  DEMO_FORCED, DEMO_RESULT, DEMO_REROLL_MAP_ID, LINEUP_PLAYERS,
   TEAM_A, TEAM_B, civImg, civName,
   type DemoSceneCtx, type DemoTeam,
 } from "./demo-data";
@@ -46,7 +46,7 @@ function useDemoClock(speed: number): number {
 
 function SceneLoading({ text }: { text: string }) {
   return (
-    <div className="tut-full grid place-items-center" style={{ color: "#c4b5fd", fontFamily: "var(--font-rajdhani)", fontSize: 13, letterSpacing: "0.3em" }}>
+    <div className="tut-full grid place-items-center" style={{ color: "#fff", fontFamily: "var(--font-oswald)", fontSize: 13, letterSpacing: "0.3em" }}>
       {text.toUpperCase()}
     </div>
   );
@@ -56,7 +56,10 @@ function MockWindow({ url, children }: { url: string; children: React.ReactNode 
   return (
     <div className="tut-mock">
       <div className="tut-mock-bar">
-        <span className="d r" /><span className="d y" /><span className="d g" />
+        <span className="tut-mock-brand">
+          <img src="/logo.png" alt="" />
+          VÉRTIGO
+        </span>
         <span className="url">{url}</span>
       </div>
       <div className="tut-mock-body">{children}</div>
@@ -85,7 +88,7 @@ function AutoButton({ label, doneLabel, delay, speed }: { label: React.ReactNode
 function TeamCard({ team, ready, compact }: { team: DemoTeam; ready?: boolean; compact?: boolean }) {
   return (
     <div className="tut-teamcard" style={{ "--team-color": team.color } as React.CSSProperties}>
-      <img className="emb" src={team.emblem} alt={team.name} />
+      <div className="emb-wrap"><img className="emb" src={team.emblem} alt={team.name} /></div>
       <div className="tname">{team.name}</div>
       <div className="tseed">SEED #{team.seed}</div>
       <div className="ttag">{team.tag}</div>
@@ -173,7 +176,7 @@ export function SceneT15({ ctx }: { ctx: DemoSceneCtx }) {
   return (
     <MockWindow url="vertigo-cup.vercel.app/admin/partido/08">
       <div style={{ textAlign: "center" }}>
-        <div className="tut-window-timer" style={{ color: opened ? "#4ade80" : undefined }}>
+        <div className="tut-window-timer" style={{ color: opened ? "var(--vertigo-success)" : undefined }}>
           {opened ? "ABIERTA" : `T-${String(Math.floor(remaining / 60)).padStart(2, "0")}:${String(remaining % 60).padStart(2, "0")}`}
         </div>
         <div className="tut-mock-title" style={{ textAlign: "center" }}>
@@ -283,15 +286,39 @@ export function SceneRoulette({ ctx }: { ctx: DemoSceneCtx }) {
   );
 }
 
+/** Panel lateral que deja claro QUÉ civs le tocan a QUÉ equipo */
+function TeamCivPanel({ team, civs, active }: { team: DemoTeam; civs: string[]; active: boolean }) {
+  return (
+    <div className={`tut-civ-panel ${active ? "on" : ""}`} style={{ "--team-color": team.color } as React.CSSProperties}>
+      <div className="tcp-head">
+        <img src={team.emblem} alt="" />
+        <div>
+          <div className="tcp-team">{team.name}</div>
+          <div className="tcp-sub">{active ? "SORTEANDO SUS CIVS…" : "CIVS SORTEADAS"}</div>
+        </div>
+      </div>
+      <div className="tcp-civs">
+        {civs.length === 0 ? (
+          <span className="tcp-empty">{active ? "girando el memotest…" : "esperando su turno"}</span>
+        ) : (
+          civs.map((c, i) => (
+            <span key={c} className="tut-civ-pill"><img src={civImg(c)} alt="" />CIV {i + 1} · {civName(c)}</span>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ============================================================
-// 7. MEMOTEST (componente real)
+// 7. MEMOTEST (componente real) — con paneles por equipo
 // ============================================================
 export function SceneMemotest({ ctx }: { ctx: DemoSceneCtx }) {
   const [side, setSide] = useState<"A" | "B">("A");
   const [trigger, setTrigger] = useState(false);
   const revealedA = useRef<string[]>([]);
   const revealedB = useRef<string[]>([]);
-  const [count, setCount] = useState(0);
+  const [, force] = useState(0);
   const doneRef = useRef(false);
   const advanceTimer = useRef<number | null>(null);
 
@@ -314,7 +341,7 @@ export function SceneMemotest({ ctx }: { ctx: DemoSceneCtx }) {
   const handleCivDrawn = (civ: MemotestCard) => {
     if (side === "A") revealedA.current = [...revealedA.current, civ.civId];
     else revealedB.current = [...revealedB.current, civ.civId];
-    setCount((c) => c + 1);
+    force((v) => v + 1);
 
     const teamCount = side === "A" ? revealedA.current.length : revealedB.current.length;
     if (teamCount >= 2) {
@@ -333,10 +360,11 @@ export function SceneMemotest({ ctx }: { ctx: DemoSceneCtx }) {
   return (
     <div className="tut-full">
       <div className="tut-memo-wrap tut-memo-wrap-override">
-        <div className="tut-memo-head">
-          <span className={`sidea ${side === "A" ? "on" : ""}`}>{TEAM_A.name}</span>
-          <span className="vs">VS</span>
-          <span className={`sideb ${side === "B" ? "on" : ""}`}>{TEAM_B.name}</span>
+        {/* Paneles de equipo: dejan claro qué civs son de quién */}
+        <div className="tut-memo-panels">
+          <TeamCivPanel team={TEAM_A} civs={revealedA.current} active={side === "A"} />
+          <div className="tut-memo-vs">VS</div>
+          <TeamCivPanel team={TEAM_B} civs={revealedB.current} active={side === "B"} />
         </div>
         <div className="tut-memo-scroller">
           <Memotest
@@ -362,15 +390,15 @@ export function SceneSummary({ ctx }: { ctx: DemoSceneCtx }) {
   const civsB = ctx.demo.civsB.length ? ctx.demo.civsB : TEAM_B.civPool.slice(0, 2);
   const mapIsReroll = ctx.demo.mapId === DEMO_REROLL_MAP_ID;
   const items = [
-    { label: "MODO", value: DEMO_RESULT.mode, img: "/modes/game-mode/guerras-imperiales.webp", color: "#d8a13f" },
-    { label: "FORMATO", value: DEMO_RESULT.format, img: "/modes/player-mode/2vs2.webp", color: "#22e5c2" },
+    { label: "MODO", value: DEMO_RESULT.mode, img: "/modes/game-mode/guerras-imperiales.webp", color: "#7c3aed" },
+    { label: "FORMATO", value: DEMO_RESULT.format, img: "/modes/player-mode/2vs2.webp", color: "#a78bfa" },
     {
       label: mapIsReroll ? "MAPA · RE-GIRADO" : "MAPA",
       value: mapIsReroll ? DEMO_RESULT.mapReroll : DEMO_RESULT.map,
       img: mapIsReroll ? "/modes/maps/cuatro-lagos.webp" : "/modes/maps/crater.webp",
-      color: mapIsReroll ? "#22e5c2" : "#ff6b00",
+      color: mapIsReroll ? "#fb7185" : "#7c3aed",
     },
-    { label: "LLAVE", value: DEMO_RESULT.llave, img: "/modes/llave/bo3.webp", color: "#22e5c2" },
+    { label: "LLAVE", value: DEMO_RESULT.llave, img: "/modes/llave/bo3.webp", color: "#D4AF37" },
   ];
   return (
     <div style={{ width: "min(880px, 94%)" }}>
@@ -407,143 +435,227 @@ export function SceneSummary({ ctx }: { ctx: DemoSceneCtx }) {
 }
 
 // ============================================================
-// 9-10. Lineup
+// 9-10. Lineup — quiénes juegan + QUÉ CIV USA CADA UNO
 // ============================================================
 export function SceneLineup({ ctx, team }: { ctx: DemoSceneCtx; team: DemoTeam }) {
   const ms = useDemoClock(ctx.speed);
-  const picked = ms > 1800;
-  const confirmed = ms > 3800;
-  const picks = team.players.filter((p) => !p.isCaptain); // 2 vs 2: juegan 2 (en la demo entran el rusher y el capitán)
-  const lineupPicks = team.id === "A" ? [team.players[0], team.players[1]] : picks;
+  const picked = ms > 1600;
+  const civsPhase = ms > 3000;
+  const confirmed = ms > 5200;
+
+  const lineupNames = LINEUP_PLAYERS[team.id];
+  const drawnCivs = team.id === "A"
+    ? (ctx.demo.civsA.length ? ctx.demo.civsA : TEAM_A.civPool.slice(0, 2))
+    : (ctx.demo.civsB.length ? ctx.demo.civsB : TEAM_B.civPool.slice(0, 2));
+  const roster = team.players.map((p) => {
+    const slot = lineupNames.indexOf(p.name);
+    return { ...p, plays: slot >= 0, civ: picks(slot, drawnCivs, civsPhase) };
+  });
+
   return (
     <MockWindow url="vertigo-cup.vercel.app/mis-partidos">
       <div className="tut-mock-title">Declarar lineup de {team.name}</div>
-      <div className="tut-mock-sub">El formato salió 2 VS 2 → declará quiénes entran al mapa.</div>
-      <div className="tut-chip-group" style={{ marginBottom: 18 }}>
-        {team.players.map((p) => {
-          const plays = lineupPicks.some((x) => x.name === p.name);
-          const active = picked && plays;
-          return (
-            <span
-              key={p.name}
-              className={`tut-chip ${active ? "live" : ""}`}
-              style={picked && !plays ? { opacity: 0.4, textDecoration: "line-through" } : undefined}
-            >
-              {p.name} {active ? "· JUEGA" : ""}
-            </span>
-          );
-        })}
+      <div className="tut-mock-sub">
+        Formato 2 VS 2 → el capitán elige QUIÉNES juegan y ASIGNA una de las civs sorteadas a cada uno.
       </div>
-      <AutoButton
-        speed={ctx.speed}
-        delay={confirmed ? 0 : 3800}
-        label={<><Users style={{ width: 16, height: 16, display: "inline", marginRight: 8, verticalAlign: "-3px" }} />CONFIRMAR READY #2</>}
-        doneLabel="READY #2 ✓"
-      />
+      <div className="tut-roster">
+        {roster.map((p) => (
+          <div key={p.name} className={`tut-roster-row ${p.plays && picked ? "plays" : ""} ${!p.plays && picked ? "benched" : ""}`}>
+            <div className="rr-left">
+              <span className="rr-name">{p.name}</span>
+              <span className="rr-role">{p.isCaptain ? "CAPITÁN" : p.tag.toUpperCase()}</span>
+            </div>
+            <div className="rr-right">
+              {p.plays ? (
+                picked ? (
+                  p.civ ? (
+                    <span className="tut-civ-pill big"><img src={civImg(p.civ)} alt="" />{civName(p.civ)}</span>
+                  ) : (
+                    <span className="rr-state pick">ELIGIENDO CIV…</span>
+                  )
+                ) : (
+                  <span className="rr-state">ELEGIRÁ EL CAPITÁN</span>
+                )
+              ) : (
+                picked && <span className="rr-state off">AL BANCO</span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 20 }}>
+        <AutoButton
+          speed={ctx.speed}
+          delay={confirmed ? 0 : 5200}
+          label={<><Users style={{ width: 16, height: 16, display: "inline", marginRight: 8, verticalAlign: "-3px" }} />CONFIRMAR LINEUP · READY #2</>}
+          doneLabel="READY #2 ✓"
+        />
+      </div>
     </MockWindow>
   );
 }
 
+function picks(slot: number, civs: string[], civsPhase: boolean): string | null {
+  if (!civsPhase || slot < 0) return null;
+  return civs[slot] ?? null;
+}
+
 // ============================================================
-// 11. Ventana de comodines
+// 11. Ventana de comodines — inventario POR EQUIPO + invocación épica
 // ============================================================
-export function SceneComodin({ ctx }: { ctx: DemoSceneCtx }) {
-  const ms = useDemoClock(ctx.speed);
-  const secondsLeft = Math.max(0, 300 - Math.floor(ms / 1000));
-  const usedReroll = ms > 5200;
-  const mm = String(Math.floor(secondsLeft / 60)).padStart(2, "0");
-  const ss = String(secondsLeft % 60).padStart(2, "0");
-  const items = [
-    { img: "/comodin-regirar.png", label: "RE-GIRAR", times: "×2", disabled: false, used: usedReroll },
-    { img: "/comodin-anular.png", label: "ANULAR", times: "×1", disabled: usedReroll, used: false },
-    { img: "/comodin-elegir.png", label: "ELEGIR RIVAL", times: "×1", disabled: usedReroll, used: false },
-    { img: "/comodin-invocar.png", label: "INVOCAR PRO", times: "×1", disabled: true, used: false },
-  ];
+const COMODINES_INVENTORY = [
+  { img: "/comodin-regirar.png", label: "RE-GIRAR", times: "×2 POR TORNEO", note: "re-gira 1 fase o las civs" },
+  { img: "/comodin-anular.png", label: "ANULAR", times: "×1 POR TORNEO", note: "solo 1v1 / 2v2" },
+  { img: "/comodin-elegir.png", label: "ELEGIR RIVAL", times: "×1 POR TORNEO", note: "solo 1v1 / 2v2 · excluye ANULAR" },
+  { img: "/comodin-invocar.png", label: "INVOCAR PRO", times: "×1 POR TORNEO", note: "durante la partida" },
+];
+
+function ComodinInventory({ team, usingLabel }: { team: DemoTeam; usingLabel?: string }) {
   return (
-    <div style={{ textAlign: "center", width: "min(760px, 94%)" }}>
-      <div className="tut-window-timer"><Timer style={{ width: 26, height: 26, display: "inline", marginRight: 10, verticalAlign: -4 }} />{usedReroll ? "PAUSA" : `${mm}:${ss}`}</div>
-      <div className="tut-mock-sub" style={{ textAlign: "center" }}>
-        {usedReroll
-          ? "ORDEN DEL CUERVO usa RE-GIRAR (MAPA). El timer se pausa mientras el ADMIN ejecuta el giro."
-          : "Ventana de 5 minutos. El primero en llegar se ejecuta primero."}
+    <div className="tut-inv" style={{ "--team-color": team.color } as React.CSSProperties}>
+      <div className="tinv-head">
+        <img src={team.emblem} alt="" />
+        <div className="tinv-name">{team.name}</div>
       </div>
-      <div className="tut-comodines">
-        {items.map((it) => (
-          <div key={it.label} className={`tut-comod ${it.used ? "used" : ""} ${it.disabled ? "disabled" : ""}`}>
-            {it.used && <span className="badge">✓</span>}
-            <img src={it.img} alt={it.label} />
-            <div className="cl">{it.label}</div>
-            <div className="cn">{it.times}{it.label === "INVOCAR PRO" ? " · durante la partida" : ""}</div>
-          </div>
-        ))}
+      <div className="tinv-list">
+        {COMODINES_INVENTORY.map((c) => {
+          const isActive = usingLabel === c.label;
+          return (
+            <div key={c.label} className={`tinv-item ${isActive ? "active" : ""}`}>
+              <img src={c.img} alt={c.label} />
+              <div className="tinv-txt">
+                <span className="tinv-label">{c.label} <em>{c.times}</em></span>
+                <span className="tinv-note">{c.note}</span>
+              </div>
+              {isActive && <span className="tinv-use">EN USO</span>}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-// ============================================================
-// 12. RE-GIRAR — el ADMIN re-gira SOLO el mapa
-// ============================================================
-export function SceneReroll({ ctx }: { ctx: DemoSceneCtx }) {
-  const ms = useDemoClock(ctx.speed);
-  const spinStart = 1200;
-  const spinDur = 3600;
-  const progress = Math.min(1, Math.max(0, (ms - spinStart) / spinDur));
-  const eased = 1 - Math.pow(1 - progress, 4);
-  const landed = progress >= 1;
-
-  useEffect(() => {
-    if (!landed) return;
-    ctx.setDemo((p) => ({ ...p, mapId: DEMO_REROLL_MAP_ID }));
-    const t = window.setTimeout(ctx.onDone, 1600);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [landed]);
+/**
+ * Secuencia CINEMATOGRÁFICA con beats:
+ *  0.5s luz converge → 0.8s la carta entra → 1.5s impacto (shockwave + flash)
+ *  → 2.25s el nombre "slam" → 2.75s estandarte del reino.
+ * La carta ya no gira 360° plana: entra, flota con vaivén holográfico
+ * y un barrido de luz especular (shine) como carta premium de verdad.
+ */
+function ComodinEpic({ img, name, team }: { img: string; name: string; team: DemoTeam }) {
+  const particles = useMemo(() => Array.from({ length: 36 }, (_, i) => ({
+    angle: (i / 36) * 360,
+    r: 150 + ((i * 53) % 110),
+    dur: 2.4 + ((i * 0.17) % 2.6),
+    delay: (i * 0.11) % 1.6,
+    size: 2 + ((i * 7) % 5),
+    color: ["#D4AF37", "#7c3aed", "#a78bfa", "#c4b5fd"][i % 4],
+  })), []);
 
   return (
-    <div style={{ textAlign: "center" }}>
-      <div className="tut-mock-title" style={{ textAlign: "center", marginBottom: 2 }}>RE-GIRAR · FASE MAPA</div>
-      <div className="tut-mock-sub" style={{ textAlign: "center" }}>
-        El ADMIN confirmá el giro. Gira solo la fase MAPA — el resto del sorteo no se toca.
-      </div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 22, marginTop: 24 }}>
-        <div className="tut-map-card old" style={{ opacity: progress > 0.1 ? 0.45 : 1, transform: `scale(${1 - eased * 0.12})` }}>
-          <div className="imgw"><img src="/modes/maps/crater.webp" alt="CRÁTER" /></div>
-          <div>CRÁTER</div>
+    <div className="tut-epic">
+      <div className="tut-epic-flash" />
+      <div className="tut-epic-rays" />
+      <div className="tut-epic-glow" />
+      <div className="tut-epic-center">
+        <div className="tut-epic-beam" />
+        {/* partículas en órbita (aparecen con la luz) */}
+        <div className="tut-epic-orbit">
+          {particles.map((p, i) => (
+            <i
+              key={i}
+              className="tut-particle"
+              style={{
+                "--p-angle": `${p.angle}deg`,
+                "--p-r": `${p.r}px`,
+                "--p-dur": `${p.dur}s`,
+                "--p-delay": `-${p.delay}s`,
+                width: p.size, height: p.size,
+                background: p.color,
+                boxShadow: `0 0 8px ${p.color}`,
+              } as React.CSSProperties}
+            />
+          ))}
         </div>
-        <div
-          style={{
-            width: 118, height: 118, borderRadius: "50%",
-            border: "3px solid rgba(212,175,55,0.55)",
-            borderTopColor: "#d4af37",
-            display: "grid", placeItems: "center",
-            transform: `rotate(${eased * 1080}deg)`,
-            boxShadow: landed ? "0 0 34px rgba(34,229,194,0.5)" : "0 0 22px rgba(212,175,55,0.25)",
-            transition: "box-shadow 0.4s",
-            background: "radial-gradient(circle at 50% 32%, rgba(124,58,237,0.25), rgba(5,2,16,0.9))",
-          }}
-        >
-          <Dices style={{ width: 40, height: 40, color: landed ? "#22e5c2" : "#d4af37" }} />
-        </div>
-        <div
-          className="tut-map-card"
-          style={{
-            opacity: landed ? 1 : 0.15,
-            transform: landed ? "scale(1.08)" : "scale(0.9)",
-            transition: "all 0.5s ease",
-            filter: landed ? "none" : "blur(1px)",
-          }}
-        >
-          <div className="imgw" style={{ width: 150, height: 84, borderRadius: 8, overflow: "hidden", border: landed ? "2px solid rgba(34,229,194,0.8)" : "2px solid var(--tut-line)", boxShadow: landed ? "0 0 26px rgba(34,229,194,0.35)" : "none", transition: "all 0.4s" }}>
-            <img src="/modes/maps/cuatro-lagos.webp" alt="CUATRO LAGOS" />
+        {/* shockwaves de impacto */}
+        <div className="tut-epic-shock"><i /><i /><i /></div>
+        {/* comodín: la IMAGEN es la carta (no hay caja). wrapper = entrada,
+            3d = vaivén infinito */}
+        <div className="tut-epic-aura" />
+        <div className="tut-epic-enter">
+          <div className="tut-epic-3d">
+            <img className="tut-epic-art" src={img} alt={name} />
           </div>
-          <div style={{ color: landed ? "#8ff5e6" : undefined }}>CUATRO LAGOS</div>
         </div>
+        <div className="tut-epic-pedestal" />
+        <div className="tut-epic-name">{name}</div>
+        <div className="tut-epic-divider"><i /></div>
+        <div className="tut-epic-team">
+          <img src={team.emblem} alt="" />
+          {team.name}
+        </div>
+        <div className="tut-epic-sub">COMODÍN ACTIVADO · EL ADMIN EJECUTA EL GIRO</div>
       </div>
-      <div className="tut-chip-group" style={{ justifyContent: "center", marginTop: 26 }}>
-        <span className={`tut-chip ${landed ? "live" : "gold"}`}>
-          {landed ? "● MAPA DEFINITIVO: CUATRO LAGOS" : "GIRANDO FASE MAPA…"}
-        </span>
+    </div>
+  );
+}
+
+export function SceneComodin({ ctx }: { ctx: DemoSceneCtx }) {
+  const ms = useDemoClock(ctx.speed);
+  const secondsLeft = Math.max(0, 300 - Math.floor(ms / 1000));
+  const mm = String(Math.floor(secondsLeft / 60)).padStart(2, "0");
+  const ss = String(secondsLeft % 60).padStart(2, "0");
+  const epicStart = 4600;
+  const inEpic = ms > epicStart && ms < epicStart + 6400;
+
+  return (
+    <div className="tut-comodin-root">
+      <div className="tut-window-timer">
+        <Timer style={{ width: 26, height: 26, display: "inline", marginRight: 10, verticalAlign: -4 }} />
+        {inEpic ? "PAUSA" : `${mm}:${ss}`}
+      </div>
+      <div className="tut-mock-sub" style={{ textAlign: "center", margin: "2px 0 16px" }}>
+        {inEpic
+          ? "El timer se PAUSA mientras un comodín está en ejecución."
+          : "Ventana de 5 minutos. Cada equipo tiene su propio inventario de comodines."}
+      </div>
+      <div className="tut-inventories">
+        <ComodinInventory team={TEAM_A} />
+        <div className="tut-inv-sep">VS</div>
+        <ComodinInventory team={TEAM_B} usingLabel={inEpic ? "RE-GIRAR" : undefined} />
+      </div>
+      {inEpic && <ComodinEpic img="/comodin-regirar.png" name="RE-GIRAR" team={TEAM_B} />}
+    </div>
+  );
+}
+
+// ============================================================
+// 12. RE-GIRAR — la RULETA REAL gira SOLO la fase MAPA
+// ============================================================
+export function SceneReroll({ ctx }: { ctx: DemoSceneCtx }) {
+  const doneRef = useRef(false);
+  return (
+    <div className="tut-full">
+      <ConfigProvider>
+        <Roulette
+          key="reroll-map-only"
+          forced={{ ...DEMO_FORCED, mapId: DEMO_REROLL_MAP_ID }}
+          autoStart
+          startPhase="spinning-map-mode"
+          configOverride={{ firstRound: false }}
+          interactive={false}
+          onResult={(_resolved, resolvedMap) => {
+            if (doneRef.current) return;
+            doneRef.current = true;
+            ctx.setDemo((p) => ({ ...p, mapId: resolvedMap?.map.id ?? DEMO_REROLL_MAP_ID }));
+            window.setTimeout(ctx.onDone, 600);
+          }}
+        />
+      </ConfigProvider>
+      <div className="tut-reroll-banner">
+        <img src="/comodin-regirar.png" alt="" />
+        <span>COMODÍN RE-GIRAR · ORDEN DEL CUERVO · GIRA SOLO LA FASE MAPA</span>
       </div>
     </div>
   );
@@ -566,7 +678,28 @@ export function ScenePartida({ ctx }: { ctx: DemoSceneCtx }) {
         <span className="v">0 — 0</span>
         <span className="n">{TEAM_B.name}</span>
       </div>
-      <div className="tut-chip-group" style={{ justifyContent: "center" }}>
+      {/* CIVS ASIGNADAS POR JUGADOR — esto es lo que se juega */}
+      <div className="tut-lineup-final">
+        {(["A", "B"] as const).map((id) => {
+          const t = id === "A" ? TEAM_A : TEAM_B;
+          const civs = id === "A"
+            ? (ctx.demo.civsA.length ? ctx.demo.civsA : TEAM_A.civPool.slice(0, 2))
+            : (ctx.demo.civsB.length ? ctx.demo.civsB : TEAM_B.civPool.slice(0, 2));
+          const players = LINEUP_PLAYERS[id];
+          return (
+            <div key={id} className="tlf-team" style={{ "--team-color": t.color } as React.CSSProperties}>
+              <div className="tlf-team-name"><img src={t.emblem} alt="" />{t.name}</div>
+              {players.map((pname, i) => (
+                <div key={pname} className="tlf-row">
+                  <span className="tlf-player">{pname}</span>
+                  {civs[i] && <span className="tut-civ-pill"><img src={civImg(civs[i])} alt="" />{civName(civs[i])}</span>}
+                </div>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+      <div className="tut-chip-group" style={{ justifyContent: "center", marginTop: 14 }}>
         <span className="tut-chip live">● EN JUEGO</span>
         <span className="tut-chip">{DEMO_RESULT.mode}</span>
         <span className="tut-chip">{ctx.demo.mapId === DEMO_REROLL_MAP_ID ? DEMO_RESULT.mapReroll : DEMO_RESULT.map}</span>
@@ -618,7 +751,7 @@ export function SceneResultado({ ctx }: { ctx: DemoSceneCtx }) {
 // ============================================================
 // 15. FINAL
 // ============================================================
-const CONFETTI_COLORS = ["#ff2e7e", "#22e5c2", "#d8a13f", "#b06bff", "#ff6b00"];
+const CONFETTI_COLORS = ["#D4AF37", "#7c3aed", "#a78bfa", "#c4b5fd", "#5b21b6"];
 
 export function SceneFinal({ ctx }: { ctx: DemoSceneCtx }) {
   const ms = useDemoClock(ctx.speed);

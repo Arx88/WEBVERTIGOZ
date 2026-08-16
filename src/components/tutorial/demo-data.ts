@@ -29,8 +29,8 @@ export const TEAM_A: DemoTeam = {
   id: "A",
   name: "REINO DEL ALBA",
   seed: 3,
-  color: "#ff2e7e",
-  emblem: "/emblems/leon.svg",
+  color: "#D4AF37",
+  emblem: "/emblems/emblema-1.webp",
   tag: "Los favoritos",
   players: [
     { name: "ValastroX", tag: "Capitán", isCaptain: true },
@@ -44,8 +44,8 @@ export const TEAM_B: DemoTeam = {
   id: "B",
   name: "ORDEN DEL CUERVO",
   seed: 14,
-  color: "#22e5c2",
-  emblem: "/emblems/cuervo.svg",
+  color: "#8B2CF5",
+  emblem: "/emblems/emblema-2.webp",
   tag: "Los underdogs",
   players: [
     { name: "Morgath", tag: "Capitán", isCaptain: true },
@@ -53,6 +53,19 @@ export const TEAM_B: DemoTeam = {
     { name: "RuizGamer", tag: "Sniper" },
   ],
   civPool: ["byzantines", "persians", "saracens", "turks", "vikings", "mongols", "huns", "koreans"],
+};
+
+/**
+ * Quiénes juegan en 2v2 (el capitán + 1). El resto queda en el banco.
+ * Cada uno recibe una de las civs sorteadas (asignación del capitán).
+ *
+ * NOTA: los colores de los reinos (#D4AF37 / #8B2CF5) son los acentos de
+ * identidad de cada equipo (emblemas emblema-1 / emblema-2), no acentos de
+ * UI. Todo lo demás usa la paleta púrpura del sitio.
+ */
+export const LINEUP_PLAYERS: Record<"A" | "B", string[]> = {
+  A: ["ValastroX", "Kaelith"],
+  B: ["Morgath", "Sylvana"],
 };
 
 /**
@@ -104,11 +117,11 @@ export type ScenePov =
 
 export const POV_COLOR: Record<ScenePov, string> = {
   INTRO: "#c4b5fd",
-  ADMIN: "#fbbf24",
-  "EQUIPO A": "#ff2e7e",
-  "EQUIPO B": "#22e5c2",
-  "EN VIVO": "#ff6b00",
-  PARTIDA: "#ff2e7e",
+  ADMIN: "#a78bfa",
+  "EQUIPO A": "#D4AF37", // identidad del emblema-1 (REINO DEL ALBA)
+  "EQUIPO B": "#8B2CF5", // identidad del emblema-2 (ORDEN DEL CUERVO)
+  "EN VIVO": "#fb7185", // danger del design system
+  PARTIDA: "#fb7185",
 };
 
 export interface SceneMeta {
@@ -189,10 +202,10 @@ export const SCENES: SceneMeta[] = [
   {
     id: "memotest",
     pov: "EN VIVO",
-    kicker: "STREAM · SORTEO DE CIVS",
+    kicker: "STREAM · SORTEO DE CIVS POR EQUIPO",
     title: "7. MEMOTEST DE CIVILIZACIONES",
-    desc: "El formato es 2 VS 2: el memotest sortea 2 civs por equipo, sin repetir. Primero el equipo A, después el equipo B.",
-    ms: 30000,
+    desc: "Formato 2 VS 2: cada equipo sortea SUS 2 civilizaciones. Primero REINO DEL ALBA, después ORDEN DEL CUERVO. Las civs de cada reino quedan claramente separadas.",
+    ms: 45000,
     kind: "event",
   },
   {
@@ -208,9 +221,9 @@ export const SCENES: SceneMeta[] = [
     id: "lineup-a",
     pov: "EQUIPO A",
     kicker: "PUNTO DE VISTA · CAPITÁN EQUIPO A",
-    title: "9. DECLARAR LINEUP",
-    desc: "No es 3v3 ni FUSIÓN: cada capitán declara QUIÉN JUÉGA esta partida. ValastroX elige a sus 2 jugadores.",
-    ms: 7500,
+    title: "9. LINEUP + ASIGNACIÓN DE CIVS",
+    desc: "No es 3v3 ni FUSIÓN: el capitán declara QUIÉN JUÉGA y ASIGNA una civilización sorteada a cada jugador que entra al mapa.",
+    ms: 8000,
     kind: "timed",
   },
   {
@@ -218,42 +231,51 @@ export const SCENES: SceneMeta[] = [
     pov: "EQUIPO B",
     kicker: "PUNTO DE VISTA · CAPITÁN EQUIPO B",
     title: "10. LINEUP DEL RIVAL",
-    desc: "Morgath hace lo mismo para la ORDEN DEL CUERVO. Los dos confirman con [LISTO] (READY #2).",
-    ms: 7500,
+    desc: "Morgath hace lo mismo para la ORDEN DEL CUERVO: jugadores + civs asignadas. Ambos confirman con READY #2.",
+    ms: 8000,
     kind: "timed",
   },
   {
     id: "comodin",
     pov: "EQUIPO B",
-    kicker: "VENTANA DE COMODINES · 5 MIN",
+    kicker: "VENTANA DE COMODINES · 5 MIN · INVENTARIO POR EQUIPO",
     title: "11. LA VENTANA DE COMODINES",
-    desc: "Ambos LISTO → se abre una ventana de 5 minutos. Re-girar ×2, Anular ×1, Elegir rival ×1 (mutuamente excluyentes). La ORDEN juega su carta…",
-    ms: 9000,
+    desc: "Cada equipo tiene SU inventario: Re-girar ×2, Anular ×1, Elegir rival ×1 (Anular y Elegir rival son excluyentes) e Invocar PRO. La ORDEN DEL CUERVO activa RE-GIRAR…",
+    ms: 12500,
     kind: "timed",
   },
   {
     id: "reroll",
     pov: "EN VIVO",
-    kicker: "STREAM · RE-GIRAR MAPA",
-    title: "12. RE-GIRAR: NUEVO MAPA",
-    desc: "El comodín se ejecuta y el ADMIN confirma el giro. CRÁTER deja su lugar en vivo…",
-    ms: 8500,
+    kicker: "STREAM · RE-GIRAR FASE MAPA · RULETA REAL",
+    title: "12. LA RULETA GIRA SOLO EL MAPA",
+    desc: "El ADMIN confirma el comodín y la ruleta REAL gira únicamente la fase MAPA. Todo lo demás del sorteo queda intacto.",
+    ms: 30000,
     kind: "event",
+  },
+  {
+    id: "reroll-summary",
+    pov: "EN VIVO",
+    kicker: "POST-COMODÍN · RESUMEN ACTUALIZADO",
+    title: "13. ASÍ QUEDÓ EL SORTEO",
+    desc: "El RE-GIRAR cambió SOLO el mapa: el MODO, el FORMATO y la LLAVE quedan intactos. Este resumen actualizado viaja de nuevo a la página del partido.",
+    ms: 8000,
+    kind: "timed",
   },
   {
     id: "partida",
     pov: "PARTIDA",
     kicker: "AOE2 · EN JUEGO",
-    title: "13. LA PARTIDA",
-    desc: "El árbitro arranca la partida. INVOCAR PRO se puede escribir con “CARTA PRO” en el chat del sitio durante todo el juego.",
-    ms: 8000,
+    title: "14. LA PARTIDA",
+    desc: "El árbitro arranca la partida con las civs ya asignadas. INVOCAR PRO se puede escribir con “CARTA PRO” en el chat del sitio durante todo el juego.",
+    ms: 9500,
     kind: "timed",
   },
   {
     id: "admin-resultado",
     pov: "ADMIN",
     kicker: "PUNTO DE VISTA · ADMIN",
-    title: "14. SE CARGA EL RESULTADO",
+    title: "15. SE CARGA EL RESULTADO",
     desc: "Terminó la serie: el ADMIN registra el 2-0. La llave queda FINISHED y el ganador avanza en el bracket.",
     ms: 7000,
     kind: "timed",
@@ -262,7 +284,7 @@ export const SCENES: SceneMeta[] = [
     id: "final",
     pov: "INTRO",
     kicker: "FIN DE LA LLAVE",
-    title: "15. REINO DEL ALBA AVANZA",
+    title: "16. REINO DEL ALBA AVANZA",
     desc: "Score, civs, comodines usados y bracket actualizado — todo publicado en tiempo real. Fin de la demo.",
     ms: 10000,
     kind: "event",

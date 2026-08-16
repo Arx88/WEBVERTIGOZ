@@ -15,9 +15,10 @@ import {
 } from "@/server/actions/match-day";
 import {
   ChevronLeft, Clock, Shield, Trophy, Shuffle, Layers,
-  Users, Sparkles, AlertTriangle, Play, CheckCircle2, Dices, ArrowRight, Swords,
+  Users, Sparkles, AlertTriangle, Play, CheckCircle2, Dices, ArrowRight, Swords, X,
 } from "lucide-react";
 import ForfeitForm from "./forfeit-form";
+import { civName } from "@/lib/constants/civs";
 
 export const dynamic = "force-dynamic";
 
@@ -64,15 +65,15 @@ export default async function AdminPartidoPage({
       ready_a_at, ready_b_at, ready_lineup_a_at, ready_lineup_b_at,
       winner_team_id, finished_at, anular_used_by_team_id, elegir_rival_used_by_team_id,
       round:round_id (id, index, name, bracket:bracket_id (tournament_edition_id)),
-      team_a:team_a_id (id, team_account:team_account_id (name, tagline),
+      team_a:team_a_id (id, seed, team_account:team_account_id (name, tagline, emblem_id, emblem:emblem_id (image_url)),
         players:player_registration (id, display_name, is_captain, max_rating_rm_1v1)),
-      team_b:team_b_id (id, team_account:team_account_id (name, tagline),
+      team_b:team_b_id (id, seed, team_account:team_account_id (name, tagline, emblem_id, emblem:emblem_id (image_url)),
         players:player_registration (id, display_name, is_captain, max_rating_rm_1v1)),
       games:match_game (id, game_number, status, game_mode, antimeta_mode, player_mode, map,
-        lineup_a, lineup_b, civs_a, civs_b, winner_team_id, started_at, finished_at,
+        lineup_a, lineup_b, civs_a, civs_b, civ_assignment_a, civ_assignment_b, winner_team_id, started_at, finished_at,
         draw:draw_id (commit_hash, revealed_seed, status)
       ),
-      comodin_usages:comodin_usage (id, comodin_type, status, target_phase, notes, requested_at, executed_at)
+      comodin_usages:comodin_usage (id, comodin_type, status, target_phase, target_player_id, target_player:target_player_id (display_name), notes, requested_at, executed_at)
     `)
     .eq("id", id)
     .single()) as { data: any };
@@ -88,6 +89,17 @@ export default async function AdminPartidoPage({
   const comodinUsages = match.comodin_usages ?? [];
   const isFinished = match.status === "finished";
   const isScheduled = match.status === "scheduled";
+
+  // Próxima partida a sortear (el admin la dispara desde acá).
+  //  - P1 cuando no hay sorteo todavía (scheduled/open/drawing de la P1).
+  //  - P2/P3 cuando el BO3 quedó 1-1 y la siguiente partida sigue "pending".
+  const nextDrawingGame = games.find((g: any) => g.status === "pending" && g.game_number > 1) ?? null;
+  const firstGame = games.find((g: any) => g.game_number === 1) ?? null;
+  const canStartFirstDraw =
+    (isScheduled || match.status === "open") &&
+    !!match.ready_a_at && !!match.ready_b_at &&
+    (!firstGame || firstGame.status === "pending");
+  const canStartNextGameDraw = match.status === "in_progress" && !!nextDrawingGame;
 
   return (
     <div className="vertigo-fade-in">
@@ -152,8 +164,8 @@ export default async function AdminPartidoPage({
         <div className="vertigo-subtitle">Centro de operaciones</div>
         <div className="vertigo-card premium">
           <div className="vertigo-action-bar" style={{ alignItems: "stretch" }}>
-            {/* INICIAR SORTEO — habilitado solo cuando ambos están ready */}
-            {isScheduled && (
+            {/* INICIAR SORTEO P1 — habilitado cuando ambos están ready (scheduled u open) */}
+            {(isScheduled || match.status === "open") && (
               <div className="flex flex-col gap-2">
                 <form action={startDrawFormAction}>
                   <input type="hidden" name="match_id" value={match.id} />
@@ -161,7 +173,7 @@ export default async function AdminPartidoPage({
                   <button
                     type="submit"
                     className="vertigo-btn vertigo-btn-primary"
-                    disabled={!match.ready_a_at || !match.ready_b_at}
+                    disabled={!canStartFirstDraw}
                     title={!match.ready_a_at || !match.ready_b_at ? "Ambos equipos deben confirmar READY primero" : "Decidir resultado en server y reproducir la ruleta en vivo"}
                   >
                     <Dices style={{ width: 14, height: 14 }} />
@@ -176,8 +188,22 @@ export default async function AdminPartidoPage({
               </div>
             )}
 
-            {/* CONTINUAR A SIGUIENTE PARTIDA si BO3 sale 1-1 */}
-            {/* (se activa cuando la anterior terminó 1-1 — el detalle está en abajo) */}
+            {/* SORTEAR PARTIDA 2/3 — BO3 salió 1-1 y la siguiente partida espera */}
+            {canStartNextGameDraw && nextDrawingGame && (
+              <div className="flex flex-col gap-2">
+                <form action={startDrawFormAction}>
+                  <input type="hidden" name="match_id" value={match.id} />
+                  <input type="hidden" name="game_number" value={String(nextDrawingGame.game_number)} />
+                  <button type="submit" className="vertigo-btn vertigo-btn-primary">
+                    <Dices style={{ width: 14, height: 14 }} />
+                    Sortear partida {nextDrawingGame.game_number} (decisiva)
+                  </button>
+                </form>
+                <p className="text-[11px] text-[var(--vertigo-faint)] max-w-xs leading-snug">
+                  Serie 1-1: la ruleta gira de nuevo (sin fase LLAVE) para la partida decisiva.
+                </p>
+              </div>
+            )}
 
             {!isFinished && !isScheduled && match.status !== "disputed" && (
               <Link href="/admin/disputas" className="vertigo-btn vertigo-btn-danger">
@@ -197,6 +223,13 @@ export default async function AdminPartidoPage({
               <p className="text-sm text-[var(--vertigo-muted)]">
                 ◆ Sorteo en curso. La ruleta está reproduciéndose en la página pública del partido, en el overlay OBS
                 y en las pantallas de ambos capitanes (sincronizado por Realtime).
+              </p>
+            </div>
+          )}
+          {match.status === "open" && (
+            <div className="mt-4 pt-4 border-t border-[var(--vertigo-line-soft)]">
+              <p className="text-sm text-[var(--vertigo-success)]">
+                ✓ Ambos equipos confirmaron READY. La llave está HABILITADA para el sorteo.
               </p>
             </div>
           )}
@@ -298,7 +331,10 @@ export default async function AdminPartidoPage({
         <section className="mb-8">
           <div className="vertigo-subtitle">Lineups</div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {[{ label: "Equipo A", team: teamA, games }, { label: "Equipo B", team: teamB, games }].map(({ label, team, games }) => (
+            {[
+              { label: "Equipo A", team: teamA, games, lineups: (g: any) => g.lineup_a, assignment: (g: any) => g.civ_assignment_a },
+              { label: "Equipo B", team: teamB, games, lineups: (g: any) => g.lineup_b, assignment: (g: any) => g.civ_assignment_b },
+            ].map(({ label, team, games, lineups, assignment }) => (
               <div key={label} className="vertigo-card">
                 <div className="vertigo-card-header">
                   <div className="font-cinzel text-base text-[var(--vertigo-text)]">
@@ -306,21 +342,34 @@ export default async function AdminPartidoPage({
                   </div>
                   <Users style={{ width: 16, height: 16, color: "var(--vertigo-purple-soft)" }} />
                 </div>
-                {games.map((g: any, idx: number) => {
-                  const lineup = idx === 0 ? g.lineup_a : g.lineup_b;
+                {games.map((g: any) => {
+                  const lineup = lineups(g);
+                  const civAssign = (assignment(g) ?? {}) as Record<string, string>;
                   return (
                     <div key={g.id} className="mb-3 last:mb-0">
                       <div className="text-[10px] uppercase tracking-wider text-[var(--vertigo-faint)] mb-1">
                         Partida {g.game_number}
                       </div>
                       {Array.isArray(lineup) && lineup.length > 0 ? (
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-col gap-1">
                           {lineup.map((pid: string, i: number) => {
                             const player = team?.players?.find((p: any) => p.id === pid);
+                            const civ = civAssign[pid];
                             return (
-                              <span key={i} className="vertigo-badge vertigo-badge-purple">
-                                {player?.display_name ?? pid.slice(0, 8)}
-                              </span>
+                              <div key={i} className="flex items-center gap-2 flex-wrap">
+                                <span className="vertigo-badge vertigo-badge-purple">
+                                  {player?.display_name ?? pid.slice(0, 8)}
+                                </span>
+                                {civ ? (
+                                  <span className="vertigo-badge vertigo-badge-success" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img src={`/civs/${civ}.webp`} alt="" style={{ width: 14, height: 14, objectFit: "contain" }} />
+                                    {civName(civ)}
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] text-[var(--vertigo-faint)]">civ sin asignar</span>
+                                )}
+                              </div>
                             );
                           })}
                         </div>
@@ -358,11 +407,16 @@ export default async function AdminPartidoPage({
                       {COMODIN_LABEL[c.comodin_type] ?? c.comodin_type}
                     </span>
                   </div>
-                  <span className="vertigo-badge vertigo-badge-purple">{c.status}</span>
+                  <span className={`vertigo-badge ${c.status === "executed" ? "vertigo-badge-success" : c.status === "pending" ? "vertigo-badge-warning" : "vertigo-badge-purple"}`}>{c.status}</span>
                 </div>
                 {c.target_phase && (
                   <div className="text-xs text-[var(--vertigo-muted)] mb-2">
                     Fase objetivo: <span className="text-[var(--vertigo-purple-pale)]">{c.target_phase}</span>
+                  </div>
+                )}
+                {c.target_player?.display_name && (
+                  <div className="text-xs text-[var(--vertigo-muted)] mb-2">
+                    Jugador objetivo: <span className="text-[var(--vertigo-purple-pale)]">{c.target_player.display_name}</span>
                   </div>
                 )}
                 {c.notes && (
@@ -372,6 +426,25 @@ export default async function AdminPartidoPage({
                   Pedido: {new Date(c.requested_at).toLocaleString("es-AR")}
                   {c.executed_at && ` · Ejecutado: ${new Date(c.executed_at).toLocaleString("es-AR")}`}
                 </div>
+                {/* El admin ejecuta/revoca los pedidos pendientes (control de stream) */}
+                {c.status === "pending" && (
+                  <div className="flex gap-2 mt-3 pt-3 border-t border-[var(--vertigo-line-soft)]">
+                    <form action={executeComodinFormAction}>
+                      <input type="hidden" name="comodin_usage_id" value={c.id} />
+                      <button type="submit" className="vertigo-btn vertigo-btn-primary" style={{ padding: "8px 16px", fontSize: 11 }}>
+                        <CheckCircle2 style={{ width: 12, height: 12 }} />
+                        Ejecutar en vivo
+                      </button>
+                    </form>
+                    <form action={revokeComodinFormAction}>
+                      <input type="hidden" name="comodin_usage_id" value={c.id} />
+                      <button type="submit" className="vertigo-btn vertigo-btn-danger" style={{ padding: "8px 16px", fontSize: 11 }}>
+                        <X style={{ width: 12, height: 12 }} />
+                        Revocar
+                      </button>
+                    </form>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -536,18 +609,26 @@ function TeamCard({
 }) {
   const name = team?.team_account?.name ?? "—";
   const tagline = team?.team_account?.tagline;
+  const emblemUrl = team?.team_account?.emblem?.image_url ?? null;
   const players = team?.players ?? [];
 
   return (
     <div className={`vertigo-card ${isWinner ? "border-[var(--vertigo-purple)]" : ""}`}>
       <div className="vertigo-card-header">
         <div className="flex items-center gap-3 min-w-0">
-          <div
-            className="flex items-center justify-center rounded-full border border-[var(--vertigo-purple)] text-[var(--vertigo-purple-soft)] flex-none"
-            style={{ width: 40, height: 40 }}
-          >
-            <Shield style={{ width: 18, height: 18 }} strokeWidth={1.25} />
-          </div>
+          {emblemUrl ? (
+            <div className="flex-none overflow-hidden rounded-full border border-[rgba(212,175,55,0.5)] bg-[var(--vertigo-input-bg)]" style={{ width: 42, height: 42 }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={emblemUrl} alt={name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            </div>
+          ) : (
+            <div
+              className="flex items-center justify-center rounded-full border border-[var(--vertigo-purple)] text-[var(--vertigo-purple-soft)] flex-none"
+              style={{ width: 40, height: 40 }}
+            >
+              <Shield style={{ width: 18, height: 18 }} strokeWidth={1.25} />
+            </div>
+          )}
           <div className="min-w-0">
             <div className="text-[10px] uppercase tracking-wider text-[var(--vertigo-faint)]">{label}</div>
             <div className="font-cinzel text-base font-semibold text-[var(--vertigo-text)] truncate">

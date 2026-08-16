@@ -59,6 +59,20 @@ export default function Memotest({
     (c) => !alreadyDrawn.includes(c.civId) && !revealedCivs.some((r) => r.civId === c.civId)
   );
 
+  // Índices del spin/flip apuntan a availableCards, pero la grilla renderiza
+  // `cards` completa (las ya sorteadas quedan dadas vuelta en su lugar).
+  // Sin esta traducción el selector/flip pega en la ficha equivocada.
+  const cardIndexOf = useCallback((availIdx: number): number => {
+    let seen = -1;
+    for (let i = 0; i < cards.length; i++) {
+      const c = cards[i];
+      if (alreadyDrawn.includes(c.civId) || revealedCivs.some((r) => r.civId === c.civId)) continue;
+      seen++;
+      if (seen === availIdx) return i;
+    }
+    return -1;
+  }, [cards, alreadyDrawn, revealedCivs]);
+
   useEffect(() => {
     if (trigger && animState === "idle" && currentDrawIndex < civsToDraw) {
       startSpin();
@@ -136,6 +150,10 @@ export default function Memotest({
   const totalCivsToSort = civsToDraw;
   const sortedCount = revealedCivs.length;
 
+  // Traducción única a índices de la grilla completa
+  const activeGridIndex = animState === "spinning" ? cardIndexOf(activeIndex) : -1;
+  const flipGridIndex = animState === "flipping" && flippedIndex != null ? cardIndexOf(flippedIndex) : -1;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -162,8 +180,8 @@ export default function Memotest({
       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
         {cards.map((card, idx) => {
           const isRevealed = revealedCivs.some((r) => r.civId === card.civId);
-          const isFlipping = flippedIndex === idx && animState === "flipping";
-          const isActive = activeIndex === idx && animState === "spinning";
+          const isFlipping = flipGridIndex === idx;
+          const isActive = activeGridIndex === idx;
 
           return (
             <MemotestCard

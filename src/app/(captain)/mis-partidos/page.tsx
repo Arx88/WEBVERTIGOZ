@@ -3,7 +3,7 @@ import Link from "next/link";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { CaptainHeader } from "@/components/captain/captain-header";
 import { confirmReadyAction } from "@/server/actions/ready";
-import { Dices, Ban, Target, UserPlus, Calendar, History, ArrowRight, Clock, CheckCircle, AlertCircle, Zap } from "lucide-react";
+import { Dices, Ban, Target, UserPlus, Calendar, History, ArrowRight, Clock, CheckCircle, AlertCircle, Zap, Sparkles } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -353,18 +353,14 @@ export default async function MisPartidosPage() {
                       </div>
                     )}
 
-                    {/* Comodines */}
+                    {/* Comodines: se usan desde el panel del capitán en la página del partido */}
                     {isComodinWindow && (
                       <div className="vertigo-action-bar" style={{ marginBottom: "16px" }}>
-                        <button className="vertigo-btn vertigo-btn-ghost" disabled={comodinQty("reroll") === 0}>
-                          <Dices style={{ width: 13, height: 13 }} />Re-girar ({comodinQty("reroll")})
-                        </button>
-                        <button className="vertigo-btn vertigo-btn-ghost" disabled={comodinQty("anular") === 0}>
-                          <Ban style={{ width: 13, height: 13 }} />Anular ({comodinQty("anular")})
-                        </button>
-                        <button className="vertigo-btn vertigo-btn-ghost" disabled={comodinQty("elegir_rival") === 0}>
-                          <Target style={{ width: 13, height: 13 }} />Elegir ({comodinQty("elegir_rival")})
-                        </button>
+                        <Link href={`/partido/${m.id}`} className="vertigo-btn vertigo-btn-primary" style={{ padding: "11px 22px" }}>
+                          <Sparkles style={{ width: 13, height: 13 }} />
+                          Usar comodines ahora
+                          <ArrowRight style={{ width: 13, height: 13 }} />
+                        </Link>
                       </div>
                     )}
 

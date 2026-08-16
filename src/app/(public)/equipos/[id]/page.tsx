@@ -263,11 +263,12 @@ async function loadTeam(id: string): Promise<PageData | null> {
         .from("match_game")
         .select("id, game_number, draw_id, game_mode, antimeta_mode, player_mode, map, civs_a, civs_b")
         .eq("match_id", m.id)
-        .order("game_number", { ascending: true })
-        .limit(1)) as { data: any };
+        .order("game_number", { ascending: false })
+        .limit(3)) as { data: any };
 
       if (games && games.length > 0) {
-        const g = games[0];
+        // Preferir la partida más reciente con sorteo (en BO3 1-1, la decisiva).
+        const g = games.find((x: any) => x.draw_id || x.map) ?? games[0];
         if (g.draw_id) {
           const { data: draw } = (await supabase
             .from("roulette_draw")

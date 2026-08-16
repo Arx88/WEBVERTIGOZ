@@ -146,6 +146,17 @@ async function resolveCaptainContext(supabase: any, matchId: string) {
     .select("id, display_name, is_captain")
     .eq("team_registration_id", myReg.id);
 
+  // Roster del RIVAL (targets de ANULAR / ELEGIR RIVAL)
+  const rivalRegId = isTeamA ? matchRow.team_b_id : matchRow.team_a_id;
+  let rivalPlayers: { id: string; display_name: string; is_captain: boolean }[] = [];
+  if (rivalRegId) {
+    const { data: rps } = await supabase
+      .from("player_registration")
+      .select("id, display_name, is_captain")
+      .eq("team_registration_id", rivalRegId);
+    rivalPlayers = (rps ?? []).map((p: any) => ({ id: p.id, display_name: p.display_name, is_captain: p.is_captain }));
+  }
+
   // Jugadores anulados en este match (por comodín ANULAR)
   const service = getSupabaseServiceRole();
   const { data: usages } = await service
@@ -154,13 +165,18 @@ async function resolveCaptainContext(supabase: any, matchId: string) {
     .eq("match_id", matchId)
     .eq("comodin_type", "anular")
     .eq("status", "executed");
-  const annulledPlayerIds = (usages ?? []).map((u: any) => u.target_player_id).filter(Boolean);
+  const annulledAll = (usages ?? []).map((u: any) => u.target_player_id).filter(Boolean) as string[];
+  const myPlayerIds = new Set((players ?? []).map((p: any) => p.id));
+  const annulledPlayerIds = annulledAll.filter((id) => myPlayerIds.has(id));
+  const rivalAnnulledPlayerIds = annulledAll.filter((id) => !myPlayerIds.has(id));
 
   return {
     myTeamRegId: myReg.id,
     teamA_id: matchRow.team_a_id,
     teamB_id: matchRow.team_b_id,
     myPlayers: (players ?? []).map((p: any) => ({ id: p.id, display_name: p.display_name, is_captain: p.is_captain })),
+    rivalPlayers,
     annulledPlayerIds,
+    rivalAnnulledPlayerIds,
   };
 }

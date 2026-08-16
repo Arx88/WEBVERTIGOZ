@@ -379,6 +379,9 @@ export const matchGame = pgTable("match_game", {
   // Civs sorteadas
   civsA: jsonb("civs_a").default([]), // civ_id[]
   civsB: jsonb("civs_b").default([]),
+  // Asignación de civ por jugador (capitán): { player_registration_id: civ_id }
+  civAssignmentA: jsonb("civ_assignment_a").default({}),
+  civAssignmentB: jsonb("civ_assignment_b").default({}),
   // Resultado
   winnerTeamId: uuid("winner_team_id").references(() => teamRegistration.id),
   replayUrl: varchar("replay_url", { length: 500 }),

@@ -59,6 +59,11 @@ export async function declareLineupAction(formData: FormData): Promise<{ ok: boo
   const playerIdsJson = String(formData.get("player_ids") ?? "[]");
   let playerIds: string[];
   try { playerIds = JSON.parse(playerIdsJson); } catch { return { ok: false, error: "player_ids inválido." } }
+  // Asignación de civ por jugador (flujo real = tutorial):
+  // { player_registration_id: civ_id }
+  const civAssignJson = String(formData.get("civ_assignment") ?? "{}");
+  let civAssignment: Record<string, string>;
+  try { civAssignment = JSON.parse(civAssignJson); } catch { return { ok: false, error: "civ_assignment inválido." } }
 
   // Resolve account → team_registration del capitán
   const { data: account } = (await supabase.from("account").select("id, role").eq("supabase_auth_id", user.id).single()) as { data: any };
@@ -70,7 +75,7 @@ export async function declareLineupAction(formData: FormData): Promise<{ ok: boo
   // match_game + match
   const { data: game } = (await supabase
     .from("match_game")
-    .select("id, match_id, status, player_mode, match:match_id(team_a_id, team_b_id, status, anular_used_by_team_id)")
+    .select("id, match_id, status, player_mode, civs_a, civs_b, match:match_id(team_a_id, team_b_id, status, anular_used_by_team_id)")
     .eq("id", matchGameId).single()) as { data: any };
   if (!game) return { ok: false, error: "Partida no encontrada." };
   if (game.match?.status !== "lineup") return { ok: false, error: `El match no está en fase de lineup (estado: ${game.match?.status}).` };
@@ -85,6 +90,50 @@ export async function declareLineupAction(formData: FormData): Promise<{ ok: boo
   if (!myReg) return { ok: false, error: "Tu equipo no participa de este partido." };
 
   const isTeamA = game.match.team_a_id === myReg.id;
+
+  // Comodines que afectan el lineup (validación server-side):
+  // - ANULAR ejecutado → los jugadores objetivo NO pueden ser declarados.
+  // - ELEGIR RIVAL ejecutado por el rival → el jugador objetivo DEBE jugar.
+  const serviceCtx = getSupabaseServiceRole() as any;
+  const { data: comodinEffects } = (await serviceCtx
+    .from("comodin_usage")
+    .select("comodin_type, target_player_id, match_id, comodin_inventory_id, status")
+    .eq("match_id", game.match_id)
+    .eq("status", "executed")
+    .in("comodin_type", ["anular", "elegir_rival"])) as { data: any };
+
+  let myPlayerIds: string[] = [];
+  {
+    const { data: myPlayersList } = (await supabase
+      .from("player_registration")
+      .select("id")
+      .eq("team_registration_id", myReg.id)) as { data: any };
+    myPlayerIds = (myPlayersList ?? []).map((p: any) => p.id);
+  }
+  const myPlayerSet = new Set(myPlayerIds);
+
+  // Resolver a qué team pertenece cada usage (vía inventario → team_registration)
+  const invIds = [...new Set((comodinEffects ?? []).map((u: any) => u.comodin_inventory_id).filter(Boolean))];
+  let invToReg: Record<string, string> = {};
+  if (invIds.length > 0) {
+    const { data: invs } = (await serviceCtx.from("comodin_inventory").select("id, team_registration_id").in("id", invIds)) as { data: any };
+    for (const inv of invs ?? []) invToReg[inv.id] = inv.team_registration_id;
+  }
+
+  for (const u of comodinEffects ?? []) {
+    const usedByTeam = invToReg[u.comodin_inventory_id] ?? null;
+    const target = u.target_player_id;
+    if (!target) continue;
+    if (u.comodin_type === "anular" && target && myPlayerSet.has(target) && playerIds.includes(target)) {
+      return { ok: false, error: "Uno de los jugadores elegidos fue ANULADO por el rival y no puede jugar esta llave." };
+    }
+    if (u.comodin_type === "elegir_rival" && myPlayerSet.has(target) && usedByTeam && usedByTeam !== myReg.id) {
+      // El rival forzó a uno de mis jugadores: tiene que estar en el lineup
+      if (!playerIds.includes(target)) {
+        return { ok: false, error: "El rival usó ELEGIR RIVAL: uno de tus jugadores tiene que jugar esta llave obligatoriamente." };
+      }
+    }
+  }
 
   // Cuántos jugadores se esperan según formato
   const expected = playersNeededForMode(game.player_mode);
@@ -102,9 +151,27 @@ export async function declareLineupAction(formData: FormData): Promise<{ ok: boo
     return { ok: false, error: "Alguno de los jugadores elegidos no pertenece a tu equipo." };
   }
 
-  // Escribir lineup en el lado correcto
+  // Validar la asignación de civs (flujo real = tutorial): exactamente una civ
+  // por jugador declarado, del pool sorteado para mi equipo, sin repetir.
+  const myCivs: string[] = (isTeamA ? game.civs_a : game.civs_b) ?? [];
+  const assignEntries = Object.entries(civAssignment);
+  if (playerIds.length > 0) {
+    if (assignEntries.length !== playerIds.length) {
+      return { ok: false, error: "Cada jugador declarado necesita su civ asignada." };
+    }
+    const usedCivs = new Set<string>();
+    for (const [pid, civ] of assignEntries) {
+      if (!playerIds.includes(pid)) return { ok: false, error: "Hay una civ asignada a un jugador fuera del lineup." };
+      if (!myCivs.includes(String(civ))) return { ok: false, error: `La civ elegida no está en el pool sorteado para tu equipo.` };
+      if (usedCivs.has(String(civ))) return { ok: false, error: "No se puede asignar la misma civ dos veces." };
+      usedCivs.add(String(civ));
+    }
+  }
+
+  // Escribir lineup + asignación de civs en el lado correcto
   const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
   update[isTeamA ? "lineup_a" : "lineup_b"] = playerIds;
+  update[isTeamA ? "civ_assignment_a" : "civ_assignment_b"] = civAssignment;
   const { error } = await supabase.from("match_game").update(update).eq("id", matchGameId);
   if (error) return { ok: false, error: error.message };
 
@@ -187,15 +254,46 @@ export async function requestComodinAction(formData: FormData): Promise<{ ok: bo
   const { data: teamAccount } = (await supabase.from("team_account").select("id").eq("owner_id", account.id).maybeSingle()) as { data: any };
   if (!teamAccount) return { ok: false, error: "Sin equipo." };
 
-  const { data: match } = (await supabase.from("match").select("id, status, team_a_id, team_b_id").eq("id", matchId).single()) as { data: any };
+  const { data: match } = (await supabase.from("match").select("id, status, team_a_id, team_b_id, comodin_window_expires_at").eq("id", matchId).single()) as { data: any };
   if (!match) return { ok: false, error: "Match no encontrado." };
   if (match.status !== "comodin_window") return { ok: false, error: "La ventana de comodines está cerrada." };
+  if (match.comodin_window_expires_at && new Date(match.comodin_window_expires_at).getTime() < Date.now()) {
+    return { ok: false, error: "La ventana de comodines ya expiró." };
+  }
 
   const { data: myReg } = (await supabase.from("team_registration").select("id").eq("team_account_id", teamAccount.id).in("id", [match.team_a_id, match.team_b_id]).maybeSingle()) as { data: any };
   if (!myReg) return { ok: false, error: "Tu equipo no participa." };
 
-  // Inventario
+  // Inventario (service role: bypass RLS para lecturas cruzadas de comodines)
   const service = getSupabaseServiceRole() as any;
+
+  // ANULAR / ELEGIR RIVAL requieren un jugador objetivo del RIVAL
+  if (comodinType === "anular" || comodinType === "elegir_rival") {
+    if (!targetPlayerId) return { ok: false, error: "Elegí el jugador rival objetivo." };
+    const rivalRegId = myReg.id === match.team_a_id ? match.team_b_id : match.team_a_id;
+    if (!rivalRegId) return { ok: false, error: "El match no tiene rival definido." };
+    const { data: targetPlayer } = (await service
+      .from("player_registration")
+      .select("id, team_registration_id")
+      .eq("id", targetPlayerId).maybeSingle()) as { data: any };
+    if (!targetPlayer || targetPlayer.team_registration_id !== rivalRegId) {
+      return { ok: false, error: "El jugador objetivo debe pertenecer al equipo rival." };
+    }
+    // ANULAR ya ejecutado sobre ese jugador → no se puede anular dos veces
+    if (comodinType === "anular") {
+      const { data: already } = (await service
+        .from("comodin_usage")
+        .select("id")
+        .eq("match_id", matchId)
+        .eq("comodin_type", "anular")
+        .eq("target_player_id", targetPlayerId)
+        .eq("status", "executed")
+        .maybeSingle()) as { data: any };
+      if (already) return { ok: false, error: "Ese jugador ya fue anulado en esta llave." };
+    }
+  }
+
+  // Inventario disponible
   const { data: inv } = (await service.from("comodin_inventory").select("id, reroll_available, anular_available, elegir_rival_available, invocar_pro_available").eq("team_registration_id", myReg.id).single()) as { data: any };
   if (!inv) return { ok: false, error: "Sin inventario de comodines." };
 
@@ -265,6 +363,72 @@ export async function executeComodinAction(formData: FormData): Promise<{ ok: bo
     const r = await rerollDrawPhaseInternal(service, game.match_id, game.game_number, usage.target_phase, account.id);
     if (!r.ok) return { ok: false, error: r.error };
     appliedPayload = r.applied ?? null;
+  }
+
+  // ANULAR / ELEGIR RIVAL: efecto sobre el match + lineups ya declarados
+  if (usage.comodin_type === "anular" || usage.comodin_type === "elegir_rival") {
+    if (!usage.target_player_id) return { ok: false, error: "Falta el jugador objetivo." };
+
+    // Qué equipo lo pidió (vía inventario)
+    const { data: inv } = (await service.from("comodin_inventory").select("team_registration_id").eq("id", usage.comodin_inventory_id).single()) as { data: any };
+    const requesterRegId = inv?.team_registration_id ?? null;
+    if (!requesterRegId) return { ok: false, error: "No se pudo resolver el equipo que pidió el comodín." };
+
+    const { data: match } = (await service.from("match").select("id, team_a_id, team_b_id").eq("id", usage.match_id).single()) as { data: any };
+    if (!match) return { ok: false, error: "Match no encontrado." };
+    const targetRegId = requesterRegId === match.team_a_id ? match.team_b_id : match.team_a_id;
+
+    // El objetivo tiene que ser del equipo rival
+    const { data: targetPlayer } = (await service
+      .from("player_registration")
+      .select("id, team_registration_id, display_name")
+      .eq("id", usage.target_player_id).maybeSingle()) as { data: any };
+    if (!targetPlayer || targetPlayer.team_registration_id !== targetRegId) {
+      return { ok: false, error: "El jugador objetivo no pertenece al equipo rival." };
+    }
+
+    // Marcar en el match (mutuamente excluyentes a nivel llave)
+    const matchFlag = usage.comodin_type === "anular" ? "anular_used_by_team_id" : "elegir_rival_used_by_team_id";
+    await service.from("match").update({ [matchFlag]: requesterRegId, updated_at: new Date().toISOString() }).eq("id", usage.match_id);
+
+    // Si el equipo objetivo YA declaró lineup para la partida activa, aplicar
+    // el efecto: ANULAR saca al jugador del lineup; ELEGIR RIVAL obliga a que
+    // el forzado juegue. Si el lineup queda incompleto/inválido, el match
+    // vuelve a "lineup" y el rival debe re-declarar (se re-cierra con READY #2).
+    const { data: games } = (await service
+      .from("match_game")
+      .select("id, lineup_a, lineup_b, player_mode")
+      .eq("match_id", usage.match_id)
+      .order("game_number", { ascending: false })) as { data: any };
+    const activeGame = (games ?? [])[0];
+    let needsRedeclare = false;
+    if (activeGame) {
+      const targetIsA = match.team_a_id === targetRegId;
+      const lineupCol = targetIsA ? "lineup_a" : "lineup_b";
+      const lineup = ((activeGame[lineupCol] ?? []) as string[]);
+
+      if (usage.comodin_type === "anular" && lineup.includes(usage.target_player_id)) {
+        await service.from("match_game").update({ [lineupCol]: lineup.filter((id) => id !== usage.target_player_id), updated_at: new Date().toISOString() }).eq("id", activeGame.id);
+        const remaining = lineup.filter((id) => id !== usage.target_player_id);
+        const needed = playersNeededForMode(activeGame.player_mode);
+        if (needed > 0 && remaining.length < needed) needsRedeclare = true;
+      }
+      if (usage.comodin_type === "elegir_rival" && lineup.length > 0 && !lineup.includes(usage.target_player_id)) {
+        // El lineup declarado no incluye al jugador forzado → hay que re-declarar
+        needsRedeclare = true;
+      }
+
+      if (needsRedeclare) {
+        const readyCol = targetIsA ? "ready_lineup_a_at" : "ready_lineup_b_at";
+        await service.from("match").update({ status: "lineup", [readyCol]: null, updated_at: new Date().toISOString() }).eq("id", usage.match_id);
+      }
+    }
+
+    if (usage.comodin_type === "anular") {
+      appliedPayload = { type: "anular", anulado: targetPlayer.display_name, team: targetRegId, needsRedeclare };
+    } else {
+      appliedPayload = { type: "elegir_rival", forzado: targetPlayer.display_name, team: targetRegId, needsRedeclare };
+    }
   }
 
   // Descontar inventario de forma atómica (el CHECK >= 0 de la migración evita negativos)

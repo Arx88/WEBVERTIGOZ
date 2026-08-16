@@ -47,11 +47,13 @@ export interface MatchData {
     id: string;
     name: string;
     seed: number | null;
+    emblemUrl: string | null;
   } | null;
   teamB: {
     id: string;
     name: string;
     seed: number | null;
+    emblemUrl: string | null;
   } | null;
   scoreA: number;
   scoreB: number;
@@ -77,6 +79,8 @@ export interface MatchData {
     notes: string | null;
   }[];
   games: GameView[];
+  /** Partida de mayor game_number (la activa/última) — para el panel del capitán. */
+  activeGame: GameView | null;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -96,7 +100,7 @@ export async function loadMatch(supabase: any, matchId: string): Promise<MatchDa
   if (match.team_a_id) {
     const { data: ta } = (await supabase
       .from("team_registration")
-      .select("id, seed, team_account:team_account_id ( name )")
+      .select("id, seed, team_account:team_account_id ( name, emblem_id, emblem:emblem_id ( image_url ) )")
       .eq("id", match.team_a_id)
       .maybeSingle()) as { data: any };
     if (ta) {
@@ -104,6 +108,7 @@ export async function loadMatch(supabase: any, matchId: string): Promise<MatchDa
         id: ta.id,
         name: ta.team_account?.name ?? "—",
         seed: ta.seed ?? null,
+        emblemUrl: ta.team_account?.emblem?.image_url ?? null,
       };
     }
   }
@@ -113,7 +118,7 @@ export async function loadMatch(supabase: any, matchId: string): Promise<MatchDa
   if (match.team_b_id) {
     const { data: tb } = (await supabase
       .from("team_registration")
-      .select("id, seed, team_account:team_account_id ( name )")
+      .select("id, seed, team_account:team_account_id ( name, emblem_id, emblem:emblem_id ( image_url ) )")
       .eq("id", match.team_b_id)
       .maybeSingle()) as { data: any };
     if (tb) {
@@ -121,6 +126,7 @@ export async function loadMatch(supabase: any, matchId: string): Promise<MatchDa
         id: tb.id,
         name: tb.team_account?.name ?? "—",
         seed: tb.seed ?? null,
+        emblemUrl: tb.team_account?.emblem?.image_url ?? null,
       };
     }
   }
@@ -261,7 +267,10 @@ export async function loadMatch(supabase: any, matchId: string): Promise<MatchDa
     comodinWindowExpiresAt: match.comodin_window_expires_at ?? null,
     streamEmbedEnabled: !!match.stream_embed_enabled,
     streamCaster,
-    comodinUsages,
-    games,
+  comodinUsages,
+  games,
+    // Partida activa: la de mayor game_number que no terminó
+    // (sirve para el panel del capitán: player_mode define cuántos juegan).
+    activeGame: (games.length > 0 ? games.reduce((a, b) => (b.gameNumber > a.gameNumber ? b : a)) : null) as GameView | null,
   };
 }

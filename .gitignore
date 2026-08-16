@@ -58,3 +58,4 @@ drizzle/*.json
 *.swo
 
 dev-server.log
+serve.log

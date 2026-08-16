@@ -113,11 +113,17 @@ export default function TutorialDirector({ onClose }: DirectorProps) {
 
   return (
     <div className="tut-root" style={{ "--pov-color": povColor } as React.CSSProperties}>
+      {/* Fondo del LOGIN: video + overlay */}
+      <video className="tut-bg-video" autoPlay muted loop playsInline>
+        <source src="/landing/wizard-bg.mp4" type="video/mp4" />
+      </video>
+      <div className="tut-bg-overlay" />
+
       {/* TOP BAR */}
       <div className="tut-topbar">
         <div className="tut-brand">
           <img src="/logo.png" alt="VÉRTIGO" />
-          VÉRTIGO <b>CUP</b> · TUTORIAL
+          VÉRTIGO <span className="sep">TUTORIAL</span>
         </div>
         <div className="tut-pov">
           <span className="dot" />
@@ -165,6 +171,7 @@ export default function TutorialDirector({ onClose }: DirectorProps) {
           {scene.id === "lineup-b" && <SceneLineup ctx={sceneCtx} team={TEAM_B} />}
           {scene.id === "comodin" && <SceneComodin ctx={sceneCtx} />}
           {scene.id === "reroll" && <SceneReroll ctx={sceneCtx} />}
+          {scene.id === "reroll-summary" && <SceneSummary ctx={sceneCtx} />}
           {scene.id === "partida" && <ScenePartida ctx={sceneCtx} />}
           {scene.id === "admin-resultado" && <SceneResultado ctx={sceneCtx} />}
           {scene.id === "final" && <SceneFinal ctx={sceneCtx} />}

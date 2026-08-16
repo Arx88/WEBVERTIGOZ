@@ -448,7 +448,10 @@ export async function startDrawAction(formData: FormData): Promise<{ ok: boolean
     .eq("id", matchId)
     .single();
   if (!match) return { ok: false, error: "Match no encontrado." };
-  if (!["open", "drawing"].includes(match.status)) {
+  // "open" = ambos equipos LISTOS (READY #1). "drawing"/"in_progress" se
+  // permiten para re-lanzar el mismo sorteo o sortear las partidas 2/3 de un
+  // BO3 que quedó en 1-1 (el match queda in_progress esperando el próximo giro).
+  if (!["open", "drawing", "in_progress"].includes(match.status)) {
     return { ok: false, error: `El match debe estar "open" (ambos equipos listos) para sortear. Estado actual: ${match.status}.` };
   }
   if (!match.team_a_id || !match.team_b_id) {
@@ -563,6 +566,13 @@ export async function startDrawAction(formData: FormData): Promise<{ ok: boolean
   };
   if (gameNumber === 1 && result.llave?.llaveFormat) {
     matchUpdate.format = result.llave.llaveFormat; // "BO3" | "BO1"
+  }
+  if (gameNumber > 1) {
+    // BO3: al sortear la partida 2/3 se resetea el ciclo de lineup:
+    // los READY #2 y la ventana de comodines de la partida anterior ya no aplican.
+    matchUpdate.ready_lineup_a_at = null;
+    matchUpdate.ready_lineup_b_at = null;
+    matchUpdate.comodin_window_expires_at = null;
   }
   await service.from("match").update(matchUpdate).eq("id", matchId);
 

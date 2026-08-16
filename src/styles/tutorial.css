@@ -1,28 +1,34 @@
 /* ============================================================
    VÉRTIGO Cup — TUTORIAL (modo demo)
-   Estilos propios del modo tutorial. Scoping por .tut-root.
-   La ruleta (.ruleta-wrapper) y el memotest usan su propio CSS.
+   100% alineado al Design System interno (vertigo-design-system.css):
+   paleta púrpura profunda, Cinzel para marca, Inter para badges/botones,
+   Oswald para display. Dorado SOLO como ornamento (trofeo, comodines,
+   linaje de reinos). Rojo → danger del sistema (#fb7185).
+   La ruleta es INTOCABLE: usa su propio CSS.
    ============================================================ */
 
 .tut-root {
-  --tut-bg: #070510;
-  --tut-panel: #0d0a16;
-  --tut-panel-2: #120d1e;
-  --tut-line: #241c33;
+  --tut-bg: #070310;
+  --tut-bg-deep: #0a0711;
+  --tut-panel: #0d0913;
+  --tut-panel-2: #130f1b;
+  --tut-line: #241d2f;
+  --tut-line-strong: #2a2334;
   --tut-text: #f2eef7;
   --tut-muted: #9a92a6;
   --tut-faint: #6b6378;
-  --tut-purple: #7c3aed;
-  --tut-purple-soft: #a78bfa;
-  --tut-gold: #d4af37;
+  --tut-violet: #7c3aed;
+  --tut-violet-soft: #a78bfa;
+  --tut-violet-pale: #c4b5fd;
+  --tut-violet-deep: #5b21b6;
+  --tut-gold: #D4AF37;
+  --tut-danger: #fb7185;
+  --tut-green: #22c55e;
+  --tut-ease: cubic-bezier(.22, 1, .36, 1);
   position: fixed;
   inset: 0;
   z-index: 80;
-  background:
-    radial-gradient(900px 520px at 15% 6%, rgba(88, 28, 175, 0.22), transparent 62%),
-    radial-gradient(820px 520px at 85% 90%, rgba(124, 58, 237, 0.14), transparent 60%),
-    radial-gradient(ellipse at center, transparent 40%, rgba(3, 1, 8, 0.7) 100%),
-    var(--tut-bg);
+  background: var(--tut-bg);
   color: var(--tut-text);
   font-family: var(--font-oswald), Inter, system-ui, sans-serif;
   overflow: hidden;
@@ -32,16 +38,47 @@
   -webkit-font-smoothing: antialiased;
 }
 
-/* Barra superior del director */
+/* ---------- FONDO: mismo video del LOGIN + overlay ---------- */
+.tut-bg-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+  opacity: 0.8;
+  pointer-events: none;
+}
+.tut-bg-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at center, rgba(7, 3, 16, 0.42), rgba(7, 3, 16, 0.72)),
+    linear-gradient(180deg, rgba(7, 3, 16, 0.35) 0%, transparent 24%, transparent 78%, rgba(7, 3, 16, 0.5) 100%);
+}
+.tut-root .tut-topbar,
+.tut-root .tut-stage,
+.tut-root .tut-caption-bar,
+.tut-root .tut-progress { position: relative; z-index: 2; }
+/* Los controles quedan por encima de la épica (overlay z 900) para
+   poder pausar/saltar durante el comodín cinematográfico */
+.tut-root .tut-topbar { z-index: 905; }
+.tut-root .tut-progress { z-index: 905; }
+
+/* ---------- TOP BAR (estilo vertigo-header) ---------- */
 .tut-topbar {
   flex: none;
   display: flex;
   align-items: center;
   gap: 16px;
   padding: 10px 20px;
-  background: rgba(8, 5, 16, 0.92);
-  border-bottom: 1px solid var(--tut-line);
-  backdrop-filter: blur(8px);
+  background: rgba(7, 3, 16, 0.88);
+  border-bottom: 1px solid var(--tut-line-soft, var(--tut-line));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 1px 0 rgba(124, 58, 237, 0.06);
   z-index: 60;
 }
 
@@ -49,38 +86,54 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-family: var(--font-anton), sans-serif;
-  letter-spacing: 0.12em;
+  font-family: var(--font-cinzel), Georgia, serif;
+  font-weight: 700;
+  letter-spacing: 0.06em;
   font-size: 15px;
-  color: #fff;
-  text-transform: uppercase;
+  color: var(--tut-violet-soft);
+  text-transform: none;
+  text-shadow: 0 0 16px rgba(124, 58, 237, 0.5);
   white-space: nowrap;
 }
 .tut-brand img { width: 26px; height: 26px; opacity: 0.95; }
-.tut-brand b { color: var(--tut-purple-soft); font-weight: 400; }
+.tut-brand .sep {
+  font-family: Inter, system-ui, sans-serif;
+  font-weight: 700; font-size: 9px; letter-spacing: 0.35em;
+  color: var(--tut-faint); text-transform: uppercase;
+  text-shadow: none; margin-left: 6px;
+  padding: 4px 10px;
+  background: rgba(124, 58, 237, 0.08);
+  border: 1px solid rgba(124, 58, 237, 0.15);
+  border-radius: 4px;
+}
 
 .tut-pov {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-family: var(--font-rajdhani), sans-serif;
+  font-family: Inter, system-ui, sans-serif;
   font-weight: 700;
-  letter-spacing: 0.28em;
-  font-size: 12px;
+  letter-spacing: 0.22em;
+  font-size: 10px;
   text-transform: uppercase;
-  color: var(--pov-color, var(--tut-purple-soft));
-  border: 1px solid var(--pov-color, var(--tut-purple-soft));
-  padding: 5px 12px 4px;
-  background: color-mix(in srgb, var(--pov-color, var(--tut-purple-soft)) 12%, transparent);
+  color: var(--pov-color, var(--tut-violet-soft));
+  border: 1px solid var(--pov-color, var(--tut-violet-soft));
+  border-radius: 999px;
+  padding: 6px 14px;
+  background: rgba(124, 58, 237, 0.06);
   animation: tut-pop 0.35s ease both;
 }
 .tut-pov .dot {
-  width: 7px; height: 7px; border-radius: 50%;
-  background: var(--pov-color, var(--tut-purple-soft));
-  box-shadow: 0 0 10px var(--pov-color, var(--tut-purple-soft));
-  animation: tut-blink 1.6s ease-in-out infinite;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--pov-color, var(--tut-violet-soft));
+  box-shadow: 0 0 0 0 currentColor;
+  animation: tut-dot-pulse 2.2s ease-in-out infinite;
 }
 
+@keyframes tut-dot-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
+  50% { box-shadow: 0 0 6px 2px currentColor; opacity: 0.85; }
+}
 @keyframes tut-blink { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
 @keyframes tut-pop { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 
@@ -92,75 +145,70 @@
   gap: 12px;
 }
 .tut-scene-title {
-  font-family: var(--font-cinzel), serif;
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  font-family: var(--font-oswald), sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--tut-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .tut-scene-num {
-  font-family: var(--font-rajdhani), sans-serif;
+  font-family: Inter, system-ui, sans-serif;
   font-weight: 700;
-  font-size: 12px;
-  letter-spacing: 0.2em;
+  font-size: 11px;
+  letter-spacing: 0.14em;
   color: var(--tut-faint);
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Controles */
-.tut-controls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: none;
-}
+/* ---------- CONTROLES (estilo vertigo-btn) ---------- */
+.tut-controls { display: flex; align-items: center; gap: 8px; flex: none; }
 .tut-btn {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 7px 14px;
-  font-family: var(--font-rajdhani), sans-serif;
-  font-weight: 700;
-  font-size: 12px;
-  letter-spacing: 0.16em;
+  padding: 8px 15px;
+  font-family: Inter, system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 2px;
   text-transform: uppercase;
-  color: #fff;
-  background: rgba(124, 58, 237, 0.16);
-  border: 1px solid rgba(167, 139, 250, 0.5);
-  border-radius: 3px;
+  color: var(--tut-text);
+  background: rgba(124, 58, 237, 0.10);
+  border: 1px solid rgba(124, 58, 237, 0.4);
+  border-radius: 10px;
   cursor: pointer;
-  transition: background 0.15s, transform 0.1s;
+  transition: all 0.25s var(--tut-ease);
 }
-.tut-btn:hover { background: rgba(124, 58, 237, 0.32); }
+.tut-btn:hover {
+  background: rgba(124, 58, 237, 0.18);
+  border-color: rgba(124, 58, 237, 0.55);
+  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.14);
+}
 .tut-btn:active { transform: translateY(1px); }
-.tut-btn.ghost { background: transparent; border-color: var(--tut-line); color: var(--tut-muted); }
-.tut-btn.ghost:hover { border-color: var(--tut-purple-soft); color: var(--tut-text); }
-.tut-speed {
-  display: flex; align-items: center; gap: 4px;
-}
+.tut-btn.ghost { background: transparent; border-color: #322a3e; color: var(--tut-muted); }
+.tut-btn.ghost:hover { border-color: rgba(124, 58, 237, 0.45); color: var(--tut-violet-pale); background: rgba(124, 58, 237, 0.10); }
+.tut-speed { display: flex; align-items: center; gap: 4px; }
 .tut-speed button {
-  width: 38px; padding: 6px 0;
-  font-family: var(--font-rajdhani), sans-serif; font-weight: 700; font-size: 12px;
+  width: 40px; padding: 7px 0;
+  font-family: Inter, system-ui, sans-serif; font-weight: 700; font-size: 11px;
+  letter-spacing: 0.06em;
   color: var(--tut-muted); background: transparent; border: 1px solid var(--tut-line);
-  border-radius: 3px; cursor: pointer; transition: all 0.15s;
+  border-radius: 8px; cursor: pointer; transition: all 0.25s var(--tut-ease);
 }
-.tut-speed button:hover { color: #fff; border-color: var(--tut-purple-soft); }
+.tut-speed button:hover { color: var(--tut-text); border-color: var(--tut-line-strong); }
 .tut-speed button.on {
-  color: #fff; border-color: var(--tut-purple);
-  background: rgba(124, 58, 237, 0.3);
+  color: #fff; border-color: var(--tut-violet);
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.3), rgba(91, 33, 182, 0.22));
   box-shadow: 0 0 12px rgba(124, 58, 237, 0.25);
 }
 
-/* Escenario central */
-.tut-stage {
-  flex: 1;
-  min-height: 0;
-  position: relative;
-  overflow: hidden;
-}
+/* ---------- ESCENARIO ---------- */
+.tut-stage { flex: 1; min-height: 0; position: relative; overflow: hidden; }
 .tut-scene {
   position: absolute;
   inset: 0;
@@ -168,97 +216,73 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 26px 32px;
+  padding: 22px 28px;
   overflow-y: auto;
-  animation: tut-scene-in 0.5s var(--vertigo-ease, ease) both;
+  animation: tut-scene-in 0.5s var(--tut-ease) both;
 }
-@keyframes tut-scene-in { from { opacity: 0; transform: translateY(16px) scale(0.99); } to { opacity: 1; transform: none; } }
+@keyframes tut-scene-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 
-/* Banda de narración entre el escenario y la barra de progreso */
+/* ---------- CAPTION (narrador) ---------- */
 .tut-caption-bar {
   flex: none;
-  min-height: 86px;
+  min-height: 84px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 10px 28px 12px;
-  background: linear-gradient(180deg, rgba(8, 5, 16, 0.55), rgba(8, 5, 16, 0.92));
-  border-top: 1px solid rgba(36, 28, 51, 0.6);
+  padding: 12px 30px;
+  background: linear-gradient(180deg, rgba(7, 3, 16, 0.6), rgba(7, 3, 16, 0.96));
+  border-top: 1px solid var(--tut-line);
   z-index: 55;
   position: relative;
 }
-
-/* Caption (narrador) */
-.tut-caption {
-  flex: none;
-  max-width: 820px;
-  margin: 0 auto;
-  padding: 0 40px;
-  text-align: center;
-  z-index: 30;
-  position: relative;
-}
 .tut-kicker {
-  font-family: var(--font-rajdhani), sans-serif;
+  font-family: Inter, system-ui, sans-serif;
   font-weight: 700;
-  letter-spacing: 0.42em;
-  font-size: 12px;
+  letter-spacing: 0.35em;
+  font-size: 10px;
   text-transform: uppercase;
-  color: var(--pov-color, var(--tut-purple-soft));
-  margin-bottom: 8px;
-}
-.tut-title {
-  font-family: var(--font-anton), sans-serif;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  font-size: clamp(24px, 4vw, 42px);
-  line-height: 1.05;
-  color: #fff;
-  text-shadow: 0 2px 20px rgba(0, 0, 0, 0.7);
-  margin: 0 0 12px;
+  color: var(--pov-color, var(--tut-violet-soft));
+  margin-bottom: 7px;
 }
 .tut-desc {
-  font-family: var(--font-rajdhani), sans-serif;
-  font-size: clamp(14px, 1.7vw, 17px);
-  font-weight: 500;
+  font-family: var(--font-oswald), sans-serif;
+  font-weight: 300;
+  font-size: clamp(14px, 1.6vw, 16px);
   line-height: 1.55;
-  color: rgba(232, 226, 244, 0.92);
-  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.85);
-  margin: 0 auto;
-  max-width: 660px;
+  color: var(--tut-muted);
+  margin: 0;
+  max-width: 780px;
 }
 
-/* Barra inferior con progreso de escenas */
+/* ---------- PROGRESO ---------- */
 .tut-progress {
   flex: none;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 20px 14px;
-  background: rgba(8, 5, 16, 0.92);
+  padding: 13px 20px;
+  background: rgba(7, 3, 16, 0.88);
   border-top: 1px solid var(--tut-line);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(16px);
   z-index: 60;
 }
 .tut-progress-label {
-  font-family: var(--font-rajdhani), sans-serif;
+  font-family: Inter, system-ui, sans-serif;
   font-weight: 700;
-  font-size: 11px;
-  letter-spacing: 0.22em;
+  font-size: 10px;
+  letter-spacing: 0.18em;
   color: var(--tut-faint);
   white-space: nowrap;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
 }
-.tut-steps {
-  flex: 1;
-  display: flex;
-  gap: 5px;
-}
+.tut-steps { flex: 1; display: flex; gap: 5px; }
 .tut-step {
   flex: 1;
-  height: 7px;
-  border-radius: 2px;
+  height: 6px;
+  border-radius: 3px;
   background: var(--tut-line);
   position: relative;
   overflow: hidden;
@@ -267,285 +291,240 @@
 .tut-step .fill {
   position: absolute;
   inset: 0;
-  background: var(--tut-purple);
+  background: linear-gradient(90deg, var(--tut-violet-deep), var(--tut-violet));
   transform-origin: left;
   transform: scaleX(0);
   transition: transform 0.15s linear;
-  border-radius: 2px;
 }
-.tut-step.done .fill { transform: scaleX(1); opacity: 0.85; }
-.tut-step.active { box-shadow: 0 0 10px rgba(124, 58, 237, 0.5); }
+.tut-step.done .fill { transform: scaleX(1); opacity: 0.8; }
+.tut-step.active { box-shadow: 0 0 10px rgba(124, 58, 237, 0.35); }
 
-/* ---------- Escenas mock ---------- */
-
-/* Intro */
-.tut-intro { text-align: center; gap: 26px; display: flex; flex-direction: column; align-items: center; }
-.tut-intro-logo { width: 96px; height: 96px; object-fit: contain; filter: drop-shadow(0 0 26px rgba(255, 46, 126, 0.45)); animation: tut-float 4s ease-in-out infinite; }
-@keyframes tut-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+/* ---------- INTRO ---------- */
+.tut-intro { text-align: center; gap: 24px; display: flex; flex-direction: column; align-items: center; }
+.tut-intro-logo {
+  width: 92px; height: 92px; object-fit: contain;
+  animation: tut-float 4s ease-in-out infinite;
+  filter: drop-shadow(0 0 28px rgba(124, 58, 237, 0.35));
+}
+@keyframes tut-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
 .tut-intro h2 {
-  font-family: var(--font-anton), sans-serif;
-  font-size: clamp(34px, 6vw, 62px);
-  letter-spacing: 0.06em;
+  font-family: var(--font-cinzel), Georgia, serif;
+  font-weight: 700;
+  font-size: clamp(30px, 5vw, 54px);
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #fff;
+  color: var(--tut-text);
   margin: 0;
-  line-height: 0.95;
+  line-height: 1;
+  text-shadow: 0 0 24px rgba(124, 58, 237, 0.4);
 }
-.tut-intro h2 span { color: var(--tut-purple-soft); }
+.tut-intro h2 span { color: var(--tut-violet-soft); }
 
-/* VS / equipos */
+/* ---------- VS / TEAMCARDS — estandartes de reino (eye-catching) ---------- */
 .tut-vs {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
-  gap: 40px;
+  gap: 30px;
   align-items: center;
-  margin-bottom: 10px;
 }
+/* El emblema ES la carta: sin caja, sin borde, sin fondo.
+   El escudo flota solo sobre un halo del color del reino con un
+   anillo de luz girando detrás, entrada épica y vaivén. */
 .tut-teamcard {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
-  padding: 28px 34px;
-  background: linear-gradient(180deg, var(--tut-panel-2), var(--tut-panel));
-  border: 1px solid var(--tut-line);
-  border-top: 3px solid var(--team-color, var(--tut-purple));
-  border-radius: 8px;
-  min-width: 230px;
-  box-shadow: 0 18px 50px -20px rgba(0, 0, 0, 0.9);
+  gap: 8px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+  min-width: 200px;
+  box-shadow: none;
+  position: relative;
+  overflow: visible;
 }
-.tut-teamcard img.emb { width: 74px; height: 74px; object-fit: contain; filter: drop-shadow(0 4px 16px rgba(0,0,0,0.6)); }
-.tut-teamcard .tname { font-family: var(--font-cinzel), serif; font-weight: 700; font-size: 17px; color: #fff; letter-spacing: 0.05em; text-align: center; }
+.tut-teamcard > * { position: relative; z-index: 1; }
+/* escudo con aura de halo del reino + anillo de luz orbital */
+.tut-teamcard .emb-wrap {
+  position: relative;
+  width: 190px; height: 190px;
+  display: grid; place-items: center;
+}
+.tut-teamcard .emb-wrap::before {
+  content: '';
+  position: absolute; inset: -40px; border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--team-color, var(--tut-violet)) 45%, transparent), transparent 64%);
+  animation: tut-emb-pulse 3s ease-in-out infinite;
+}
+.tut-teamcard .emb-wrap::after {
+  content: '';
+  position: absolute; inset: 6px; border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    color-mix(in srgb, var(--team-color, var(--tut-violet)) 85%, transparent) 40deg,
+    transparent 90deg,
+    transparent 180deg,
+    color-mix(in srgb, var(--tut-violet-soft, #a78bfa) 60%, transparent) 220deg,
+    transparent 270deg
+  );
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+  animation: tut-ring-spin 6s linear infinite;
+  opacity: 0.85;
+}
+.tut-teamcard img.emb {
+  position: relative;
+  width: 168px; height: 168px; object-fit: contain;
+  filter: drop-shadow(0 14px 34px rgba(0, 0, 0, 0.7)) drop-shadow(0 0 26px color-mix(in srgb, var(--team-color, var(--tut-violet)) 50%, transparent));
+  animation: tut-emb-enter 0.9s var(--tut-ease) both, tut-emb-breathe 4s ease-in-out 0.9s infinite;
+}
+@keyframes tut-ring-spin { to { transform: rotate(360deg); } }
+@keyframes tut-emb-pulse { 0%,100% { transform: scale(0.9); opacity: 0.55; } 50% { transform: scale(1.15); opacity: 1; } }
+@keyframes tut-emb-breathe { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-6px) scale(1.03); } }
+@keyframes tut-emb-enter { from { opacity: 0; transform: scale(0.4) translateY(24px); } to { opacity: 1; transform: none; } }
+.tut-teamcard .tname {
+  margin-top: 10px;
+  font-family: var(--font-cinzel), Georgia, serif;
+  font-weight: 700; font-size: 21px; color: var(--tut-text);
+  letter-spacing: 0.12em; text-align: center; text-transform: uppercase;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.8), 0 0 26px color-mix(in srgb, var(--team-color, var(--tut-violet)) 45%, transparent);
+}
+/* banner del seed: placa con color del reino */
 .tut-teamcard .tseed {
-  font-family: var(--font-rajdhani), sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.24em;
-  color: var(--team-color, var(--tut-purple-soft));
-  border: 1px solid var(--team-color, var(--tut-purple-soft)); padding: 2px 10px 1px;
+  font-family: Inter, system-ui, sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.26em;
+  color: #fff;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--team-color, var(--tut-violet)) 70%, transparent), transparent);
+  padding: 5px 20px;
+  border-radius: 999px;
+  text-shadow: 0 1px 6px rgba(0,0,0,0.7);
 }
-.tut-teamcard .ttag { font-family: var(--font-rajdhani), sans-serif; font-size: 13px; color: var(--tut-muted); }
+.tut-teamcard .ttag { font-family: Inter, system-ui, sans-serif; font-weight: 400; font-size: 12px; color: var(--tut-muted); font-style: italic; }
 .tut-teamcard .players { display: flex; flex-direction: column; gap: 5px; width: 100%; margin-top: 6px; }
 .tut-teamcard .players li {
   list-style: none; display: flex; justify-content: space-between; gap: 16px;
-  font-family: var(--font-rajdhani), sans-serif; font-size: 13.5px;
-  color: var(--tut-text); padding: 3px 10px; border-radius: 3px;
+  font-family: var(--font-oswald), sans-serif; font-weight: 300; font-size: 13px;
+  color: var(--tut-text); padding: 3px 10px;
 }
-.tut-teamcard .players li.captain { background: color-mix(in srgb, var(--team-color, var(--tut-purple-soft)) 14%, transparent); color: #fff; }
-.tut-teamcard .players li em { font-style: normal; color: var(--tut-faint); font-size: 12px; }
+.tut-teamcard .players li.captain { color: var(--tut-violet-pale); }
+.tut-teamcard .players li em { font-style: normal; color: var(--tut-faint); font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; }
 
 .tut-vs-sep {
-  font-family: var(--font-anton), sans-serif;
-  font-size: clamp(28px, 4vw, 48px);
-  color: var(--tut-purple);
-  text-shadow: 0 0 30px rgba(124, 58, 237, 0.6);
-  animation: tut-pulse-sep 1.8s ease-in-out infinite;
+  font-family: var(--font-cinzel), Georgia, serif;
+  font-weight: 700;
+  font-size: clamp(22px, 3vw, 34px);
+  letter-spacing: 0.16em;
+  color: var(--tut-violet-soft);
+  text-shadow: 0 0 20px rgba(124, 58, 237, 0.5);
 }
-@keyframes tut-pulse-sep { 0%,100% { transform: scale(1); } 50% { transform: scale(1.12); } }
 
-/* Mock de pantallas (admin / equipo / página) */
+/* ---------- MOCK WINDOW (ventana del sitio, no browser genérico) ---------- */
 .tut-mock {
-  width: min(760px, 92%);
-  background: linear-gradient(180deg, var(--tut-panel-2), var(--tut-panel));
+  width: min(760px, 94%);
+  background: rgba(13, 9, 19, 0.92);
   border: 1px solid var(--tut-line);
-  border-radius: 12px;
+  border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 24px 70px -24px rgba(0, 0, 0, 0.9), 0 0 40px rgba(124, 58, 237, 0.08);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   margin-bottom: 8px;
 }
 .tut-mock-bar {
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; gap: 12px;
   padding: 9px 16px; border-bottom: 1px solid var(--tut-line);
-  background: rgba(5, 3, 11, 0.6);
+  background: rgba(7, 3, 16, 0.72);
 }
-.tut-mock-bar .d { width: 9px; height: 9px; border-radius: 50%; }
-.tut-mock-bar .d.r { background: #ff5f57; } .tut-mock-bar .d.y { background: #febc2e; } .tut-mock-bar .d.g { background: #28c840; }
-.tut-mock-bar .url {
-  flex: 1; text-align: center;
-  font-family: var(--font-rajdhani), sans-serif; font-size: 12px; letter-spacing: 0.12em;
-  color: var(--tut-faint);
-}
-.tut-mock-body { padding: 26px 30px; }
-
-.tut-mock-title { font-family: var(--font-cinzel), serif; font-size: 17px; font-weight: 700; color: #fff; margin: 0 0 6px; letter-spacing: 0.03em; }
-.tut-mock-sub { font-family: var(--font-rajdhani), sans-serif; font-size: 13px; color: var(--tut-muted); margin: 0 0 18px; }
-
-/* fila admin */
-.tut-row {
-  display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 18px;
-}
-.tut-chip-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.tut-chip {
-  font-family: var(--font-rajdhani), sans-serif; font-weight: 600; font-size: 12px; letter-spacing: 0.14em;
-  text-transform: uppercase; padding: 5px 12px 4px; border: 1px solid var(--tut-line); color: var(--tut-muted); border-radius: 3px;
-}
-.tut-chip.purple { border-color: rgba(124,58,237,0.5); color: var(--tut-purple-soft); background: rgba(124,58,237,0.1); }
-.tut-chip.gold { border-color: rgba(212,175,55,0.5); color: var(--tut-gold); }
-.tut-chip.live { border-color: rgba(34,197,94,0.6); color: #4ade80; animation: tut-blink 1.4s ease-in-out infinite; }
-
-/* botón LISTO auto-click */
-.tut-listo {
-  font-family: var(--font-anton), sans-serif; letter-spacing: 0.12em; font-size: 16px;
-  padding: 14px 44px; color: #fff; border-radius: 6px; border: none; cursor: default;
-  background: linear-gradient(135deg, #7c3aed, #5b21b6);
-  box-shadow: 0 12px 34px -10px rgba(124, 58, 237, 0.7);
-  position: relative; overflow: hidden;
+.tut-mock-brand {
+  display: inline-flex; align-items: center; gap: 8px; flex: none;
+  font-family: var(--font-cinzel), Georgia, serif; font-weight: 700; font-size: 11px;
+  letter-spacing: 0.08em; color: var(--tut-violet-soft);
+  text-shadow: 0 0 12px rgba(124, 58, 237, 0.4);
   text-transform: uppercase;
 }
-.tut-listo.done { background: linear-gradient(135deg, #15803d, #14532d); }
-.tut-listo .check-mark { margin-right: 8px; }
+.tut-mock-brand img { width: 18px; height: 18px; object-fit: contain; }
+.tut-mock-bar .url {
+  flex: 1; text-align: center;
+  font-family: Inter, system-ui, sans-serif; font-weight: 500; font-size: 11px; letter-spacing: 0.06em;
+  color: var(--tut-faint);
+}
+.tut-mock-body { padding: 24px 28px; }
 
-/* mano/cursor que "hace click" en la demo */
-.tut-cursor {
-  position: absolute; width: 34px; height: 34px; pointer-events: none; z-index: 40;
-  transition: all 0.7s cubic-bezier(0.22, 1, 0.36, 1);
-  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.7));
+.tut-mock-title { font-family: var(--font-oswald), sans-serif; font-weight: 500; font-size: 16px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--tut-text); margin: 0 0 6px; }
+.tut-mock-sub { font-family: Inter, system-ui, sans-serif; font-weight: 400; font-size: 13px; color: var(--tut-muted); margin: 0 0 16px; line-height: 1.5; }
+
+.tut-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 18px; }
+.tut-chip-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+/* Chips → badges pill del design system */
+.tut-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: Inter, system-ui, sans-serif; font-weight: 700; font-size: 10px; letter-spacing: 1.2px;
+  text-transform: uppercase; padding: 6px 13px; border: 1px solid var(--tut-line); color: var(--tut-muted);
+  border-radius: 999px; background: rgba(19, 15, 27, 0.7);
+}
+.tut-chip.purple {
+  color: var(--tut-violet-pale);
+  border-color: rgba(124, 58, 237, 0.4);
+  background: rgba(124, 58, 237, 0.1);
+}
+.tut-chip.gold {
+  color: var(--tut-gold);
+  border-color: rgba(212, 175, 55, 0.4);
+  background: rgba(212, 175, 55, 0.08);
+}
+.tut-chip.live {
+  color: var(--tut-green);
+  border-color: rgba(34, 197, 94, 0.35);
+  background: rgba(34, 197, 94, 0.1);
+  animation: tut-breath 3.2s ease-in-out infinite;
+}
+@keyframes tut-breath {
+  0%, 100% { box-shadow: 0 2px 8px rgba(34, 197, 94, 0.10); }
+  50% { box-shadow: 0 2px 14px rgba(34, 197, 94, 0.22); }
 }
 
-/* click-ripple en el botón tocado */
+/* ---------- BOTÓN AUTO (estilo vertigo-btn-primary) ---------- */
+.tut-listo {
+  font-family: Inter, system-ui, sans-serif;
+  font-weight: 700; letter-spacing: 2px; font-size: 13px; text-transform: uppercase;
+  padding: 13px 34px; color: #fff; border-radius: 10px; border: none; cursor: default;
+  background: linear-gradient(135deg, var(--tut-violet), var(--tut-violet-deep));
+  box-shadow: 0 4px 20px rgba(124, 58, 237, 0.35);
+  position: relative; overflow: hidden;
+  transition: all 0.3s var(--tut-ease);
+}
+.tut-listo.done {
+  background: rgba(34, 197, 94, 0.12);
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.1);
+  color: var(--tut-green);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  padding: 12px 33px;
+}
+.tut-listo .check-mark { margin-right: 8px; }
 .tut-click-ripple {
-  position: absolute; inset: -8px; border-radius: 10px; pointer-events: none;
-  border: 2px solid rgba(255, 255, 255, 0.9);
+  position: absolute; inset: -6px; pointer-events: none;
+  border: 1px solid rgba(196, 181, 253, 0.8);
+  border-radius: 14px;
   animation: tut-ripple 0.7s ease-out both;
 }
-@keyframes tut-ripple { from { transform: scale(0.8); opacity: 1; } to { transform: scale(1.25); opacity: 0; } }
+@keyframes tut-ripple { from { opacity: 0.9; transform: scale(0.96); } to { opacity: 0; transform: scale(1.1); } }
 
-/* scoreboard mini (comodin / partida) */
+/* ---------- SCORE MINI / TIMER ---------- */
 .tut-score-mini {
   display: flex; align-items: center; gap: 14px; justify-content: center;
-  font-family: var(--font-anton), sans-serif; font-size: 22px; letter-spacing: 0.08em; color: #fff;
-  margin-bottom: 16px;
+  font-family: var(--font-oswald), sans-serif; font-weight: 500; font-size: 20px; letter-spacing: 0.1em; color: var(--tut-text);
+  margin-bottom: 14px; text-transform: uppercase;
 }
-.tut-score-mini .n { font-family: var(--font-cinzel), serif; font-weight: 700; font-size: 15px; }
-.tut-score-mini .v { color: var(--tut-purple-soft); }
+.tut-score-mini .n { font-weight: 600; font-size: 14px; }
+.tut-score-mini .v { color: var(--tut-violet-pale); font-variant-numeric: tabular-nums; }
 
-/* comodines */
-.tut-comodines { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 20px; }
-.tut-comod {
-  display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
-  padding: 16px 10px; background: var(--tut-panel); border: 1px solid var(--tut-line); border-radius: 8px;
-  transition: all 0.3s;
-  position: relative;
-}
-.tut-comod img { width: 44px; height: 44px; object-fit: contain; }
-.tut-comod .cl { font-family: var(--font-rajdhani), sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.16em; color: var(--tut-text); text-transform: uppercase; }
-.tut-comod .cn { font-family: var(--font-rajdhani), sans-serif; font-size: 12px; color: var(--tut-faint); }
-.tut-comod.used { border-color: rgba(255, 107, 0, 0.7); box-shadow: 0 0 22px rgba(255, 107, 0, 0.3); background: rgba(255, 107, 0, 0.08); }
-.tut-comod.disabled { opacity: 0.35; }
-.tut-comod .badge {
-  position: absolute; top: -9px; right: -9px; width: 22px; height: 22px; border-radius: 50%;
-  display: grid; place-items: center; font-size: 11px; font-weight: 800; color: #fff;
-  background: var(--tut-purple); box-shadow: 0 0 12px rgba(124,58,237,0.6);
-  font-family: var(--font-rajdhani), sans-serif;
-}
-
-/* timer ventana */
 .tut-window-timer {
-  font-family: var(--font-anton), sans-serif; font-size: 40px; letter-spacing: 0.1em;
-  color: var(--tut-gold); text-align: center; margin-bottom: 6px;
-  text-shadow: 0 0 26px rgba(212, 175, 55, 0.35);
+  font-family: var(--font-oswald), sans-serif; font-weight: 500; font-size: 38px; letter-spacing: 0.12em;
+  color: var(--tut-violet-pale); text-align: center; margin-bottom: 6px;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 24px rgba(124, 58, 237, 0.35);
 }
 
-/* chat carta pro */
-.tut-chat {
-  margin-top: 16px; display: flex; flex-direction: column; gap: 8px; width: min(480px, 100%);
-}
-.tut-chat-msg {
-  align-self: flex-start; max-width: 80%;
-  background: var(--tut-panel-2); border: 1px solid var(--tut-line); border-radius: 3px 12px 12px 12px;
-  padding: 8px 14px; font-family: var(--font-rajdhani), sans-serif; font-size: 14px; color: var(--tut-text);
-  animation: tut-chat-in 0.4s ease both;
-}
-.tut-chat-msg .who { color: var(--tut-purple-soft); font-weight: 700; margin-right: 6px; }
-.tut-chat-msg.pro { border-color: rgba(212, 175, 55, 0.55); background: rgba(212, 175, 55, 0.08); }
-@keyframes tut-chat-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-
-/* resultado BO1 */
-.tut-result-grid { display: grid; grid-template-columns: auto 1fr; gap: 12px 22px; align-items: center; }
-.tut-result-grid .lbl { font-family: var(--font-rajdhani), sans-serif; font-size: 12px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--tut-faint); text-align: right; }
-.tut-result-grid .val { font-family: var(--font-cinzel), serif; font-weight: 700; font-size: 15px; color: #fff; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.tut-civ-pill {
-  display: inline-flex; align-items: center; gap: 7px; padding: 3px 12px 3px 4px;
-  border: 1px solid var(--tut-line); border-radius: 99px; background: var(--tut-panel);
-  font-family: var(--font-rajdhani), sans-serif; font-weight: 600; font-size: 13px; color: var(--tut-text);
-}
-.tut-civ-pill img { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; }
-
-/* mapa re-girado */
-.tut-map-swap { display: flex; align-items: center; gap: 18px; justify-content: center; margin-top: 8px; }
-.tut-map-card {
-  text-align: center; font-family: var(--font-rajdhani), sans-serif; font-weight: 700; letter-spacing: 0.14em;
-  font-size: 13px; color: #fff; text-transform: uppercase;
-}
-.tut-map-card .imgw { width: 150px; height: 84px; border-radius: 8px; overflow: hidden; border: 2px solid var(--tut-line); margin-bottom: 8px; }
-.tut-map-card .imgw img { width: 100%; height: 100%; object-fit: cover; }
-.tut-map-card.old { opacity: 0.45; }
-.tut-map-card.old .imgw img { filter: grayscale(1); }
-.tut-map-card.new { animation: tut-map-enter 0.6s ease both; }
-.tut-map-card.new .imgw { border-color: rgba(34, 229, 194, 0.7); box-shadow: 0 0 24px rgba(34, 229, 194, 0.3); }
-@keyframes tut-map-enter { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
-.tut-arrow { font-size: 26px; color: var(--tut-gold); }
-
-/* escena final */
-.tut-final-score {
-  display: flex; align-items: center; gap: 30px; justify-content: center; margin: 8px 0 20px;
-}
-.tut-final-score .team { display: flex; flex-direction: column; align-items: center; gap: 10px; }
-.tut-final-score .team img { width: 64px; height: 64px; object-fit: contain; }
-.tut-final-score .team .n { font-family: var(--font-cinzel), serif; font-weight: 700; font-size: 15px; letter-spacing: 0.05em; color: #fff; }
-.tut-final-score .num { font-family: var(--font-anton), sans-serif; font-size: 58px; color: var(--tut-purple-soft); }
-.tut-final-score .num.win { color: var(--tut-gold); text-shadow: 0 0 30px rgba(212, 175, 55, 0.5); }
-.tut-trophy { display: inline-flex; align-items: center; gap: 10px; padding: 10px 26px; border: 1px solid rgba(212,175,55,0.6); background: rgba(212,175,55,0.08); color: var(--tut-gold); font-family: var(--font-cinzel), serif; font-weight: 700; letter-spacing: 0.1em; font-size: 16px; border-radius: 6px; }
-
-/* confeti simple */
-.tut-confetti { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 10; }
-.tut-confetti i {
-  position: absolute; top: -12px; width: 9px; height: 13px; opacity: 0.9; border-radius: 1px;
-  animation: tut-confetti-fall linear infinite;
-}
-@keyframes tut-confetti-fall {
-  0% { transform: translateY(-20px) rotate(0deg); }
-  100% { transform: translateY(105vh) rotate(720deg); }
-}
-
-/* Escena ruleta/memotest: el componente real ocupa todo el stage */
-.tut-full {
-  position: absolute; inset: 0; background: #050505;
-}
-
-/* Memotest envuelto en estética stream */
-.tut-memo-wrap {
-  position: absolute; inset: 0; background:
-    radial-gradient(900px 500px at 20% 8%, rgba(88, 28, 175, 0.25), transparent 60%),
-    radial-gradient(800px 500px at 82% 90%, rgba(124, 58, 237, 0.15), transparent 60%),
-    #050505;
-  display: flex; flex-direction: column; overflow: hidden;
-}
-.tut-memo-head {
-  flex: none; display: flex; align-items: center; justify-content: center; gap: 16px;
-  padding: 18px 20px 6px; z-index: 5;
-}
-.tut-memo-head .sidea, .tut-memo-head .sideb {
-  display: inline-flex; align-items: center; gap: 8px;
-  font-family: var(--font-cinzel), serif; font-weight: 700; font-size: 14px; letter-spacing: 0.06em;
-  padding: 6px 14px; border-radius: 4px;
-}
-.tut-memo-head .sidea { background: rgba(255, 46, 126, 0.12); border: 1px solid rgba(255, 46, 126, 0.5); color: #ff9ec2; }
-.tut-memo-head .sideb { background: rgba(34, 229, 194, 0.12); border: 1px solid rgba(34, 229, 194, 0.5); color: #8ff5e6; }
-.tut-memo-head .sidea.on, .tut-memo-head .sideb.on { box-shadow: 0 0 22px rgba(255, 255, 255, 0.18); }
-.tut-memo-head .vs { font-family: var(--font-anton), sans-serif; color: var(--tut-purple-soft); font-size: 18px; }
-.tut-memo-scroller { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 40px 40px; }
-.tut-memo-scroller .memotest-root { max-width: 1180px; margin: 0 auto; }
-
-/* Memotest colores sobre fondo oscuro (el componente usa tokens del sitio) */
-.tut-memo-wrapper-override { color-scheme: dark; }
-.tut-memo-wrapper-override .label-premium { color: #d4af37 !important; }
-.tut-memo-wrapper-override .text-text-secondary { color: #9a92a6 !important; }
-.tut-memo-wrapper-override .text-text-primary { color: #f2eef7 !important; }
-.tut-memo-wrapper-override .border-border-subtle { border-color: rgba(154, 146, 166, 0.3) !important; }
-.tut-memo-wrapper-override .bg-bg-elevated { background: #120d1e !important; }
-.tut-memo-wrapper-override .border-gold { border-color: rgba(212, 175, 55, 0.7) !important; }
-.tut-memo-wrapper-override .text-gold { color: #d4af37 !important; }
-.tut-memo-wrapper-override .text-accent { color: #a78bfa !important; }
-
-/* Página de apertura del tutorial (antes de darle PLAY) — scroll natural */
+/* ---------- PAGE INTRO (pre-play) ---------- */
 .tut-root.tut-intro-page {
   position: static;
   inset: auto;
@@ -557,15 +536,448 @@
 }
 .tut-intro-page .tut-intro { padding: 56px 28px; }
 
-/* Responsive */
-@media (max-width: 860px) {
-  .tut-vs { grid-template-columns: 1fr; gap: 14px; }
-  .tut-vs-sep { font-size: 26px; }
-  .tut-teamcard { min-width: 0; width: 100%; padding: 20px; }
-  .tut-comodines { grid-template-columns: repeat(2, 1fr); }
-  .tut-scene { padding: 20px 18px 90px; }
+/* ---------- FULL (ruleta real) ---------- */
+.tut-full { position: absolute; inset: 0; background: #050505; }
+
+/* banner del re-girar, sobre la ruleta real (lenguaje DORADO del comodín) */
+.tut-reroll-banner {
+  position: absolute; top: 26px; left: 50%; transform: translateX(-50%);
+  z-index: 950; display: flex; align-items: center; gap: 12px;
+  padding: 10px 22px; border: 1px solid rgba(212, 175, 55, 0.55);
+  border-radius: 999px;
+  background: rgba(7, 3, 16, 0.88); backdrop-filter: blur(8px);
+  box-shadow: 0 4px 24px rgba(212, 175, 55, 0.12);
+  animation: tut-pop 0.5s ease both;
+}
+.tut-reroll-banner img { width: 28px; height: 28px; object-fit: contain; }
+.tut-reroll-banner span {
+  font-family: Inter, system-ui, sans-serif; font-weight: 700; font-size: 11px;
+  letter-spacing: 0.22em; text-transform: uppercase; color: var(--tut-gold);
+}
+
+/* ============================================================
+   MEMOTEST — paneles de equipo (qué civ es de cuál reino)
+   ============================================================ */
+.tut-memo-wrap {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse at center, transparent 52%, rgba(7, 3, 16, 0.62) 100%),
+    radial-gradient(900px 500px at 14% 0%, rgba(88, 28, 175, .14), transparent 60%),
+    radial-gradient(900px 500px at 86% 100%, rgba(124, 58, 237, .10), transparent 60%),
+    var(--tut-bg);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.tut-memo-panels {
+  flex: none; display: grid; grid-template-columns: 1fr auto 1fr; gap: 18px; align-items: stretch;
+  padding: 16px 26px 4px; max-width: 1180px; width: 100%; margin: 0 auto;
+}
+.tut-memo-vs {
+  display: grid; place-items: center;
+  font-family: var(--font-cinzel), Georgia, serif; font-weight: 700; font-size: 20px;
+  letter-spacing: 0.14em; color: var(--tut-violet-soft);
+  text-shadow: 0 0 18px rgba(124, 58, 237, 0.5);
+}
+.tut-civ-panel {
+  border: 1px solid var(--tut-line);
+  border-top: 2px solid var(--team-color, var(--tut-violet));
+  border-radius: 14px;
+  background: rgba(13, 9, 19, 0.85);
+  padding: 14px 18px;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+.tut-civ-panel.on { border-color: var(--team-color); box-shadow: 0 0 24px rgba(124, 58, 237, 0.12); }
+.tcp-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.tcp-head img { width: 38px; height: 38px; object-fit: contain; }
+.tcp-team {
+  font-family: var(--font-cinzel), Georgia, serif; font-weight: 700; font-size: 13px;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--tut-text);
+}
+.tcp-sub {
+  font-family: Inter, system-ui, sans-serif; font-weight: 700; font-size: 10px;
+  letter-spacing: 0.16em; text-transform: uppercase; color: var(--team-color, var(--tut-violet-soft));
+}
+.tut-civ-panel .tcp-civs { display: flex; flex-direction: column; gap: 8px; min-height: 72px; }
+.tcp-empty { font-family: Inter, system-ui, sans-serif; font-weight: 400; font-size: 12px; color: var(--tut-faint); align-self: flex-start; padding-top: 18px; }
+
+.tut-memo-scroller { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 40px 36px; }
+.tut-memo-scroller > div { max-width: 1180px; margin: 0 auto; }
+
+/* pills de civ */
+.tut-civ-pill {
+  display: inline-flex; align-items: center; gap: 8px; padding: 4px 14px 4px 5px;
+  border: 1px solid var(--tut-line-strong); border-radius: 999px; background: var(--tut-panel-2);
+  font-family: var(--font-oswald), sans-serif; font-weight: 400; font-size: 13px; color: var(--tut-text);
+  animation: tut-pop 0.35s ease both;
+}
+/* Nitidez: los escudos agrandados se renderizan nítidos, no pixelados */
+.tut-civ-pill img {
+  width: 24px; height: 24px; border-radius: 50%; object-fit: cover;
+  image-rendering: auto;
+  filter: contrast(1.03) saturate(1.05);
+}
+.tut-civ-pill.big { font-size: 15px; padding: 6px 18px 6px 6px; border-color: rgba(124, 58, 237, 0.5); box-shadow: 0 0 14px rgba(124, 58, 237, 0.18); }
+.tut-civ-pill.big img { width: 30px; height: 30px; }
+
+/* override dark para el memotest sobre fondo de la demo */
+.tut-memo-wrap-override { color-scheme: dark; }
+.tut-memo-wrap-override .label-premium { color: var(--tut-gold) !important; }
+.tut-memo-wrap-override .text-text-secondary { color: var(--tut-muted) !important; }
+.tut-memo-wrap-override .text-text-primary { color: var(--tut-text) !important; }
+.tut-memo-wrap-override .border-border-subtle { border-color: rgba(154, 146, 166, 0.22) !important; }
+.tut-memo-wrap-override .bg-bg-elevated { background: var(--tut-panel) !important; }
+.tut-memo-wrap-override .border-gold { border-color: rgba(212, 175, 55, 0.65) !important; }
+.tut-memo-wrap-override .text-gold { color: var(--tut-gold) !important; }
+.tut-memo-wrap-override .text-accent, .tut-memo-wrap-override .text-caption { color: var(--tut-violet-soft) !important; }
+
+/* ============================================================
+   LINEUP + ASIGNACIÓN DE CIV
+   ============================================================ */
+.tut-roster { display: flex; flex-direction: column; gap: 8px; }
+.tut-roster-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  border: 1px solid var(--tut-line); background: var(--tut-panel-2);
+  padding: 12px 18px; border-radius: 12px;
+  transition: border-color 0.3s var(--tut-ease), opacity 0.3s var(--tut-ease), background 0.3s var(--tut-ease);
+}
+.tut-roster-row.plays { border-color: rgba(124, 58, 237, 0.45); background: rgba(124, 58, 237, 0.06); }
+.tut-roster-row.benched { opacity: 0.45; }
+.rr-left { display: flex; align-items: baseline; gap: 12px; }
+.rr-name { font-family: var(--font-oswald), sans-serif; font-weight: 500; font-size: 15px; letter-spacing: 0.06em; color: var(--tut-text); }
+.rr-role { font-family: Inter, system-ui, sans-serif; font-weight: 700; font-size: 9px; letter-spacing: 0.2em; color: var(--tut-faint); }
+.rr-right { display: flex; align-items: center; }
+.rr-state { font-family: Inter, system-ui, sans-serif; font-weight: 700; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--tut-faint); }
+.rr-state.pick { color: var(--tut-violet-soft); animation: tut-blink 1.4s ease-in-out infinite; }
+.rr-state.off { color: var(--tut-danger); }
+
+/* ============================================================
+   SUMMARY (split de resultados)
+   ============================================================ */
+.tut-map-card { text-align: center; }
+.tut-map-card .imgw { border-radius: 8px; overflow: hidden; border: 1px solid var(--tut-line); }
+.tut-map-card .imgw img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* ============================================================
+   COMODINES — inventarios por equipo + secuencia épica 3D
+   ============================================================ */
+.tut-comodin-root { text-align: center; width: min(900px, 96%); position: relative; }
+.tut-inventories { display: grid; grid-template-columns: 1fr auto 1fr; gap: 18px; align-items: stretch; }
+.tut-inv-sep {
+  display: grid; place-items: center;
+  font-family: var(--font-cinzel), Georgia, serif; font-weight: 700; font-size: 20px;
+  letter-spacing: 0.14em; color: var(--tut-violet-soft);
+  text-shadow: 0 0 18px rgba(124, 58, 237, 0.5);
+}
+.tut-inv {
+  text-align: left; border: 1px solid var(--tut-line); border-top: 2px solid var(--team-color, var(--tut-violet));
+  background: rgba(13, 9, 19, 0.85); padding: 14px 16px; border-radius: 14px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+.tinv-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.tinv-head img { width: 30px; height: 30px; object-fit: contain; }
+.tinv-name { font-family: var(--font-cinzel), Georgia, serif; font-weight: 700; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--tut-text); }
+.tinv-list { display: flex; flex-direction: column; gap: 8px; }
+.tinv-item {
+  display: flex; align-items: center; gap: 12px; padding: 7px 10px;
+  border: 1px solid var(--tut-line); background: var(--tut-bg-deep);
+  border-radius: 10px; position: relative;
+  transition: border-color 0.3s var(--tut-ease), background 0.3s var(--tut-ease), transform 0.2s var(--tut-ease);
+}
+.tinv-item img { width: 34px; height: 34px; object-fit: contain; flex: none; }
+.tinv-txt { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.tinv-label { font-family: var(--font-oswald), sans-serif; font-weight: 500; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--tut-text); }
+.tinv-label em { font-style: normal; font-weight: 300; color: var(--tut-faint); margin-left: 6px; font-size: 10px; }
+.tinv-note { font-family: Inter, system-ui, sans-serif; font-weight: 400; font-size: 11px; color: var(--tut-faint); }
+.tinv-item.active {
+  border-color: rgba(124, 58, 237, 0.7); background: rgba(124, 58, 237, 0.10);
+  transform: scale(1.03); box-shadow: 0 0 22px rgba(124, 58, 237, 0.22);
+}
+.tinv-use {
+  position: absolute; top: -8px; right: 10px;
+  font-family: Inter, system-ui, sans-serif; font-weight: 700; font-size: 9px; letter-spacing: 0.2em;
+  color: #fff; background: var(--tut-violet); padding: 2px 9px; text-transform: uppercase;
+  border-radius: 999px; box-shadow: 0 2px 10px rgba(124, 58, 237, 0.4);
+}
+
+/* ---------- Secuencia épica del comodín (overlay fullscreen) ----------
+   Timeline de beats (6.4s):
+   0.00 luz converge → 0.20 carta entra (1.3s) → 1.50 impacto (shockwave+flash)
+   → 2.25 nombre slam → 2.60 divisor → 2.75 estandarte del reino.
+   Después: la carta flota con vaivén 3D + barrido de luz (shine), como
+   una carta premium real. Sin giros 360° planos ni loops amateurs.
+   ------------------------------------------------------------------ */
+.tut-epic {
+  position: fixed; inset: 0; z-index: 900;
+  background: radial-gradient(ellipse at center, rgba(13, 9, 19, 0.94) 0%, rgba(7, 3, 16, 0.98) 100%);
+  display: grid; place-items: center;
+  animation: tut-epic-fade 0.45s var(--tut-ease) both;
+}
+@keyframes tut-epic-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* resplandor radial que respira */
+.tut-epic-glow {
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(420px 420px at 50% 44%, rgba(212, 175, 55, 0.16), transparent 70%),
+    radial-gradient(680px 520px at 50% 46%, rgba(124, 58, 237, 0.22), transparent 65%);
+  animation: tut-glow-in 0.7s ease-out both;
+}
+@keyframes tut-glow-in { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: scale(1); } }
+
+/* rayos de luz girando lento */
+.tut-epic-rays {
+  position: absolute; inset: -20%; pointer-events: none;
+  background: repeating-conic-gradient(from 0deg at 50% 46%,
+    rgba(212, 175, 55, 0.055) 0deg 1.5deg, transparent 1.5deg 9deg,
+    rgba(124, 58, 237, 0.05) 9deg 10.5deg, transparent 10.5deg 18deg);
+  animation: tut-rays-rot 26s linear infinite;
+  mask-image: radial-gradient(circle at 50% 46%, black 8%, transparent 62%);
+  -webkit-mask-image: radial-gradient(circle at 50% 46%, black 8%, transparent 62%);
+}
+@keyframes tut-rays-rot { to { transform: rotate(360deg); } }
+
+/* flash único del impacto (1.5s) */
+.tut-epic-flash {
+  position: absolute; inset: 0; pointer-events: none; z-index: 20;
+  background: radial-gradient(circle at 50% 44%, rgba(255, 246, 220, 0.85), rgba(212, 175, 55, 0.28) 40%, transparent 72%);
+  opacity: 0;
+  animation: tut-impact-flash 0.55s ease-out 1.5s both;
+}
+@keyframes tut-impact-flash { 0% { opacity: 0; } 12% { opacity: 1; } 100% { opacity: 0; } }
+
+.tut-epic-center { position: relative; display: flex; flex-direction: column; align-items: center; width: 520px; max-width: 92vw; }
+
+/* columna de luz tras la carta */
+.tut-epic-beam {
+  position: absolute; top: 50%; left: 50%; width: 190px; height: 640px;
+  transform: translate(-50%, -56%);
+  background: linear-gradient(180deg, transparent, rgba(212, 175, 55, 0.10) 30%, rgba(212, 175, 55, 0.16) 50%, rgba(212, 175, 55, 0.10) 70%, transparent);
+  filter: blur(14px);
+  animation: tut-beam-in 1.6s ease-out both;
+  pointer-events: none;
+}
+@keyframes tut-beam-in { from { opacity: 0; transform: translate(-50%, -56%) scaleY(0.2); } to { opacity: 1; transform: translate(-50%, -56%) scaleY(1); } }
+
+/* pedestal bajo la carta */
+.tut-epic-pedestal {
+  width: 340px; max-width: 80%; height: 40px; margin-top: -34px; z-index: 0;
+  background: radial-gradient(ellipse, rgba(212, 175, 55, 0.36), rgba(212, 175, 55, 0.08) 55%, transparent 75%);
+  filter: blur(5px); border-radius: 50%;
+  animation: tut-pulse-sep 2.4s ease-in-out infinite, tut-pop 0.8s ease 1.3s both;
+}
+
+/* shockwaves de impacto (1.5s) */
+.tut-epic-shock { position: absolute; top: 40%; left: 50%; width: 0; height: 0; z-index: 6; pointer-events: none; }
+.tut-epic-shock i {
+  position: absolute; left: 0; top: 0; width: 60px; height: 60px; margin: -30px 0 0 -30px;
+  border-radius: 50%; border: 2px solid rgba(212, 175, 55, 0.75);
+  opacity: 0;
+  animation: tut-shockwave 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.tut-epic-shock i:nth-child(2) { animation-delay: 1.62s; border-color: rgba(167, 139, 250, 0.6); }
+.tut-epic-shock i:nth-child(3) { animation-delay: 1.76s; border-color: rgba(212, 175, 55, 0.4); }
+@keyframes tut-shockwave {
+  0% { opacity: 0; transform: scale(0.3); }
+  10% { opacity: 0.9; }
+  100% { opacity: 0; transform: scale(7); }
+}
+
+/* carta: la IMAGEN es la carta — aura de luz detrás en lugar de caja */
+.tut-epic-aura {
+  position: absolute; top: 24%; left: 50%; z-index: 3;
+  width: 360px; height: 360px; transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgba(212, 175, 55, 0.30) 0%, rgba(212, 175, 55, 0.10) 40%, transparent 68%);
+  animation: tut-aura-breathe 3.4s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes tut-aura-breathe {
+  0%, 100% { transform: translate(-50%, -50%) scale(0.92); opacity: 0.85; }
+  50% { transform: translate(-50%, -50%) scale(1.18); opacity: 1; }
+}
+.tut-epic-enter {
+  position: relative; z-index: 5;
+  perspective: 1200px;
+  animation: tut-card-enter 1.3s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
+}
+@keyframes tut-card-enter {
+  from { opacity: 0; transform: translateY(90px) scale(0.3) rotateX(55deg); }
+  62% { opacity: 1; transform: translateY(-12px) scale(1.12) rotateX(-6deg); }
+  80% { transform: translateY(4px) scale(0.97) rotateX(2deg); }
+  100% { opacity: 1; transform: translateY(0) scale(1) rotateX(0); }
+}
+.tut-epic-3d {
+  transform-style: preserve-3d;
+  animation: tut-card-sway 5s ease-in-out 1.5s infinite;
+}
+@keyframes tut-card-sway {
+  0%, 100% { transform: rotateY(-10deg) rotateX(2deg) translateY(0); }
+  50% { transform: rotateY(10deg) rotateX(-2deg) translateY(-9px); }
+}
+.tut-epic-art {
+  display: block;
+  height: min(38vh, 340px); width: auto;
+  filter: drop-shadow(0 22px 44px rgba(0, 0, 0, 0.75)) drop-shadow(0 0 34px rgba(212, 175, 55, 0.28));
+  animation: tut-art-glow 3.2s ease-in-out infinite;
+}
+@keyframes tut-art-glow {
+  0%, 100% { filter: drop-shadow(0 22px 44px rgba(0,0,0,0.75)) drop-shadow(0 0 30px rgba(212,175,55,0.24)); }
+  50% { filter: drop-shadow(0 22px 44px rgba(0,0,0,0.75)) drop-shadow(0 0 52px rgba(212,175,55,0.42)); }
+}
+
+/* nombre gigante: SLAM (2.25s) */
+.tut-epic-name {
+  font-family: var(--font-cinzel), Georgia, serif;
+  font-weight: 700;
+  font-size: clamp(44px, 7vw, 72px);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--tut-gold);
+  line-height: 1;
+  margin-top: 20px;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.6), 0 0 36px rgba(212, 175, 55, 0.38);
+  animation: tut-name-slam 0.6s cubic-bezier(0.16, 1, 0.3, 1) 2.25s both;
+  text-align: center;
+}
+@keyframes tut-name-slam {
+  from { opacity: 0; transform: scale(2.1); letter-spacing: 0.6em; filter: blur(6px); }
+  to { opacity: 1; transform: scale(1); letter-spacing: 0.18em; filter: blur(0); }
+}
+@keyframes tut-pulse-sep { 0%,100% { transform: scaleX(1); opacity: 0.7; } 50% { transform: scaleX(1.12); opacity: 1; } }
+
+/* divisor dorado bajo el nombre */
+.tut-epic-divider { width: 220px; margin-top: 16px; display: flex; justify-content: center; }
+.tut-epic-divider i {
+  display: block; height: 1px; width: 0;
+  background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.85), transparent);
+  animation: tut-divider-in 0.7s var(--tut-ease) 2.6s both;
+}
+@keyframes tut-divider-in { to { width: 220px; } }
+
+.tut-epic-team {
+  display: flex; align-items: center; gap: 12px; margin-top: 14px;
+  font-family: var(--font-cinzel), Georgia, serif; font-weight: 700; font-size: 15px;
+  letter-spacing: 0.18em; text-transform: uppercase; color: var(--tut-text);
+  animation: tut-banner-in 0.6s ease 2.75s both;
+}
+@keyframes tut-banner-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+.tut-epic-team img { width: 34px; height: 34px; object-fit: contain; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5)); }
+
+.tut-epic-sub {
+  margin-top: 12px;
+  font-family: Inter, system-ui, sans-serif; font-weight: 700; font-size: 11px;
+  letter-spacing: 0.28em; text-transform: uppercase; color: var(--tut-muted);
+  animation: tut-banner-in 0.6s ease 2.95s both;
+  text-align: center;
+}
+
+/* partículas orbitando (aparecen con la luz) */
+.tut-epic-orbit {
+  position: absolute; left: 50%; top: 40%; width: 0; height: 0; z-index: 4; pointer-events: none;
+  animation: tut-pop 1s ease 1.4s both;
+}
+.tut-particle {
+  position: absolute; left: 0; top: 0; border-radius: 50%;
+  transform: rotate(var(--p-angle)) translateX(var(--p-r));
+  animation: tut-p-orbit var(--p-dur) linear var(--p-delay) infinite;
+}
+@keyframes tut-p-orbit {
+  from { transform: rotate(var(--p-angle)) translateX(var(--p-r)); opacity: 0; }
+  15% { opacity: 1; }
+  70% { opacity: 0.9; }
+  to { transform: rotate(calc(var(--p-angle) + 360deg)) translateX(calc(var(--p-r) - 60px)); opacity: 0; }
+}
+
+/* ============================================================
+   PARTIDA — lineup final con civs por jugador
+   ============================================================ */
+.tut-lineup-final {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 4px;
+}
+.tlf-team {
+  border: 1px solid var(--tut-line); border-top: 2px solid var(--team-color, var(--tut-violet));
+  padding: 12px 14px; background: rgba(10, 7, 17, 0.9); border-radius: 12px;
+}
+.tlf-team-name {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+  font-family: var(--font-cinzel), Georgia, serif; font-weight: 700; font-size: 11px;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--tut-text);
+}
+.tlf-team-name img { width: 22px; height: 22px; object-fit: contain; }
+.tlf-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 4px 0; }
+.tlf-player { font-family: var(--font-oswald), sans-serif; font-weight: 400; font-size: 13px; color: var(--tut-muted); }
+
+/* ============================================================
+   CHAT (CARTA PRO)
+   ============================================================ */
+.tut-chat { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; width: min(480px, 100%); }
+.tut-chat-msg {
+  align-self: flex-start; max-width: 85%;
+  background: var(--tut-panel-2); border: 1px solid var(--tut-line);
+  padding: 8px 14px; border-radius: 12px;
+  font-family: var(--font-oswald), sans-serif; font-weight: 300; font-size: 14px; color: var(--tut-text);
+  animation: tut-chat-in 0.4s ease both;
+  text-align: left;
+}
+.tut-chat-msg .who { color: var(--tut-violet-soft); font-weight: 500; margin-right: 6px; }
+.tut-chat-msg.pro { border-color: rgba(212, 175, 55, 0.5); background: rgba(212, 175, 55, 0.06); }
+.tut-chat-msg.pro .who { color: var(--tut-gold); }
+@keyframes tut-chat-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* ============================================================
+   FINAL
+   ============================================================ */
+.tut-final-score { display: flex; align-items: center; gap: 34px; justify-content: center; margin: 8px 0 20px; }
+.tut-final-score .team { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.tut-final-score .team img {
+  width: 108px; height: 108px; object-fit: contain;
+  filter: drop-shadow(0 10px 26px rgba(0,0,0,0.65)) drop-shadow(0 0 20px color-mix(in srgb, var(--tut-violet-soft) 40%, transparent));
+}
+.tut-final-score .team .n {
+  font-family: var(--font-cinzel), Georgia, serif; font-weight: 700; font-size: 13px;
+  letter-spacing: 0.1em; color: var(--tut-text); text-transform: uppercase;
+}
+.tut-final-score .num {
+  font-family: var(--font-oswald), sans-serif; font-weight: 500; font-size: 56px; color: var(--tut-muted);
+  font-variant-numeric: tabular-nums;
+}
+.tut-final-score .num.win { color: var(--tut-violet-pale); text-shadow: 0 0 28px rgba(124, 58, 237, 0.45); }
+.tut-trophy {
+  display: inline-flex; align-items: center; gap: 10px; padding: 10px 28px;
+  border: 1px solid rgba(212, 175, 55, 0.5); background: rgba(212, 175, 55, 0.07);
+  color: var(--tut-gold);
+  border-radius: 999px;
+  font-family: var(--font-cinzel), Georgia, serif; font-weight: 700; letter-spacing: 0.14em; font-size: 14px;
+  text-transform: uppercase;
+  box-shadow: 0 4px 24px rgba(212, 175, 55, 0.12);
+}
+
+.tut-confetti { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 0; }
+.tut-confetti i {
+  position: absolute; top: -12px; width: 8px; height: 12px; opacity: 0.85;
+  border-radius: 2px;
+  animation: tut-confetti-fall linear infinite;
+}
+@keyframes tut-confetti-fall {
+  0% { transform: translateY(-20px) rotate(0deg); }
+  100% { transform: translateY(105vh) rotate(720deg); }
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 900px) {
+  .tut-vs, .tut-inventories, .tut-memo-panels, .tut-lineup-final { grid-template-columns: 1fr; gap: 12px; }
+  .tut-vs-sep, .tut-inv-sep, .tut-memo-vs { font-size: 18px; }
+  .tut-teamcard { min-width: 0; width: 100%; padding: 0; }
+  .tut-teamcard .emb-wrap { width: 140px; height: 140px; }
+  .tut-teamcard img.emb { width: 118px; height: 118px; }
+  .tut-teamcard .tname { font-size: 17px; margin-top: 6px; }
+  .tut-scene { padding: 16px 14px; }
   .tut-controls .tut-btn span.lbl { display: none; }
-  .tut-mock-body { padding: 18px 16px; }
-  .tut-topbar { flex-wrap: wrap; row-gap: 8px; }
-  .tut-title { font-size: 26px; }
+  .tut-mock-body { padding: 16px 14px; }
+  .tut-topbar { flex-wrap: wrap; row-gap: 8px; gap: 10px; }
+  .tut-epic-art { height: min(30vh, 230px); }
+  .tut-epic-aura { width: 250px; height: 250px; }
+  .tut-epic-pedestal { margin-top: -14px; }
+  .tut-epic-beam { width: 130px; }
+  .tut-epic-name { font-size: 34px; }
 }

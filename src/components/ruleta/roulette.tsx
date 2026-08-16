@@ -5,7 +5,7 @@ import { useConfig, type ConfigMode, type ConfigMap } from "@/lib/ruleta/config"
 
 const MIN_RING = 8;
 
-type Phase = "spinning-game-mode" | "spinning-antimeta-mode" | "spinning-player-mode-direct" | "spinning-player-mode-after-antimeta" | "spinning-map-mode" | "spinning-llave-mode" | "final";
+export type Phase = "spinning-game-mode" | "spinning-antimeta-mode" | "spinning-player-mode-direct" | "spinning-player-mode-after-antimeta" | "spinning-map-mode" | "spinning-llave-mode" | "final";
 interface ResolvedStep { key: string; mode: ConfigMode; layer: "h"|"v"; accent: string; stepNumber: number; label: string; modesList: ConfigMode[]; }
 interface ResolvedMap { key: string; map: ConfigMap; stepNumber: number; }
 
@@ -40,6 +40,13 @@ export interface RouletteProps {
    */
   autoStart?: boolean;
   /**
+   * Demo/tutorial (re-girar): fase inicial de la ruleta. Con
+   * `startPhase: "spinning-map-mode"` + `configOverride: { firstRound: false }`
+   * la ruleta REAL gira SOLO la fase MAPA (el comodín RE-GIRAR).
+   * Por defecto arranca en MODO (flujo completo, como siempre).
+   */
+  startPhase?: Phase;
+  /**
    * Override de la config de la ruleta (preset del server).
    * Si viene, reemplaza el useConfig/localStorage — la ruleta usa la config
    * del torneo, no la del navegador. Garantiza que todos los viewers ven
@@ -68,8 +75,9 @@ export function Roulette(props: RouletteProps = {}) {
   const loaderRef = useRef<HTMLDivElement>(null);
   const loaderBarRef = useRef<HTMLDivElement>(null);
   const s = useRef({ hPos: initialGameModeIndex>=0&&initialGameModeIndex<GAME_MODES.length?initialGameModeIndex:Math.floor(GAME_MODES.length/2), vPos:0, hAnim:0, vAnim:0, fadeAnim:0, spinningH:false, spinningV:false, vFade:0, autoTimer:0, entryTimer:0, audioCtx:null as AudioContext|null });
-  const [phase, setPhase] = useState<Phase>("spinning-game-mode");
-  const phaseRef = useRef<Phase>("spinning-game-mode");
+  const initialPhase: Phase = props.startPhase ?? "spinning-game-mode";
+  const [phase, setPhase] = useState<Phase>(initialPhase);
+  const phaseRef = useRef<Phase>(initialPhase);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
   const [resolved, setResolved] = useState<ResolvedStep[]>([]);
   const [vFade, setVFade] = useState(0);

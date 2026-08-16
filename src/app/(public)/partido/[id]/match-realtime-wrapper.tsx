@@ -141,26 +141,37 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
       ? "B"
       : null;
 
+  // Juego para el HERO: la partida con sorteo más reciente (con mapa),
+  // para que un BO3 en 1-1 muestre la partida decisiva y no la 1.
+  const heroGame =
+    [...match.games].sort((a, b) => b.gameNumber - a.gameNumber).find((g) => g.map) ??
+    match.games[match.games.length - 1] ??
+    match.games[0] ??
+    null;
+
   return (
     <div className="flex flex-col gap-6">
-      {/* RULETA EN VIVO — overlay fullscreen cuando el server dispara el sorteo */}
-      {match.status === "drawing" && (
+      {/* RULETA EN VIVO — overlay fullscreen cuando el server dispara el sorteo
+          (partida 1: match.status=drawing; partidas 2/3 del BO3: match queda
+          in_progress pero la partida activa pasa a drawing) */}
+      {(match.status === "drawing" || match.activeGame?.status === "drawing") && (
         <LiveDrawRoulette
           matchId={matchId}
           onDone={() => void refresh()}
         />
       )}
 
-      {/* HERO cinematográfico del partido (modo + mapa, fondo con arte del sorteo) */}
+      {/* HERO cinematográfico del partido (modo + mapa, fondo con arte del sorteo).
+          Muestra la partida ACTIVA: en BO3 1-1 es la partida 2/3, no la 1. */}
       <MatchHero
-        mapName={match.games[0]?.map ?? null}
-        gameModeName={match.games[0]?.gameMode ?? null}
-        antimetaName={match.games[0]?.antimetaMode ?? null}
-        playerModeName={match.games[0]?.playerMode ?? null}
+        mapName={heroGame?.map ?? null}
+        gameModeName={heroGame?.gameMode ?? null}
+        antimetaName={heroGame?.antimetaMode ?? null}
+        playerModeName={heroGame?.playerMode ?? null}
         llaveName={match.format ?? null}
         status={match.status}
-        civsA={match.games[0]?.civsA ?? []}
-        civsB={match.games[0]?.civsB ?? []}
+        civsA={heroGame?.civsA ?? []}
+        civsB={heroGame?.civsB ?? []}
         live={match.status === "in_progress" || match.status === "drawing"}
       />
 
@@ -174,12 +185,15 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
           teamA={{ id: match.teamA.id, name: match.teamA.name, seed: match.teamA.seed }}
           teamB={{ id: match.teamB.id, name: match.teamB.name, seed: match.teamB.seed }}
           myPlayers={captainContext.myPlayers}
+          rivalPlayers={captainContext.rivalPlayers}
           annulledPlayerIds={captainContext.annulledPlayerIds}
+          rivalAnnulledPlayerIds={captainContext.rivalAnnulledPlayerIds}
           readyA={!!match.readyA}
           readyB={!!match.readyB}
           readyLineupA={!!match.readyLineupA}
           readyLineupB={!!match.readyLineupB}
-          format={match.format}
+          playerMode={match.activeGame?.playerMode ?? null}
+          myCivs={captainContext.myTeamRegId === match.teamA.id ? (match.activeGame?.civsA ?? []) : (match.activeGame?.civsB ?? [])}
           scheduledAtStart={match.scheduledAtStart}
           comodinExpiresAt={match.comodinWindowExpiresAt}
         />
@@ -206,6 +220,7 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
           <TeamSide
             name={match.teamA?.name ?? "Por definir"}
             seed={match.teamA?.seed ?? null}
+            emblemUrl={match.teamA?.emblemUrl ?? null}
             score={match.scoreA}
             isWinner={winnerSide === "A"}
             align="right"
@@ -230,6 +245,7 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
           <TeamSide
             name={match.teamB?.name ?? "Por definir"}
             seed={match.teamB?.seed ?? null}
+            emblemUrl={match.teamB?.emblemUrl ?? null}
             score={match.scoreB}
             isWinner={winnerSide === "B"}
             align="left"
@@ -401,6 +417,7 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
 function TeamSide({
   name,
   seed,
+  emblemUrl,
   score,
   isWinner,
   align,
@@ -408,6 +425,7 @@ function TeamSide({
 }: {
   name: string;
   seed: number | null;
+  emblemUrl: string | null;
   score: number;
   isWinner: boolean;
   align: "left" | "right";
@@ -416,10 +434,20 @@ function TeamSide({
   const inner = (
     <>
       <div
-        className="flex items-center justify-center flex-none rounded-lg border border-[var(--vertigo-purple)] text-[var(--vertigo-purple-soft)] mb-3"
-        style={{ width: 56, height: 56 }}
+        className="flex items-center justify-center flex-none rounded-lg border overflow-hidden mb-3"
+        style={{
+          width: 56, height: 56,
+          borderColor: emblemUrl ? "rgba(212,175,55,0.5)" : "var(--vertigo-purple)",
+          background: "var(--vertigo-input-bg, #0e0a14)",
+          boxShadow: isWinner ? "0 0 18px rgba(124,58,237,0.3)" : undefined,
+        }}
       >
-        <Trophy style={{ width: 24, height: 24 }} strokeWidth={1.25} />
+        {emblemUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={emblemUrl} alt={`${name}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        ) : (
+          <Trophy style={{ width: 24, height: 24, color: "var(--vertigo-purple-soft)" }} strokeWidth={1.25} />
+        )}
       </div>
       <div className={align === "right" ? "text-right" : "text-left"}>
         {seed != null && (
