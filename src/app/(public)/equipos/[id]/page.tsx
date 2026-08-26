@@ -3,9 +3,12 @@ import { notFound } from "next/navigation";
 import { Shield, Users, Swords, History, Sparkles, Crown, Star, Trophy } from "lucide-react";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { civName } from "@/lib/constants/civs";
+import { TeamBannerBg } from "@/components/team/team-banner-bg";
+import { ComodinesGrid } from "@/components/team/comodin-cards";
 import TeamRealtimeWrapper, {
   type NextMatchData,
 } from "./team-realtime-wrapper";
+import { fmt } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -368,11 +371,8 @@ export default async function EquipoDetallePage({
           <Link href="/" className="vertigo-logo">VÉRTIGO</Link>
           <span className="vertigo-section-tag">REINO</span>
         </div>
-        <div className="vertigo-header-right">
-          <Link href="/equipos" className="vertigo-btn vertigo-btn-ghost" style={{ padding: "8px 16px", fontSize: "11px" }}>
-            ← Volver a equipos
-          </Link>
-        </div>
+        {/* Sin botón a la derecha: ahí vive el chip de usuario (layout público) */}
+        <div className="vertigo-header-right" />
       </header>
 
       <main className="vertigo-content">
@@ -386,30 +386,17 @@ export default async function EquipoDetallePage({
             borderRadius: 16,
           }}
         >
-          {/* Fondo: imagen de marca del torneo (guerrero con trofeo) */}
+          {/* Fondo del banner: imagen de marca (guerrero con trofeo) + tinte único del equipo */}
           <div
             style={{
               position: "relative",
               height: 200,
-              backgroundImage: "url('/brand/hero-trofeo.png')",
-              backgroundSize: "cover",
-              backgroundPosition: "center 35%",
             }}
           >
-            {/* Oscurecer para texto legible */}
-            <div
-              style={{
-                position: "absolute", inset: 0,
-                background: "linear-gradient(180deg, rgba(7,3,16,0.35) 0%, rgba(7,3,16,0.85) 70%, #070310 100%)",
-              }}
-            />
-            {/* Borde dorado inferior */}
-            <div
-              style={{
-                position: "absolute", bottom: 0, left: 0, right: 0,
-                height: 2,
-                background: "linear-gradient(90deg, transparent, rgba(212,175,55,0.5), transparent)",
-              }}
+            <TeamBannerBg
+              emblemUrl={emblemUrl}
+              seed={data.teamAccount.id}
+              backgroundImage="/brand/hero-trofeo.png"
             />
             {/* Contenido superpuesto */}
             <div
@@ -535,14 +522,8 @@ export default async function EquipoDetallePage({
               <Swords style={{ width: 12, height: 12, color: "var(--vertigo-purple-soft)" }} />
               Comodines disponibles
             </div>
-            <div
-              className="grid gap-3 mb-8"
-              style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}
-            >
-              <ComodinCard label="Reroll" value={data.comodin.rerollAvailable} desc="Re-girar fase" />
-              <ComodinCard label="Anular" value={data.comodin.anularAvailable} desc="Anular jugador rival" />
-              <ComodinCard label="Elegir rival" value={data.comodin.elegirRivalAvailable} desc="Elegir oponente" />
-              <ComodinCard label="Invocar PRO" value={data.comodin.invocarProAvailable} desc="Refuerzo profesional" />
+            <div style={{ marginBottom: 32 }}>
+              <ComodinesGrid comodin={data.comodin} />
             </div>
           </>
         )}
@@ -685,11 +666,7 @@ export default async function EquipoDetallePage({
                       <div className="vertigo-card-title">{m.roundName ?? "Partido"}</div>
                       {m.scheduledAtStart && (
                         <div className="text-[11px] text-[var(--vertigo-faint)] mt-1">
-                          {new Date(m.scheduledAtStart).toLocaleDateString("es-AR", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                          })}
+                          {fmt.dayMonYear(m.scheduledAtStart)}
                         </div>
                       )}
                     </div>
@@ -738,22 +715,6 @@ export default async function EquipoDetallePage({
           </div>
         )}
       </main>
-    </div>
-  );
-}
-
-function ComodinCard({ label, value, desc }: { label: string; value: number; desc: string }) {
-  const isAvailable = value > 0;
-  return (
-    <div className="vertigo-info-card">
-      <div className="vertigo-info-card-label">{label}</div>
-      <div className="vertigo-info-card-value" style={{ fontFamily: "var(--font-cinzel), Cinzel, serif", fontSize: 26 }}>
-        <span style={{ color: isAvailable ? "var(--vertigo-purple-pale)" : "var(--vertigo-faint)" }}>
-          {value}
-        </span>
-        <span className="text-[11px] text-[var(--vertigo-faint)] ml-2">disp.</span>
-      </div>
-      <div className="text-[11px] text-[var(--vertigo-faint)] mt-1">{desc}</div>
     </div>
   );
 }

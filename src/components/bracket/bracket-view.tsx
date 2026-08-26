@@ -7,6 +7,7 @@ import {
   type GeneratedMatch,
 } from "@/lib/bracket/engine";
 import { cn } from "@/lib/utils";
+import { fmt } from "@/lib/format";
 
 interface BracketViewProps {
   bracketSize?: number;
@@ -196,12 +197,7 @@ function MatchCard({
       {/* Scheduled time */}
       {data?.scheduledAt && status === "scheduled" && (
         <div className="px-2 py-1 border-t border-border-subtle text-caption text-text-tertiary">
-          {new Date(data.scheduledAt).toLocaleDateString("es-AR", {
-            day: "2-digit",
-            month: "short",
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
+          {fmt.dayMonTime(data.scheduledAt)}
         </div>
       )}
     </div>

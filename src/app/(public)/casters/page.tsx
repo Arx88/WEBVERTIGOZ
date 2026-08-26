@@ -4,6 +4,7 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 import { ART_PREDICADOR } from "@/lib/art";
 import VertigoFooter from "@/components/shared/vertigo-footer";
 import HeroStat from "@/components/shared/hero-stat";
+import { fmt } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -294,7 +295,7 @@ function CasterCard({ c, meta }: { c: CasterRow; meta: TierMeta }) {
             {c.approvedAt && (
               <div className="text-[10.5px] text-[var(--vertigo-faint)] mt-0.5">
                 Al aire desde{" "}
-                {new Date(c.approvedAt).toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" })}
+                {fmt.dayMonYear(c.approvedAt)}
               </div>
             )}
           </div>

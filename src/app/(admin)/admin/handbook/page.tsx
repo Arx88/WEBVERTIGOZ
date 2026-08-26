@@ -4,6 +4,7 @@ import { BookOpen, ExternalLink, FileText, Calendar, Info } from "lucide-react";
 import AdminHero from "@/components/shared/admin-hero";
 import { getEditionForAdmin, signHandbookUrl } from "@/lib/edition";
 import HandbookUploader from "./handbook-uploader";
+import { fmt } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +40,7 @@ export default async function AdminHandbookPage({
           { value: edition?.name ?? "—", label: "Edición" },
           { value: signedUrl ? "Disponible" : "Falta subir", label: "Estado", color: signedUrl ? "var(--vertigo-success)" : "#fbbf24" },
           {
-            value: uploadedAt ? new Date(uploadedAt).toLocaleDateString("es-AR") : "—",
+            value: fmt.date(uploadedAt),
             label: "Subido",
           },
         ]}
@@ -63,7 +64,7 @@ export default async function AdminHandbookPage({
                 {uploadedAt && (
                   <>
                     <Calendar style={{ width: 12, height: 12 }} />
-                    <span>Subido {new Date(uploadedAt).toLocaleString("es-AR")}</span>
+                    <span>Subido {fmt.dateTime(uploadedAt)}</span>
                   </>
                 )}
                 {!uploadedAt && <span>Versión por defecto (sin fecha de subida registrada)</span>}

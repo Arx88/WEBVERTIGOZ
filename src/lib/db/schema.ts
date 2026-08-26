@@ -265,6 +265,12 @@ export const teamRegistration = pgTable("team_registration", {
   restreamAccepted: boolean("restream_accepted").notNull().default(false),
   handbookDownloadedAt: timestamp("handbook_downloaded_at", { withTimezone: true }),
   termsAcceptedAt: timestamp("terms_accepted_at", { withTimezone: true }),
+  // Requisitos de inscripción (anti-smurf y pago los marca el staff;
+  // tutorial y Discord se autogestionan desde /mi-equipo)
+  antiSmurfCheck: boolean("anti_smurf_check").notNull().default(false),
+  paymentConfirmed: boolean("payment_confirmed").notNull().default(false),
+  tutorialWatched: boolean("tutorial_watched").notNull().default(false),
+  discordJoined: boolean("discord_joined").notNull().default(false),
   submittedAt: timestamp("submitted_at", { withTimezone: true }),
   approvedAt: timestamp("approved_at", { withTimezone: true }),
   approvedById: uuid("approved_by_id").references(() => account.id),
@@ -692,3 +698,22 @@ export const betRelations = relations(bet, ({ one }) => ({
   match: one(match, { fields: [bet.matchId], references: [match.id] }),
   pickedTeam: one(teamRegistration, { fields: [bet.pickedTeamId], references: [teamRegistration.id] }),
 }));
+
+// ============================================================
+// CACHE DE STATS AOE2 COMPANION (rm_team = partidas de equipos)
+// ============================================================
+
+/**
+ * Winrate por civ y por mapa del ladder público (leaderboard rm_team),
+ * traído de data.aoe2companion.com. Se refresca al aprobar inscripción,
+ * por cron (/api/cron/refresh-stats) o bajo demanda desde /mi-equipo.
+ * Lectura pública, escritura solo service-role.
+ */
+export const playerStatsCache = pgTable("player_stats_cache", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  aoe2ProfileId: integer("aoe2_profile_id").notNull().unique(),
+  playerRegistrationId: uuid("player_registration_id").references(() => playerRegistration.id, { onDelete: "set null" }),
+  payload: jsonb("payload").notNull().default({}),
+  fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});

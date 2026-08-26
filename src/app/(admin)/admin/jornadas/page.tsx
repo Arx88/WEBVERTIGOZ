@@ -4,6 +4,7 @@ import Link from "next/link";
 import { scheduleMatchFormAction } from "@/server/actions/tournament";
 import { Calendar, Clock, AlertCircle, ChevronRight, Save } from "lucide-react";
 import AdminHero from "@/components/shared/admin-hero";
+import { fmt } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -137,7 +138,7 @@ export default async function AdminJornadasPage() {
                       <div className="flex items-center gap-3 mb-4 text-xs text-[var(--vertigo-muted)] flex-wrap">
                         <Clock style={{ width: 13, height: 13 }} />
                         {m.scheduled_at_start
-                          ? `${new Date(m.scheduled_at_start).toLocaleString("es-AR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })} → ${m.scheduled_at_end ? new Date(m.scheduled_at_end).toLocaleString("es-AR", { hour: "2-digit", minute: "2-digit" }) : "?"}`
+                          ? `${fmt.dayMonTime(m.scheduled_at_start)} → ${m.scheduled_at_end ? fmt.time(m.scheduled_at_end) : "?"}`
                           : "Sin programar"}
                         {m.jornada_label && (
                           <span className="vertigo-badge vertigo-badge-purple" style={{ fontSize: 9 }}>{m.jornada_label}</span>

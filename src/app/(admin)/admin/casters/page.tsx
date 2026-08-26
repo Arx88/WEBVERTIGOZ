@@ -9,6 +9,7 @@ import {
 import { Mic, Twitch, Youtube, Check, ExternalLink, Trash2, EyeOff, Eye, Clock } from "lucide-react";
 import { ART_PREDICADOR } from "@/lib/art";
 import HeroStat from "@/components/shared/hero-stat";
+import { fmt } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -263,7 +264,7 @@ function CasterAdminCard({ c, llaves }: { c: any; llaves: number }) {
             </div>
             <div className="text-[11px] text-[var(--vertigo-faint)]">
               {c.approved_at
-                ? `Aprobado ${new Date(c.approved_at).toLocaleDateString("es-AR")}`
+                ? `Aprobado ${fmt.date(c.approved_at)}`
                 : "No aprobado — oculto en /casters"}
             </div>
           </div>

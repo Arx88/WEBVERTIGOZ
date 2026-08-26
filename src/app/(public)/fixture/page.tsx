@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Calendar, Clock, Radio, ChevronRight, Swords, Trophy } from "lucide-react";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import VertigoFooter from "@/components/shared/vertigo-footer";
+import { fmt } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -372,14 +373,8 @@ function FixtureMatchCard({ m }: { m: FixtureMatch }) {
                 </span>
               )}
               <span className="truncate">
-                {new Date(m.scheduledAtStart).toLocaleString("es-AR", {
-                  day: "2-digit",
-                  month: "short",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-                {m.scheduledAtEnd &&
-                  ` — ${new Date(m.scheduledAtEnd).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}`}
+                {fmt.dayMonTime(m.scheduledAtStart)}
+                {m.scheduledAtEnd && ` — ${fmt.time(m.scheduledAtEnd)}`}
               </span>
             </>
           ) : (
@@ -583,13 +578,7 @@ function NextUpCard({ m }: { m: FixtureMatch }) {
             <>
               <Clock style={{ width: 11, height: 11, flex: "none", color: "var(--vertigo-gold)" }} />
               <span className="truncate">
-                {new Date(m.scheduledAtStart).toLocaleString("es-AR", {
-                  weekday: "short",
-                  day: "2-digit",
-                  month: "short",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
+                {fmt.weekdayShortTime(m.scheduledAtStart)}
               </span>
             </>
           ) : (

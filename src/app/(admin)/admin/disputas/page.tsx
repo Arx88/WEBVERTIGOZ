@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { resolveDisputeAction } from "@/server/actions/auth";
 import { AlertTriangle, Shield, Clock, Image as ImageIcon, ExternalLink } from "lucide-react";
 import AdminHero from "@/components/shared/admin-hero";
+import { fmt } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -87,7 +88,7 @@ export default async function AdminDisputasPage() {
                       </div>
                       <div className="text-[11px] text-[var(--vertigo-faint)] mt-0.5 flex items-center gap-2">
                         <Clock style={{ width: 11, height: 11 }} />
-                        Abierta {new Date(d.created_at).toLocaleString("es-AR")}
+                        Abierta {fmt.dateTime(d.created_at)}
                         {" · "}
                         Por: {d.raised_by_team?.team_account?.name ?? "—"}
                       </div>

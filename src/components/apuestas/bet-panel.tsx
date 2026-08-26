@@ -10,7 +10,10 @@
  *  - Ya jugada, la misma boleta queda "estampada" con lo que cobrás si gana.
  *
  * Estados:
- *  - viewer anónimo u otro rol → CTA de registro (no invasivo).
+ *  - viewer anónimo → CTA de registro (no invasivo).
+ *  - participante logueado (capitán / admin / caster) → no ve nada de apuestas:
+ *    es público del torneo, no del pozo, y en modo por sortear su página de
+ *    partido no debe invitarlo a registrarse como espectador.
  *  - llave apostable (scheduled + ambos equipos) sin apuesta → boleta vacía.
  *  - llave apostable con apuesta propia → boleta estampada + cancelar (reintegro).
  *  - llave abierta/cerrada → solo lectura; liquidada → resultado.
@@ -139,6 +142,9 @@ function PoolBar({
 }
 
 export default function BetPanel({ context, matchId, status, teamA, teamB }: Props) {
+  // Participantes logueados: cero UI de apuestas (ni siquiera el CTA de registro).
+  if (context.kind === "other-role") return null;
+
   if (context.kind !== "spectator") {
     return (
       <div className="vertigo-card" style={{ padding: "20px 24px" }}>

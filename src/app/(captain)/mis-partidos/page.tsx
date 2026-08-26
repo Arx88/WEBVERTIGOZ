@@ -4,6 +4,7 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 import { CaptainHeader } from "@/components/captain/captain-header";
 import { confirmReadyAction } from "@/server/actions/ready";
 import { Dices, Ban, Target, UserPlus, Calendar, History, ArrowRight, Clock, CheckCircle, AlertCircle, Zap, Sparkles } from "lucide-react";
+import { fmt } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -271,7 +272,7 @@ export default async function MisPartidosPage() {
                         <div className="vertigo-info-card-label" style={{ marginBottom: "4px" }}>Horario</div>
                         <div className="vertigo-info-card-value" style={{ fontSize: "13px" }}>
                           {m.scheduled_at_start
-                            ? new Date(m.scheduled_at_start).toLocaleString("es-AR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
+                            ? fmt.dayMonTimeNum(m.scheduled_at_start)
                             : "A confirmar"}
                         </div>
                       </div>
@@ -420,7 +421,7 @@ export default async function MisPartidosPage() {
                       </span>
                       <span style={{ fontSize: "11px", color: "var(--vertigo-faint)", display: "flex", alignItems: "center", gap: "4px" }}>
                         <Clock style={{ width: 11, height: 11 }} />
-                        {m.finished_at ? new Date(m.finished_at).toLocaleDateString("es-AR") : "—"}
+                        {fmt.date(m.finished_at)}
                       </span>
                     </div>
                   </Link>

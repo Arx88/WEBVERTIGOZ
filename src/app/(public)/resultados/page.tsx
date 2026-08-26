@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Trophy } from "lucide-react";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import DuelCard from "@/components/shared/duel-card";
+import { fmt } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -146,7 +147,7 @@ export default async function ResultadosPage() {
                       {forfeit && <span className="vertigo-badge vertigo-badge-danger" style={{ fontSize: 9, padding: "3px 10px" }}>W.O.</span>}
                       {m.finishedAt && (
                         <span style={{ fontSize: 10, color: "var(--vertigo-faint)" }}>
-                          {new Date(m.finishedAt).toLocaleString("es-AR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                          {fmt.dayMonTime(m.finishedAt)}
                         </span>
                       )}
                     </div>

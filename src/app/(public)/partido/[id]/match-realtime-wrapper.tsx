@@ -25,6 +25,7 @@ import { artForMode, artForMap } from "@/lib/art";
 import { CaptainMatchPanel, type CaptainPanelContext } from "@/components/captain/captain-match-panel";
 import BetPanel, { type BetPanelContext } from "@/components/apuestas/bet-panel";
 import { loadMatch, type GameView, type MatchData } from "./match-data";
+import { fmt } from "@/lib/format";
 
 export { loadMatch };
 export type { GameView, MatchData };
@@ -234,7 +235,8 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
       )}
 
       {/* BOLETA DE APUESTAS — para el espectador es lo principal de la página:
-          va antes del scoreboard. Los demás ven un CTA de registro discreto.
+          va antes del scoreboard. Anónimos ven un CTA de registro discreto y
+          los participantes (capitán/admin/caster) no ven nada de apuestas.
           Se cierra sola cuando la llave abre (status llega por realtime). */}
       {spectatorContext && (
         <BetPanel
@@ -355,12 +357,7 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
           {match.scheduledAtStart && (
             <span className="inline-flex items-center gap-1.5 text-[11px]" style={{ color: "var(--vertigo-muted)" }}>
               <Calendar style={{ width: 12, height: 12, color: "var(--vertigo-faint)" }} />
-              {new Date(match.scheduledAtStart).toLocaleString("es-AR", {
-                day: "2-digit",
-                month: "short",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+              {fmt.dayMonTime(match.scheduledAtStart)}
             </span>
           )}
           {/* Fin estimado y formato: datos operativos, solo interesan al capitán */}
@@ -368,7 +365,7 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
             <span className="inline-flex items-center gap-1.5 text-[11px]" style={{ color: "var(--vertigo-muted)" }}>
               <Clock style={{ width: 12, height: 12, color: "var(--vertigo-faint)" }} />
               Fin estimado{" "}
-              {new Date(match.scheduledAtEnd).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}
+              {fmt.time(match.scheduledAtEnd)}
             </span>
           )}
           {match.streamCaster && (

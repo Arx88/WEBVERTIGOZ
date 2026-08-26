@@ -2,6 +2,7 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { ScrollText, Download, Shield, Hash, ChevronDown } from "lucide-react";
 import AdminHero from "@/components/shared/admin-hero";
+import { fmt } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -139,7 +140,7 @@ export default async function AdminAuditoriaPage({
                       </div>
                       <div className="text-[11px] text-[var(--vertigo-faint)] mt-0.5">
                         {log.actor?.display_name ?? log.actor?.email ?? "—"} ·{" "}
-                        {new Date(log.created_at).toLocaleString("es-AR")}
+                        {fmt.dateTime(log.created_at)}
                       </div>
                     </div>
                   </div>

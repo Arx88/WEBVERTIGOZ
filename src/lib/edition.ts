@@ -60,7 +60,13 @@ export async function getEditionForAdmin(sb: any, explicitId?: string | null) {
 
 /**
  * Edición que recibe las inscripciones: la única con status="registration".
- * Fallback: la última creada (para no romper el wizard si nadie abrió aún).
+ *
+ * Devuelve null si ninguna edición está en "registration". A propósito NO hay
+ * fallback a "la última creada": ese fallback mantenía abiertas las
+ * inscripciones aunque el torneo estuviera en curso (status="active"), y fue la
+ * causa de que se pudiera seguir inscribiendo equipos con el bracket lleno.
+ * Abrir/cerrar inscripciones es una decisión explícita del admin desde
+ * /admin/torneo (transición de status), no un efecto secundario.
  */
 export async function getEditionForRegistration(sb: any) {
   const { data: abierta } = await sb
@@ -70,14 +76,7 @@ export async function getEditionForRegistration(sb: any) {
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (abierta) return abierta;
-  const { data: ultima } = await sb
-    .from("tournament_edition")
-    .select(EDITION_SELECT)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  return ultima ?? null;
+  return abierta ?? null;
 }
 
 /** Path canónico del PDF del handbook dentro del bucket privado `handbook`. */

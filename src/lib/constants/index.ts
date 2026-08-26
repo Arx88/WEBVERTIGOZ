@@ -14,6 +14,9 @@ export const ACCOUNT_ROLES = {
 
 export type AccountRole = (typeof ACCOUNT_ROLES)[keyof typeof ACCOUNT_ROLES];
 
+// Discord oficial del torneo (requisito "Unirse al Discord" del checklist)
+export const DISCORD_INVITE_URL = "https://discord.gg/vertigocup";
+
 // Estados de un match (la llave)
 export const MATCH_STATUS = {
   SCHEDULED: "scheduled",

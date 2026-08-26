@@ -10,6 +10,7 @@ import {
   homeForRole,
   restoreDeviceSession,
 } from "@/lib/device-trust";
+import { refreshPlayerStatsCache } from "@/lib/aoe2/stats-cache";
 
 export async function logoutAction() {
   const supabase = await getSupabaseServer();
@@ -58,6 +59,35 @@ export async function approveTeamAction(registrationId: string) {
     throw new Error("Sin permisos de administrador");
   }
 
+  // Control de cupo (defensa en profundidad): el wizard ya frena inscripciones
+  // nuevas al llegar a max_teams, pero el admin puede aprobar a mano y superar
+  // el cupo. Contamos solo los aprobados, que son los que ocupan slot.
+  const service = getSupabaseServiceRole() as any;
+  const { data: reg } = await service
+    .from("team_registration")
+    .select("id, status, tournament_edition_id")
+    .eq("id", registrationId)
+    .maybeSingle();
+  if (!reg) throw new Error("Inscripción no encontrada");
+  if (reg.status !== "approved") {
+    const { data: edition } = await service
+      .from("tournament_edition")
+      .select("max_teams")
+      .eq("id", reg.tournament_edition_id)
+      .maybeSingle();
+    const maxTeams = edition?.max_teams ?? 32;
+    const { count: approvedCount } = await service
+      .from("team_registration")
+      .select("id", { count: "exact", head: true })
+      .eq("tournament_edition_id", reg.tournament_edition_id)
+      .eq("status", "approved");
+    if ((approvedCount ?? 0) >= maxTeams) {
+      throw new Error(
+        `Cupo lleno: ya hay ${approvedCount} equipos aprobados de ${maxTeams} permitidos. Rechazá o quitá alguno antes de aprobar otro.`
+      );
+    }
+  }
+
   const { error } = await supabase
     .from("team_registration")
     .update({
@@ -68,6 +98,21 @@ export async function approveTeamAction(registrationId: string) {
     .eq("id", registrationId);
 
   if (error) throw new Error(`Error: ${error.message}`);
+
+  // Cache inicial de stats Companion (rm_team) para el intel del equipo.
+  // No bloquea la aprobación si Companion no responde.
+  try {
+    const admin = getSupabaseServiceRole() as any;
+    const { data: players } = await admin
+      .from("player_registration")
+      .select("id, aoe2_profile_id")
+      .eq("team_registration_id", registrationId);
+    await Promise.all(
+      (players ?? []).map((p: any) => refreshPlayerStatsCache(p.aoe2_profile_id, p.id))
+    );
+  } catch (e) {
+    console.error("[approveTeam] refresco de stats falló (no fatal):", e);
+  }
 
   revalidatePath("/admin/equipos");
 }

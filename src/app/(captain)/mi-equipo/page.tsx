@@ -2,31 +2,30 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { logoutAction } from "@/server/actions/auth";
+import { refreshTeamIntelAction } from "@/server/actions/intel";
 import { CaptainHeader } from "@/components/captain/captain-header";
+import { TeamBannerBg } from "@/components/team/team-banner-bg";
+import { MatchCountdown } from "@/components/team/countdown";
+import { IntelPanel } from "@/components/team/intel-panel";
+import { ComodinesGrid, type ComodinRow } from "@/components/team/comodin-cards";
 import {
-  Crown, Users, Calendar, Swords, Shield, Check, X, ChevronRight,
-  Zap, Clock, Trophy, Flag, TrendingUp, BarChart2
+  buildPlayersIntel,
+  getCachedTeamStats,
+  type PlayerIntel,
+  type PresetMapDef,
+} from "@/lib/aoe2/stats-cache";
+import { CIV_NAMES } from "@/lib/constants/civs";
+import { DISCORD_INVITE_URL } from "@/lib/constants";
+import { markRequirementAction } from "@/server/actions/requirements";
+import {
+  Crown, Users, Calendar, Swords, Shield, Check, ChevronRight,
+  Zap, Trophy, RefreshCw, Crosshair, ExternalLink, Play,
+  ScanFace, CreditCard, MonitorPlay, MessagesSquare, ListChecks,
+  Hourglass, ArrowUpRight,
 } from "lucide-react";
+import { fmt } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
-
-const CIV_NAMES: Record<string, string> = {
-  britons: "Britanos", franks: "Francos", goths: "Godos", teutons: "Teutones",
-  japanese: "Japoneses", chinese: "Chinos", byzantines: "Bizantinos", persians: "Persas",
-  saracens: "Sarracenos", turks: "Turcos", vikings: "Vikingos", mongols: "Mongoles",
-  celts: "Celtas", spanish: "Españoles", aztecs: "Aztecas", mayans: "Mayas",
-  huns: "Hunos", koreans: "Coreanos", italians: "Italianos", hindustanis: "Hindúes",
-  incas: "Incas", magyars: "Magiares", slavs: "Eslavos", berbers: "Bereberes",
-  ethiopians: "Etíopes", malians: "Malianos", portuguese: "Portugueses", burmese: "Birmanos",
-  khmer: "Jémeres", malay: "Malayos", vietnamese: "Vietnamitas", bulgarians: "Búlgaros",
-  cumans: "Cumanos", lithuanians: "Lituanos", tatars: "Tártaros", burgundians: "Borgoñones",
-  sicilians: "Sicilianos", poles: "Polacos", bohemians: "Bohemios", romans: "Romanos",
-  armenians: "Armenios", georgians: "Georgianos", bengalis: "Bengalíes", dravidians: "Drávidas",
-  gurjaras: "Gurjaras", jurchens: "Jurchen", khitans: "Kitan", shu: "Shu", wei: "Wei", wu: "Wu",
-  mapuche: "Mapuche", muiscas: "Muiscas", tupies: "Tupies",
-};
-
-const CIV_KEYS = Object.keys(CIV_NAMES);
 
 export default async function MiEquipoPage() {
   const supabase = (await getSupabaseServer()) as any;
@@ -57,24 +56,40 @@ export default async function MiEquipoPage() {
 
   const { data: regs } = (await supabase
     .from("team_registration")
-    .select("id, status, elo_freeze_snapshot, elo_verification_status, elo_verification_reason, base_civ_ids, extra_civ_ids, submitted_at, approved_at, tournament_edition_id")
+    .select("id, status, elo_freeze_snapshot, elo_verification_status, elo_verification_reason, base_civ_ids, extra_civ_ids, submitted_at, approved_at, tournament_edition_id, anti_smurf_check, payment_confirmed, tutorial_watched, discord_joined")
     .eq("team_account_id", team.id)
     .order("submitted_at", { ascending: false })) as { data: any };
 
   const latestReg = regs?.[0];
   let edition: any = null;
+  let presetMaps: PresetMapDef[] = [];
   let players: any[] = [];
   let upcomingMatch: any = null;
+  let upcomingOpponent: { name: string; seed: number | null } | null = null;
+  let upcomingRound: string | null = null;
   let pastMatches: any[] = [];
+  let comodin: ComodinRow | null = null;
 
   if (latestReg) {
     if (latestReg.tournament_edition_id) {
       const { data: ed } = (await supabase
         .from("tournament_edition")
-        .select("id, name, slug, status, elo_cap, elo_tolerance")
+        .select("id, name, slug, status, elo_cap, elo_tolerance, handbook_url, preset_version_id")
         .eq("id", latestReg.tournament_edition_id)
         .maybeSingle()) as { data: any };
       edition = ed;
+
+      // Mapas oficiales del torneo (preset activo de la edición)
+      if (ed?.preset_version_id) {
+        const { data: preset } = (await supabase
+          .from("preset_version")
+          .select("config")
+          .eq("id", ed.preset_version_id)
+          .maybeSingle()) as { data: any };
+        const modes = preset?.config?.mapModes ?? [];
+        presetMaps = modes.map((m: any) => ({ id: m.id ?? "", title: m.title ?? m.id ?? "" }))
+          .filter((m: PresetMapDef) => m.id);
+      }
     }
 
     const { data: pd } = (await supabase
@@ -84,15 +99,51 @@ export default async function MiEquipoPage() {
       .order("is_captain", { ascending: false })) as { data: any };
     players = pd ?? [];
 
+    // Inventario de comodines del equipo
+    const { data: inv } = (await supabase
+      .from("comodin_inventory")
+      .select("reroll_available, anular_available, elegir_rival_available, invocar_pro_available")
+      .eq("team_registration_id", latestReg.id)
+      .maybeSingle()) as { data: any };
+    if (inv) {
+      comodin = {
+        rerollAvailable: inv.reroll_available ?? 0,
+        anularAvailable: inv.anular_available ?? 0,
+        elegirRivalAvailable: inv.elegir_rival_available ?? 0,
+        invocarProAvailable: inv.invocar_pro_available ?? 0,
+      };
+    }
+
     const { data: matches } = (await supabase
       .from("match")
-      .select("id, status, scheduled_at_start, jornada_label, format, team_a_id, team_b_id, score_a, score_b, winner_team_id")
+      .select("id, status, scheduled_at_start, jornada_label, format, team_a_id, team_b_id, round_id")
       .or(`team_a_id.eq.${latestReg.id},team_b_id.eq.${latestReg.id}`)
       .in("status", ["scheduled", "open", "in_progress", "comodin_window"])
       .order("scheduled_at_start", { ascending: true })
       .limit(1)
       .maybeSingle()) as { data: any };
     upcomingMatch = matches;
+
+    // Rival y ronda de la próxima partida
+    if (upcomingMatch) {
+      const oppId = upcomingMatch.team_a_id === latestReg.id ? upcomingMatch.team_b_id : upcomingMatch.team_a_id;
+      if (oppId) {
+        const { data: opp } = (await supabase
+          .from("team_registration")
+          .select("seed, team_account:team_account_id ( name )")
+          .eq("id", oppId)
+          .maybeSingle()) as { data: any };
+        if (opp) upcomingOpponent = { name: opp.team_account?.name ?? "—", seed: opp.seed ?? null };
+      }
+      if (upcomingMatch.round_id) {
+        const { data: rnd } = (await supabase
+          .from("round")
+          .select("name")
+          .eq("id", upcomingMatch.round_id)
+          .maybeSingle()) as { data: any };
+        upcomingRound = rnd?.name ?? null;
+      }
+    }
 
     // Historial de partidos del torneo
     const { data: past } = (await supabase
@@ -122,18 +173,30 @@ export default async function MiEquipoPage() {
     }
   }
 
-  // Fetch datos full de AoE2 Companion para cada jugador (en paralelo)
-  const playerProfiles = await Promise.all(
-    players.map(async (p) => {
-      try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/aoe2/profile-full?id=${p.aoe2_profile_id}`, {
-          next: { revalidate: 1800 },
-        });
-        if (res.ok) return await res.json();
-      } catch {}
-      return null;
-    })
-  );
+  // ===== INTEL: cache Companion rm_team × mapas del torneo × pool de civs =====
+  let intel: PlayerIntel[] = [];
+  if (latestReg && players.length > 0) {
+    try {
+      const cached = await getCachedTeamStats(
+        players.map((p: any) => ({ playerRegistrationId: p.id, aoe2ProfileId: p.aoe2_profile_id })),
+        { ensureFresh: true }
+      );
+      intel = buildPlayersIntel({
+        players: players.map((p: any) => ({
+          id: p.id,
+          displayName: p.display_name,
+          isCaptain: !!p.is_captain,
+          maxRatingRm1v1: p.max_rating_rm_1v1 ?? null,
+          aoe2ProfileId: p.aoe2_profile_id,
+        })),
+        cached,
+        poolCivIds: [...((latestReg.base_civ_ids as string[]) ?? []), ...((latestReg.extra_civ_ids as string[]) ?? [])],
+        presetMaps,
+      });
+    } catch (e) {
+      console.error("[mi-equipo] intel falló:", e);
+    }
+  }
 
   // Fetch ELO promedio del torneo (para percentile)
   const totalElo = players.reduce((s: number, p: any) => s + (p.max_rating_rm_1v1 ?? 0), 0);
@@ -159,41 +222,59 @@ export default async function MiEquipoPage() {
     return { cls: "vertigo-badge-warning", label: "PENDIENTE" };
   })();
 
-  const checklist = [
-    { ok: !!latestReg?.handbook_downloaded_at, label: "Handbook descargado" },
-    { ok: !!latestReg?.restream_accepted, label: "Permiso de transmisión" },
-    { ok: !!latestReg?.terms_accepted_at, label: "Términos aceptados" },
-    { ok: players.filter((p: any) => p.is_captain).length === 1, label: "Capitán designado" },
+  // Requisitos de inscripción: Anti Smurf, Pago, Tutorial visto y Discord.
+  // Anti-smurf y pago los confirma el staff; tutorial y Discord se autogestionan.
+  const checklist: {
+    ok: boolean;
+    icon: typeof ScanFace;
+    label: string;
+    hint: string;
+    action?: { href: string; label: string; external?: boolean };
+    mark?: { field: "tutorial_watched" | "discord_joined"; label: string };
+  }[] = [
+    {
+      ok: !!latestReg?.anti_smurf_check,
+      icon: ScanFace,
+      label: "Anti Smurf Check",
+      hint: "El staff verifica los perfiles de AoE2 para prevenir smurfs.",
+    },
+    {
+      ok: !!latestReg?.payment_confirmed,
+      icon: CreditCard,
+      label: "Pago de equipo",
+      hint: "Coordiná el pago con el staff por Discord; ellos lo confirman.",
+    },
+    {
+      ok: !!latestReg?.tutorial_watched,
+      icon: MonitorPlay,
+      label: "Tutorial de torneo visto",
+      hint: "Mirá el tutorial oficial: ruleta, comodines y llaves en 15 min.",
+      action: { href: "/tutorial", label: "Ver tutorial" },
+      mark: { field: "tutorial_watched", label: "Ya lo vi" },
+    },
+    {
+      ok: !!latestReg?.discord_joined,
+      icon: MessagesSquare,
+      label: "Unirse al Discord",
+      hint: "El Discord oficial es obligatorio: ahí se coordina todo.",
+      action: { href: DISCORD_INVITE_URL, label: "Unirme", external: true },
+      mark: { field: "discord_joined", label: "Ya me uní" },
+    },
   ];
   const completedCount = checklist.filter((c) => c.ok).length;
 
   // Emblema real del equipo (de la DB), con fallback a los escudos genéricos si no eligió uno
   const emblemUrl = team?.emblem?.image_url ?? (team.id ? `/reinos/reino-${(team.id.charCodeAt(0) % 13) + 1}.webp` : `/reinos/reino-1.webp`);
 
-  const verificationLabel = (() => {
+  const verificationBadge = (() => {
     switch (latestReg?.elo_verification_status) {
-      case "verified": return { text: "✓ Verificado", color: "var(--vertigo-success)" };
-      case "pending": return { text: "Pendiente", color: "var(--vertigo-warning)" };
-      case "hidden": return { text: "Oculto", color: "var(--vertigo-faint)" };
-      default: return { text: "—", color: "var(--vertigo-faint)" };
+      case "verified": return { cls: "vertigo-badge-success", label: "ELO verificado" };
+      case "pending": return { cls: "vertigo-badge-warning", label: "ELO pendiente" };
+      case "hidden": return { cls: "vertigo-badge-warning", label: "Perfil oculto" };
+      case "failed": return { cls: "vertigo-badge-danger", label: "ELO falló" };
+      default: return null;
     }
   })();
-
-  // Stats del equipo combinados
-  const combinedCivStats: Record<string, { games: number; wins: number }> = {};
-  playerProfiles.forEach((profile) => {
-    if (!profile?.civStats) return;
-    profile.civStats.forEach((cs: any) => {
-      if (!combinedCivStats[cs.civ]) combinedCivStats[cs.civ] = { games: 0, wins: 0 };
-      combinedCivStats[cs.civ].games += cs.games;
-      combinedCivStats[cs.civ].wins += cs.wins;
-    });
-  });
-
-  const topTeamCivs = Object.entries(combinedCivStats)
-    .map(([civ, stats]) => ({ civ, ...stats, winrate: Math.round((stats.wins / stats.games) * 100) }))
-    .sort((a, b) => b.games - a.games)
-    .slice(0, 6);
 
   return (
     <div className="vertigo-page vertigo-shell">
@@ -206,201 +287,379 @@ export default async function MiEquipoPage() {
 
       <main className="vertigo-content vertigo-scroll vertigo-fade-in">
 
-        {/* ===== HERO DEL REINO ===== */}
+        {/* ===== HERO DEL REINO — castillo de marca + identidad + strip de stats ===== */}
         <div
           className="vertigo-card"
           style={{
-            padding: 0, overflow: "hidden", position: "relative", minHeight: "180px",
-            marginBottom: "24px", border: "1px solid var(--vertigo-line)",
+            padding: 0, overflow: "hidden", position: "relative",
+            marginBottom: "28px", border: "1px solid var(--vertigo-line)",
           }}
         >
-          <div style={{
-            position: "absolute", inset: 0,
-            backgroundImage: "url('/landing/fondo-castillo.webp')",
-            backgroundSize: "cover", backgroundPosition: "center 30%", opacity: 0.4,
-          }} />
-          <div style={{
-            position: "absolute", inset: 0,
-            background: "linear-gradient(180deg, transparent 0%, rgba(7,3,16,0.5) 40%, rgba(7,3,16,0.92) 100%)",
-          }} />
+          <TeamBannerBg
+            emblemUrl={emblemUrl}
+            seed={team.id}
+            backgroundImage="/landing/castillo-vertigo.webp"
+          />
           <div style={{
             position: "absolute", top: 0, left: 0, right: 0, height: "2px",
             background: "linear-gradient(90deg, transparent, rgba(212,175,55,0.5), transparent)",
           }} />
-          <div style={{ position: "relative", zIndex: 2, padding: "28px 32px", display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: "16px" }}>
-            <div style={{ display: "flex", alignItems: "flex-end", gap: "20px" }}>
+
+          {/* Identidad */}
+          <div className="vertigo-hero-identity" style={{ position: "relative", zIndex: 2, padding: "48px 46px 38px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "24px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "26px", minWidth: 0 }}>
               <div style={{
-                flex: "none", width: "80px", height: "80px", borderRadius: "16px",
-                overflow: "hidden", border: "2px solid rgba(124,58,237,0.5)",
+                flex: "none", width: "114px", height: "114px", borderRadius: "24px",
+                overflow: "hidden", border: "2px solid rgba(212,175,55,0.55)",
                 background: "var(--vertigo-input-bg)",
-                boxShadow: "0 0 32px rgba(124,58,237,0.35), 0 4px 16px rgba(0,0,0,0.5)",
+                boxShadow: "0 0 44px rgba(124,58,237,0.45), 0 8px 24px rgba(0,0,0,0.55)",
               }}>
                 <img src={emblemUrl} alt={`Escudo de ${team.name}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
               </div>
-              <div>
-                <div style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "3px", textTransform: "uppercase", color: "var(--vertigo-purple-soft)", marginBottom: "6px" }}>
-                  MI REINO
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "3.5px", textTransform: "uppercase", color: "var(--vertigo-purple-soft)", marginBottom: "8px" }}>
+                  Mi reino
                 </div>
                 <h1 style={{
-                  fontFamily: "Cinzel, serif", fontSize: "clamp(28px, 4vw, 42px)",
-                  fontWeight: 700, color: "var(--vertigo-text)", lineHeight: 1,
-                  textShadow: "0 2px 12px rgba(0,0,0,0.6)",
+                  fontFamily: "Cinzel, serif", fontSize: "clamp(34px, 4.5vw, 56px)",
+                  fontWeight: 700, color: "var(--vertigo-text)", lineHeight: 1.05,
+                  textShadow: "0 2px 20px rgba(0,0,0,0.7)",
                 }}>
                   {team.name}
                 </h1>
                 {team.tagline && (
-                  <p style={{ fontSize: "13px", fontStyle: "italic", color: "var(--vertigo-muted)", marginTop: "6px" }}>
+                  <p style={{ fontSize: "14px", fontStyle: "italic", color: "rgba(230,215,245,0.8)", marginTop: "8px", textShadow: "0 1px 8px rgba(0,0,0,0.6)" }}>
                     &ldquo;{team.tagline}&rdquo;
                   </p>
                 )}
               </div>
             </div>
-            <span className={`vertigo-badge ${statusBadge.cls}`} style={{ fontSize: "12px", padding: "8px 20px", fontWeight: 700, letterSpacing: "1.5px" }}>
-              {statusBadge.label}
-            </span>
+            {/* Estado + acceso a la ficha pública */}
+            <div className="vertigo-hero-actions" style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "12px", flex: "none", flexWrap: "wrap" }}>
+              <span className={`vertigo-badge ${statusBadge.cls}`} style={{ fontSize: "12px", padding: "8px 22px", fontWeight: 700, letterSpacing: "2px", flex: "none", whiteSpace: "nowrap" }}>
+                {statusBadge.label}
+              </span>
+              <Link
+                href={`/equipos/${latestReg?.id ?? ""}`}
+                className="vertigo-btn vertigo-btn-ghost"
+                style={{ display: "inline-flex", alignItems: "center", gap: "7px", padding: "10px 20px", fontSize: "12px", background: "rgba(7,3,16,0.45)", flex: "none", whiteSpace: "nowrap" }}
+              >
+                Ver mi ficha pública
+                <ArrowUpRight style={{ width: 13, height: 13 }} />
+              </Link>
+            </div>
+          </div>
+
+          {/* Strip de datos del reino, apoyado sobre el borde inferior */}
+          <div className="vertigo-hero-strip" style={{
+            position: "relative", zIndex: 2,
+            display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+            borderTop: "1px solid var(--vertigo-line)",
+            background: "rgba(7,3,16,0.66)",
+            backdropFilter: "blur(8px)",
+          }}>
+            {[
+              { label: "Elo total", value: totalElo.toLocaleString(), sub: `de ${eloMax.toLocaleString()}` },
+              { label: "Capitán", value: captain?.display_name ?? "—", sub: captain ? `ELO ${captain.max_rating_rm_1v1 ?? "?"}` : "Sin asignar" },
+              { label: "Jugadores", value: `${players.length} / 3`, sub: "integrantes" },
+              { label: "Civs registradas", value: `${baseCivs.length + extraCivs.length}`, sub: "9 base + 3 extra" },
+              { label: "Edición", value: edition?.name ?? "—", sub: null },
+            ].map((s, i) => (
+              <div key={s.label} style={{
+                padding: "16px 20px",
+                borderLeft: i > 0 ? "1px solid var(--vertigo-line-soft)" : "none",
+                minWidth: 0,
+              }}>
+                <div style={{ fontSize: "9px", fontWeight: 700, letterSpacing: "2px", textTransform: "uppercase", color: "var(--vertigo-faint)", marginBottom: "5px", whiteSpace: "nowrap" }}>
+                  {s.label}
+                </div>
+                <div style={{
+                  fontFamily: "Cinzel, serif", fontSize: "clamp(13px, 1.3vw, 17px)", fontWeight: 700,
+                  color: "var(--vertigo-text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                }}>
+                  {s.value}
+                  {s.sub && <span style={{ fontFamily: "Inter, sans-serif", fontSize: "11px", fontWeight: 500, color: "var(--vertigo-faint)", marginLeft: "6px" }}>{s.sub}</span>}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* ===== ELO + CHECKLIST ROW ===== */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: "16px", marginBottom: "24px" }}>
-
-          {/* ELO total con barra */}
-          <div className="vertigo-card" style={{ padding: "24px 28px", position: "relative", overflow: "hidden" }}>
-            <div style={{ position: "absolute", top: 0, left: "28px", right: "28px", height: "1px", background: "linear-gradient(90deg, transparent, rgba(212,175,55,0.3), transparent)" }} />
-            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: "20px" }}>
-              <div>
-                <div className="vertigo-stat-label" style={{ marginBottom: "8px" }}>ELO TOTAL DEL EQUIPO</div>
-                <div style={{ display: "flex", alignItems: "baseline", gap: "4px" }}>
-                  <span style={{
-                    fontFamily: "Cinzel, serif", fontSize: "clamp(44px, 5vw, 64px)",
-                    fontWeight: 700, lineHeight: 1,
-                    color: eloPct > 90 ? "var(--vertigo-danger)" : eloPct > 70 ? "#fbbf24" : "var(--vertigo-purple-pale)",
-                    textShadow: "0 0 40px rgba(124,58,237,0.4)",
+        {/* ===== PRÓXIMA PARTIDA — rival + countdown + acceso directo ===== */}
+        <div className="vertigo-section" style={{ marginBottom: "24px" }}>
+          <div className="vertigo-subtitle">
+            <Calendar style={{ width: 14, height: 14 }} />
+            Próxima partida
+          </div>
+          {upcomingMatch ? (
+            <Link href={`/partido/${upcomingMatch.id}`} style={{ textDecoration: "none" }}>
+              <div
+                className="vertigo-link-card"
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  gap: "16px", flexWrap: "wrap",
+                  padding: "22px 28px",
+                  border: "1px solid rgba(124,58,237,0.35)",
+                  background: "rgba(124,58,237,0.06)",
+                  boxShadow: "0 0 24px rgba(124,58,237,0.1)",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "18px", minWidth: 0 }}>
+                  <div style={{
+                    width: "52px", height: "52px", borderRadius: "12px", flex: "none",
+                    background: "rgba(124,58,237,0.12)", border: "1px solid rgba(124,58,237,0.3)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
                   }}>
-                    {totalElo.toLocaleString()}
+                    <Zap style={{ width: 24, height: 24, color: "var(--vertigo-purple-soft)" }} />
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                      <span style={{ fontFamily: "Cinzel, serif", fontSize: 15, fontWeight: 700, color: "var(--vertigo-text)" }}>
+                        {upcomingRound ?? upcomingMatch.jornada_label ?? "Partido programado"}
+                      </span>
+                      <MatchCountdown targetIso={(upcomingMatch.scheduled_at_start as string) ?? null} />
+                      {upcomingMatch.format && (
+                        <span className="vertigo-badge vertigo-badge-purple" style={{ fontSize: 10, padding: "3px 10px" }}>
+                          {upcomingMatch.format}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 17, fontWeight: 700, color: "var(--vertigo-gold)", marginTop: "4px" }}>
+                      vs {upcomingOpponent?.name ?? "Rival a definir"}
+                      {upcomingOpponent?.seed != null && (
+                        <span className="vertigo-badge vertigo-badge-warning" style={{ fontSize: 9, marginLeft: 8, verticalAlign: "middle" }}>
+                          Seed #{upcomingOpponent.seed}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 13, color: "var(--vertigo-muted)", marginTop: "3px" }}>
+                      {upcomingMatch.scheduled_at_start
+                        ? fmt.longDateTime(upcomingMatch.scheduled_at_start)
+                        : "Horario a confirmar"}
+                    </div>
+                  </div>
+                </div>
+                <ChevronRight style={{ width: 22, height: 22, color: "var(--vertigo-purple-soft)", flex: "none" }} />
+              </div>
+            </Link>
+          ) : (
+            <div className="vertigo-card">
+              <div style={{ textAlign: "center", padding: "44px 20px", color: "var(--vertigo-faint)" }}>
+                <Calendar style={{ width: "44px", height: "44px", margin: "0 auto 16px", display: "block", opacity: 0.35 }} strokeWidth={1} />
+                <div style={{ fontFamily: "Cinzel, serif", fontSize: "18px", fontWeight: 600, color: "var(--vertigo-muted)", marginBottom: "10px", textTransform: "uppercase", letterSpacing: "1px" }}>
+                  Sin partidos programados
+                </div>
+                <p style={{ fontSize: "14px", color: "var(--vertigo-faint)", maxWidth: "400px", margin: "0 auto", lineHeight: 1.6 }}>
+                  {status === "approved"
+                    ? "Cuando el bracket esté generado, tus partidos van a aparecer acá."
+                    : "Tu inscripción está pendiente de aprobación. Una vez aprobada, verás tus partidos acá."}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ===== COMODINES ===== */}
+        {comodin && (
+          <div className="vertigo-section" style={{ marginBottom: "32px" }}>
+            <div className="vertigo-subtitle">
+              <Swords style={{ width: 14, height: 14 }} />
+              Mis comodines
+            </div>
+            <ComodinesGrid comodin={comodin} />
+          </div>
+        )}
+
+        {/* ===== ELO DEL EQUIPO — panel compacto con los guerreros de marca ===== */}
+        <div className="vertigo-card" style={{ position: "relative", overflow: "hidden", padding: "20px 30px", marginBottom: "28px" }}>
+          <div
+            aria-hidden
+            style={{
+              position: "absolute", inset: 0,
+              backgroundImage: "url('/brand/guerreros-3v3.webp')",
+              backgroundSize: "cover",
+              backgroundPosition: "center 32%",
+              opacity: 0.5,
+            }}
+          />
+          <div
+            aria-hidden
+            style={{
+              position: "absolute", inset: 0,
+              background: "linear-gradient(90deg, rgba(7,3,16,0.95) 0%, rgba(7,3,16,0.78) 42%, rgba(7,3,16,0.28) 100%)",
+            }}
+          />
+          <div style={{ position: "relative", zIndex: 2, display: "flex", alignItems: "center", flexWrap: "wrap", gap: "26px" }}>
+            {/* Número */}
+            <div style={{ flex: "none" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+                <span className="vertigo-stat-label" style={{ marginBottom: 0 }}>ELO total del equipo</span>
+                {verificationBadge && (
+                  <span className={`vertigo-badge ${verificationBadge.cls}`} style={{ fontSize: 9, padding: "2px 9px" }}>
+                    {verificationBadge.label}
                   </span>
-                  <span style={{ fontSize: "18px", color: "var(--vertigo-faint)", marginBottom: "4px" }}>/ {eloMax.toLocaleString()}</span>
+                )}
+              </div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
+                <span style={{
+                  fontFamily: "Cinzel, serif", fontSize: "44px", fontWeight: 700, lineHeight: 1,
+                  color: eloPct > 90 ? "var(--vertigo-danger)" : eloPct > 70 ? "#fbbf24" : "var(--vertigo-purple-pale)",
+                  textShadow: "0 0 32px rgba(124,58,237,0.45)",
+                }}>
+                  {totalElo.toLocaleString()}
+                </span>
+                <span style={{ fontSize: "14px", color: "var(--vertigo-faint)" }}>/ {eloMax.toLocaleString()}</span>
+              </div>
+            </div>
+
+            {/* Capacidad del cap */}
+            <div style={{ flex: 1, minWidth: "220px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "7px" }}>
+                <span style={{ fontSize: "9px", fontWeight: 700, letterSpacing: "2px", textTransform: "uppercase", color: "var(--vertigo-faint)" }}>
+                  Capacidad del cap
+                </span>
+                <span style={{
+                  fontSize: "13px", fontWeight: 700,
+                  color: eloPct > 90 ? "var(--vertigo-danger)" : eloPct > 70 ? "#fbbf24" : "var(--vertigo-purple-pale)",
+                }}>
+                  {eloPct}%
+                </span>
+              </div>
+              <div style={{ height: "10px", background: "rgba(255,255,255,0.07)", borderRadius: "5px", overflow: "hidden", boxShadow: "inset 0 2px 4px rgba(0,0,0,0.4)" }}>
+                <div style={{
+                  height: "100%", width: `${eloPct}%`, borderRadius: "5px",
+                  background: eloPct > 90 ? "linear-gradient(90deg, #fb7185, #e11d48)" : eloPct > 70 ? "linear-gradient(90deg, #fbbf24, #f59e0b)" : "linear-gradient(90deg, var(--vertigo-purple), var(--vertigo-purple-soft))",
+                  boxShadow: "0 0 14px rgba(124,58,237,0.5)",
+                  transition: "width 1s ease",
+                }} />
+              </div>
+            </div>
+
+            {/* Percentil */}
+            {eloPercentile !== null && eloPercentile !== undefined && (
+              <div className="vertigo-elo-percentil" style={{ flex: "none", textAlign: "right", borderLeft: "1px solid var(--vertigo-line-soft)", paddingLeft: "26px" }}>
+                <div style={{ fontSize: "9px", fontWeight: 700, letterSpacing: "2px", textTransform: "uppercase", color: "var(--vertigo-faint)", marginBottom: "5px" }}>
+                  Percentil del torneo
+                </div>
+                <div style={{ fontFamily: "Cinzel, serif", fontSize: "22px", fontWeight: 700, lineHeight: 1, color: eloPercentile >= 80 ? "var(--vertigo-gold)" : "var(--vertigo-purple-pale)" }}>
+                  Top {100 - eloPercentile}%
                 </div>
               </div>
-              <div style={{ flex: 1, maxWidth: "380px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
-                  <span style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "2px", textTransform: "uppercase", color: "var(--vertigo-faint)" }}>
-                    Capacidad
-                  </span>
-                  <span style={{
-                    fontSize: "13px", fontWeight: 700,
-                    color: eloPct > 90 ? "var(--vertigo-danger)" : eloPct > 70 ? "#fbbf24" : "var(--vertigo-purple-pale)",
-                  }}>
-                    {eloPct}%
-                  </span>
-                </div>
-                <div style={{
-                  height: "12px", background: "rgba(255,255,255,0.06)", borderRadius: "6px",
-                  overflow: "hidden", boxShadow: "inset 0 2px 4px rgba(0,0,0,0.4)",
-                }}>
+            )}
+          </div>
+        </div>
+
+        {/* ===== REQUISITOS DE INSCRIPCIÓN — una tarjeta por requisito ===== */}
+        <div className="vertigo-section" style={{ marginBottom: "32px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "14px", marginBottom: "14px", flexWrap: "wrap" }}>
+            <div className="vertigo-subtitle" style={{ margin: 0 }}>
+              <ListChecks style={{ width: 14, height: 14 }} />
+              Requisitos de inscripción
+            </div>
+            <div style={{ flex: 1, minWidth: "110px", height: "6px", background: "rgba(255,255,255,0.07)", borderRadius: "3px", overflow: "hidden" }}>
+              <div style={{
+                height: "100%", width: `${(completedCount / checklist.length) * 100}%`, borderRadius: "3px",
+                background: completedCount === checklist.length ? "linear-gradient(90deg, var(--vertigo-success), #4ade80)" : "linear-gradient(90deg, var(--vertigo-purple), var(--vertigo-purple-soft))",
+                transition: "width 1s ease",
+              }} />
+            </div>
+            <span className={`vertigo-badge ${completedCount === checklist.length ? "vertigo-badge-success" : "vertigo-badge-purple"}`} style={{ fontSize: 10 }}>
+              {completedCount}/{checklist.length}
+            </span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "12px" }}>
+            {checklist.map((item) => (
+              <div
+                key={item.label}
+                style={{
+                  padding: "18px", borderRadius: "14px",
+                  border: `1px solid ${item.ok ? "rgba(34,197,94,0.35)" : "var(--vertigo-line)"}`,
+                  background: item.ok ? "rgba(34,197,94,0.05)" : "rgba(13,9,19,0.6)",
+                  boxShadow: item.ok ? "0 0 20px rgba(34,197,94,0.08)" : "0 2px 10px rgba(0,0,0,0.25)",
+                  display: "flex", flexDirection: "column", gap: "10px",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "11px" }}>
                   <div style={{
-                    height: "100%", width: `${eloPct}%`, borderRadius: "6px",
-                    background: eloPct > 90 ? "linear-gradient(90deg, #fb7185, #e11d48)" : eloPct > 70 ? "linear-gradient(90deg, #fbbf24, #f59e0b)" : "linear-gradient(90deg, var(--vertigo-purple), var(--vertigo-purple-soft))",
-                    boxShadow: "0 0 16px rgba(124,58,237,0.5)",
-                    transition: "width 1s ease",
-                  }} />
-                </div>
-                {/* Percentil vs torneo */}
-                {eloPercentile !== null && eloPercentile !== undefined && (
-                  <div style={{
-                    marginTop: "10px",
-                    padding: "8px 12px",
-                    background: eloPercentile >= 80 ? "rgba(212,175,55,0.1)" : "rgba(124,58,237,0.08)",
-                    border: `1px solid ${eloPercentile >= 80 ? "rgba(212,175,55,0.3)" : "rgba(124,58,237,0.2)"}`,
-                    borderRadius: "8px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
+                    width: "38px", height: "38px", borderRadius: "11px", flex: "none",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    background: item.ok ? "rgba(34,197,94,0.12)" : "rgba(124,58,237,0.12)",
+                    border: `1px solid ${item.ok ? "rgba(34,197,94,0.35)" : "rgba(124,58,237,0.3)"}`,
+                    color: item.ok ? "var(--vertigo-success)" : "var(--vertigo-purple-soft)",
                   }}>
-                    <span style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "1.5px", textTransform: "uppercase", color: eloPercentile >= 80 ? "var(--vertigo-gold)" : "var(--vertigo-purple-soft)" }}>
-                      Percentil del torneo
-                    </span>
-                    <span style={{
-                      fontFamily: "Cinzel, serif",
-                      fontSize: "14px",
-                      fontWeight: 700,
-                      color: eloPercentile >= 80 ? "var(--vertigo-gold)" : "var(--vertigo-purple-pale)",
-                    }}>
-                      Top {100 - eloPercentile}%
-                    </span>
+                    <item.icon style={{ width: 18, height: 18 }} />
+                  </div>
+                  <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--vertigo-text)", lineHeight: 1.25 }}>
+                    {item.label}
+                  </div>
+                  {item.ok && (
+                    <Check style={{ width: 15, height: 15, color: "var(--vertigo-success)", marginLeft: "auto", flex: "none" }} strokeWidth={2.5} />
+                  )}
+                </div>
+                <p style={{ fontSize: "11.5px", color: "var(--vertigo-faint)", lineHeight: 1.5, margin: 0, flex: 1 }}>
+                  {item.hint}
+                </p>
+                {item.ok ? (
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", alignSelf: "flex-start", padding: "5px 12px", borderRadius: "999px", background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.35)", fontSize: "10.5px", fontWeight: 700, color: "var(--vertigo-success)" }}>
+                    Confirmado
+                  </div>
+                ) : item.mark && item.action ? (
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <a
+                      href={item.action.href}
+                      target={item.action.external ? "_blank" : undefined}
+                      rel={item.action.external ? "noopener noreferrer" : undefined}
+                      className="vertigo-btn vertigo-btn-primary"
+                      style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "8px 10px", fontSize: 10.5, whiteSpace: "nowrap" }}
+                    >
+                      {item.action.external ? <ExternalLink style={{ width: 12, height: 12 }} /> : <Play style={{ width: 12, height: 12 }} />}
+                      {item.action.label}
+                    </a>
+                    <form action={markRequirementAction} style={{ flex: 1 }}>
+                      <input type="hidden" name="field" value={item.mark.field} />
+                      <input type="hidden" name="registrationId" value={latestReg?.id ?? ""} />
+                      <button
+                        type="submit"
+                        className="vertigo-btn vertigo-btn-ghost"
+                        style={{ width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "8px 10px", fontSize: 10.5, whiteSpace: "nowrap" }}
+                      >
+                        <Check style={{ width: 12, height: 12 }} />
+                        {item.mark.label}
+                      </button>
+                    </form>
+                  </div>
+                ) : (
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", alignSelf: "flex-start", padding: "5px 12px", borderRadius: "999px", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.3)", fontSize: "10.5px", fontWeight: 700, color: "var(--vertigo-warning)" }}>
+                    <Hourglass style={{ width: 12, height: 12 }} />
+                    Pendiente
                   </div>
                 )}
               </div>
-            </div>
-          </div>
-
-          {/* Checklist de inscripción */}
-          <div className="vertigo-card" style={{ padding: "22px", display: "flex", alignItems: "center", gap: "18px" }}>
-            <div style={{ position: "relative", width: "68px", height: "68px", flex: "none" }}>
-              <svg width="68" height="68" viewBox="0 0 68 68" style={{ transform: "rotate(-90deg)" }}>
-                <circle cx="34" cy="34" r="28" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="5" />
-                <circle
-                  cx="34" cy="34" r="28" fill="none"
-                  stroke={completedCount === 4 ? "var(--vertigo-success)" : "var(--vertigo-purple)"}
-                  strokeWidth="5"
-                  strokeDasharray={`${(completedCount / 4) * 175.9} 175.9`}
-                  strokeLinecap="round"
-                  style={{ filter: "drop-shadow(0 0 6px rgba(124,58,237,0.5))", transition: "stroke-dasharray 1s ease" }}
-                />
-              </svg>
-              <div style={{
-                position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
-                fontFamily: "Cinzel, serif", fontSize: "16px", fontWeight: 700,
-                color: completedCount === 4 ? "var(--vertigo-success)" : "var(--vertigo-text)",
-              }}>
-                {completedCount}/4
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--vertigo-text)", marginBottom: "4px" }}>
-                {completedCount === 4 ? "¡Inscripción completa!" : "Progreso"}
-              </div>
-              <div style={{ fontSize: "12px", color: "var(--vertigo-faint)" }}>
-                {completedCount === 4 ? "Todo listo para competir." : "Completá los requisitos."}
-              </div>
-            </div>
+            ))}
           </div>
         </div>
 
-        {/* ===== STATS ROW ===== */}
-        <div className="vertigo-stats" style={{ marginBottom: "32px" }}>
-          <div className="vertigo-stat">
-            <div className="vertigo-stat-label">Verificación ELO</div>
-            <div style={{ fontFamily: "Cinzel, serif", fontSize: "17px", fontWeight: 700, marginTop: "6px", color: verificationLabel.color }}>
-              {verificationLabel.text}
-            </div>
-          </div>
-          <div className="vertigo-stat">
-            <div className="vertigo-stat-label">Jugadores</div>
-            <div className="vertigo-stat-value">{players.length}</div>
-            <div className="vertigo-stat-sub">de 3 integrantes</div>
-          </div>
-          <div className="vertigo-stat">
-            <div className="vertigo-stat-label">Civs registradas</div>
-            <div className="vertigo-stat-value">{baseCivs.length + extraCivs.length}</div>
-            <div className="vertigo-stat-sub">9 base + 3 extra</div>
-          </div>
-          <div className="vertigo-stat">
-            <div className="vertigo-stat-label">Capitán</div>
-            <div style={{ fontFamily: "Cinzel, serif", fontSize: "16px", fontWeight: 700, marginTop: "6px", color: "var(--vertigo-text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              {captain?.display_name ?? "—"}
-            </div>
-            <div className="vertigo-stat-sub">{captain ? `ELO ${captain.max_rating_rm_1v1 ?? "?"}` : "Sin asignar"}</div>
-          </div>
-          <div className="vertigo-stat">
-            <div className="vertigo-stat-label">Edición</div>
-            <div style={{ fontFamily: "Cinzel, serif", fontSize: "13px", fontWeight: 700, marginTop: "6px", color: "var(--vertigo-text)", lineHeight: 1.3 }}>
-              {edition?.name ?? "—"}
-            </div>
-          </div>
-        </div>
+        {/* ===== INTEL DEL EQUIPO (mapas del torneo × pool × compañeros) ===== */}
+        {intel.length > 0 && (
+          <IntelPanel
+            intel={intel}
+            footer={
+              <form action={refreshTeamIntelAction} style={{ marginLeft: "auto", marginRight: "auto" }}>
+                <input type="hidden" name="registrationId" value={latestReg?.id ?? ""} />
+                <button
+                  type="submit"
+                  className="vertigo-btn vertigo-btn-ghost"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", fontSize: 10 }}
+                >
+                  <RefreshCw style={{ width: 11, height: 11 }} />
+                  Actualizar
+                </button>
+              </form>
+            }
+          />
+        )}
 
-        {/* ===== JUGADORES + CIVS DEL EQUIPO ===== */}
+        {/* ===== JUGADORES + POOL DE CIVS ===== */}
         <div className="vertigo-grid-2" style={{ marginBottom: "32px" }}>
 
           {/* JUGADORES */}
@@ -411,9 +670,7 @@ export default async function MiEquipoPage() {
               <span className="vertigo-badge vertigo-badge-purple" style={{ marginLeft: "auto" }}>{players.length} / 3</span>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              {players.map((p, idx) => {
-                const profile = playerProfiles[idx];
-                const topCiv = profile?.civStats?.[0];
+              {players.map((p) => {
                 return (
                   <div
                     key={p.id}
@@ -466,7 +723,6 @@ export default async function MiEquipoPage() {
                         {p.country || "?"}
                         {p.clan && ` · ${p.clan}`}
                         {p.is_captain && " · Capitán"}
-                        {topCiv && ` · Top civ: ${topCiv.civName} (${topCiv.winrate}%)`}
                       </div>
                     </div>
 
@@ -505,123 +761,78 @@ export default async function MiEquipoPage() {
             </div>
           </div>
 
-          {/* CIVS DEL EQUIPO + TOP CIVS COMBINADAS */}
+          {/* POOL DE CIVS */}
           <div className="vertigo-section">
-            {/* Pool de civs elegidas */}
-            <div style={{ marginBottom: "20px" }}>
-              <div className="vertigo-subtitle">
-                <Swords style={{ width: 14, height: 14 }} />
-                Mi pool de civs
-                <span className="vertigo-badge vertigo-badge-purple" style={{ marginLeft: "auto" }}>{baseCivs.length + extraCivs.length} / 12</span>
-              </div>
-              <div className="vertigo-card" style={{ padding: "20px" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(56px, 1fr))", gap: "8px" }}>
-                  {[...baseCivs, ...extraCivs].map((civId, idx) => {
-                    const isExtra = idx >= baseCivs.length;
-                    return (
+            <div className="vertigo-subtitle">
+              <Swords style={{ width: 14, height: 14 }} />
+              Mi pool de civs
+              <span className="vertigo-badge vertigo-badge-purple" style={{ marginLeft: "auto" }}>{baseCivs.length + extraCivs.length} / 12</span>
+            </div>
+            <div className="vertigo-card" style={{ padding: "20px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(56px, 1fr))", gap: "8px" }}>
+                {[...baseCivs, ...extraCivs].map((civId, idx) => {
+                  const isExtra = idx >= baseCivs.length;
+                  return (
+                    <div
+                      key={civId}
+                      title={CIV_NAMES[civId] ?? civId}
+                      style={{
+                        position: "relative",
+                        opacity: isExtra ? 0.55 : 1,
+                        transition: "transform 0.2s ease",
+                        cursor: "default",
+                      }}
+                    >
                       <div
-                        key={civId}
-                        title={CIV_NAMES[civId] ?? civId}
                         style={{
+                          width: "100%",
+                          paddingBottom: "100%", // aspect-ratio 1:1 via padding trick
                           position: "relative",
-                          opacity: isExtra ? 0.55 : 1,
-                          transition: "transform 0.2s ease",
-                          cursor: "default",
+                          borderRadius: "10px",
+                          overflow: "hidden",
+                          border: `2px solid ${isExtra ? "var(--vertigo-line)" : "rgba(124,58,237,0.4)"}`,
+                          background: "var(--vertigo-input-bg)",
+                          boxShadow: isExtra ? "none" : "0 0 12px rgba(124,58,237,0.15)",
                         }}
                       >
-                        <div
+                        <img
+                          src={`/civs/${civId}.webp`}
+                          alt={CIV_NAMES[civId] ?? civId}
                           style={{
-                            width: "100%",
-                            paddingBottom: "100%", // aspect-ratio 1:1 via padding trick
-                            position: "relative",
-                            borderRadius: "10px",
-                            overflow: "hidden",
-                            border: `2px solid ${isExtra ? "var(--vertigo-line)" : "rgba(124,58,237,0.4)"}`,
-                            background: "var(--vertigo-input-bg)",
-                            boxShadow: isExtra ? "none" : "0 0 12px rgba(124,58,237,0.15)",
+                            position: "absolute", inset: 0, width: "100%", height: "100%",
+                            objectFit: "cover",
                           }}
-                        >
-                          <img
-                            src={`/civs/${civId}.webp`}
-                            alt={CIV_NAMES[civId] ?? civId}
-                            style={{
-                              position: "absolute", inset: 0, width: "100%", height: "100%",
-                              objectFit: "cover",
-                            }}
-                          />
-                          {/* Overlay gradiente en la parte inferior */}
-                          <div style={{
-                            position: "absolute", bottom: 0, left: 0, right: 0,
-                            height: "40%",
-                            background: "linear-gradient(180deg, transparent, rgba(0,0,0,0.7))",
-                          }} />
-                        </div>
-                        {isExtra && (
-                          <div style={{
-                            position: "absolute", bottom: "4px", left: "0", right: "0",
-                            textAlign: "center", fontSize: "7px", fontWeight: 700,
-                            letterSpacing: "1px", textTransform: "uppercase", color: "var(--vertigo-faint)",
-                            zIndex: 2,
-                          }}>
-                            Extra
-                          </div>
-                        )}
+                        />
+                        {/* Overlay gradiente en la parte inferior */}
+                        <div style={{
+                          position: "absolute", bottom: 0, left: 0, right: 0,
+                          height: "40%",
+                          background: "linear-gradient(180deg, transparent, rgba(0,0,0,0.7))",
+                        }} />
                       </div>
-                    );
-                  })}
-                </div>
-                {/* Nombres debajo */}
-                <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid var(--vertigo-line-soft)", display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                  {baseCivs.map((civId) => (
-                    <span key={civId} style={{ fontSize: "11px", color: "var(--vertigo-muted)" }}>
-                      {CIV_NAMES[civId] ?? civId}
-                    </span>
-                  ))}
-                </div>
+                      {isExtra && (
+                        <div style={{
+                          position: "absolute", bottom: "4px", left: "0", right: "0",
+                          textAlign: "center", fontSize: "7px", fontWeight: 700,
+                          letterSpacing: "1px", textTransform: "uppercase", color: "var(--vertigo-faint)",
+                          zIndex: 2,
+                        }}>
+                          Extra
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Nombres debajo */}
+              <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid var(--vertigo-line-soft)", display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                {baseCivs.map((civId) => (
+                  <span key={civId} style={{ fontSize: "11px", color: "var(--vertigo-muted)" }}>
+                    {CIV_NAMES[civId] ?? civId}
+                  </span>
+                ))}
               </div>
             </div>
-
-            {/* Top civs del equipo (combinando los 3 jugadores) */}
-            {topTeamCivs.length > 0 && (
-              <div>
-                <div className="vertigo-subtitle">
-                  <TrendingUp style={{ width: 14, height: 14 }} />
-                  Civs más usadas del equipo
-                  <span style={{ marginLeft: "auto", fontSize: "10px", color: "var(--vertigo-faint)", fontWeight: 500 }}>
-                    AoE2 Companion RM 1v1
-                  </span>
-                </div>
-                <div className="vertigo-card" style={{ padding: "16px" }}>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                    {topTeamCivs.map((cs) => (
-                      <div key={cs.civ} style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                        <div style={{ width: "28px", height: "28px", borderRadius: "6px", overflow: "hidden", flex: "none", border: "1.5px solid var(--vertigo-line)" }}>
-                          <img src={`/civs/${cs.civ}.webp`} alt={cs.civ} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: "12px", fontWeight: 600, color: "var(--vertigo-text)" }}>{CIV_NAMES[cs.civ] ?? cs.civ}</div>
-                        </div>
-                        {/* Barra de winrate */}
-                        <div style={{ width: "80px", flex: "none" }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "9px", color: "var(--vertigo-faint)", marginBottom: "3px" }}>
-                            <span>{cs.games}p</span>
-                            <span style={{ color: cs.winrate >= 60 ? "var(--vertigo-success)" : cs.winrate >= 45 ? "var(--vertigo-purple-pale)" : "var(--vertigo-danger)", fontWeight: 700 }}>
-                              {cs.winrate}%
-                            </span>
-                          </div>
-                          <div style={{ height: "4px", background: "rgba(255,255,255,0.06)", borderRadius: "2px", overflow: "hidden" }}>
-                            <div style={{
-                              height: "100%", width: `${cs.winrate}%`, borderRadius: "2px",
-                              background: cs.winrate >= 60 ? "var(--vertigo-success)" : cs.winrate >= 45 ? "var(--vertigo-purple-soft)" : "var(--vertigo-danger)",
-                            }} />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
@@ -700,67 +911,13 @@ export default async function MiEquipoPage() {
           </div>
         )}
 
-        {/* ===== PRÓXIMA PARTIDA ===== */}
-        <div className="vertigo-section">
-          <div className="vertigo-subtitle">
-            <Calendar style={{ width: 14, height: 14 }} />
-            Próxima partida
+        {/* Nota de fuente de datos externos */}
+        {(intel.length > 0 || edition?.handbook_url) && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 10, color: "var(--vertigo-faint)", marginBottom: 8 }}>
+            <Crosshair style={{ width: 11, height: 11 }} />
+            Stats de ladder vía AoE2 Companion · partidas de equipos · se actualizan al aprobar la inscripción y cada 7 días.
           </div>
-          {upcomingMatch ? (
-            <Link href="/mis-partidos" style={{ textDecoration: "none" }}>
-              <div
-                className="vertigo-link-card"
-                style={{
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
-                  padding: "20px 28px",
-                  border: "1px solid rgba(124,58,237,0.35)",
-                  background: "rgba(124,58,237,0.06)",
-                  boxShadow: "0 0 24px rgba(124,58,237,0.1)",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-                  <div style={{
-                    width: "52px", height: "52px", borderRadius: "12px",
-                    background: "rgba(124,58,237,0.12)", border: "1px solid rgba(124,58,237,0.3)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                  }}>
-                    <Zap style={{ width: 24, height: 24, color: "var(--vertigo-purple-soft)" }} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: "15px", fontWeight: 700, color: "var(--vertigo-text)", fontFamily: "Cinzel, serif" }}>
-                      {upcomingMatch.jornada_label ?? "Partido programado"}
-                    </div>
-                    <div style={{ fontSize: "13px", color: "var(--vertigo-muted)", marginTop: "3px", display: "flex", alignItems: "center", gap: "8px" }}>
-                      {upcomingMatch.scheduled_at_start
-                        ? new Date(upcomingMatch.scheduled_at_start).toLocaleString("es-AR", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })
-                        : "Horario a confirmar"}
-                      {upcomingMatch.format && (
-                        <span className="vertigo-badge vertigo-badge-purple" style={{ fontSize: "10px", padding: "3px 10px" }}>
-                          {upcomingMatch.format}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <ChevronRight style={{ width: 22, height: 22, color: "var(--vertigo-purple-soft)" }} />
-              </div>
-            </Link>
-          ) : (
-            <div className="vertigo-card">
-              <div style={{ textAlign: "center", padding: "44px 20px", color: "var(--vertigo-faint)" }}>
-                <Calendar style={{ width: "44px", height: "44px", margin: "0 auto 16px", display: "block", opacity: 0.35 }} strokeWidth={1} />
-                <div style={{ fontFamily: "Cinzel, serif", fontSize: "18px", fontWeight: 600, color: "var(--vertigo-muted)", marginBottom: "10px", textTransform: "uppercase", letterSpacing: "1px" }}>
-                  Sin partidos programados
-                </div>
-                <p style={{ fontSize: "14px", color: "var(--vertigo-faint)", maxWidth: "400px", margin: "0 auto", lineHeight: 1.6 }}>
-                  {status === "approved"
-                    ? "Cuando el bracket esté generado, tus partidos van a aparecer acá."
-                    : "Tu inscripción está pendiente de aprobación. Una vez aprobada, verás tus partidos acá."}
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
+        )}
 
       </main>
     </div>

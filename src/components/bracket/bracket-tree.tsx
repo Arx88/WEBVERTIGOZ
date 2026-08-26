@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Crown, Trophy, Swords } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { fmt } from "@/lib/format";
 
 export interface BracketTeamInfo {
   id: string;
@@ -306,18 +307,9 @@ function BracketCard({
   const aWin = !!m.winnerTeamId && !!m.teamA && m.winnerTeamId === m.teamA.id;
   const bWin = !!m.winnerTeamId && !!m.teamB && m.winnerTeamId === m.teamB.id;
 
-  const title = m.scheduledAtStart
-    ? `Programado: ${new Date(m.scheduledAtStart).toLocaleString("es-AR", {
-        day: "2-digit",
-        month: "long",
-        hour: "2-digit",
-        minute: "2-digit",
-      })}`
-    : undefined;
+  const title = m.scheduledAtStart ? `Programado: ${fmt.dayLongMonTime(m.scheduledAtStart)}` : undefined;
 
-  const fechaCorta = m.scheduledAtStart
-    ? `${new Date(m.scheduledAtStart).toLocaleDateString("es-AR", { day: "2-digit", month: "short" })} · ${new Date(m.scheduledAtStart).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}`
-    : null;
+  const fechaCorta = m.scheduledAtStart ? `${fmt.dayMon(m.scheduledAtStart)} · ${fmt.time(m.scheduledAtStart)}` : null;
 
   const card = (
     <div

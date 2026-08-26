@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
-import { getSupabaseServer } from "@/lib/supabase/server";
+import { getSupabaseServer, getSupabaseServiceRole } from "@/lib/supabase/server";
 import { GENERIC_AVATARS } from "@/lib/constants";
 import { validateTeamEloCap } from "@/lib/aoe2";
 import { getEditionForRegistration } from "@/lib/edition";
@@ -99,6 +99,52 @@ export async function submitWizard(data: WizardData) {
       return { ok: false as const, error: "No hay ninguna edición con inscripciones abiertas." };
     }
 
+    // 2b. Control de cupo: bloquear la inscripción si ya se alcanzó max_teams.
+    //     Contamos las inscripciones no rechazadas (aprobadas + pendientes) con
+    //     service role (el cliente de usuario puede no tener lectura por RLS).
+    //     Sin este check el wizard seguía aceptando equipos con el torneo lleno.
+    const maxTeams = edition.max_teams ?? 32;
+    const service = getSupabaseServiceRole() as any;
+    const { count: regCount } = await service
+      .from("team_registration")
+      .select("id", { count: "exact", head: true })
+      .eq("tournament_edition_id", edition.id)
+      .in("status", ["approved", "pending"]);
+    if ((regCount ?? 0) >= maxTeams) {
+      return { ok: false as const, error: "El torneo ya alcanzó el cupo máximo de equipos. Las inscripciones están cerradas." };
+    }
+
+    // 2c. Anti doble inscripción: si este capitán ya tiene un equipo inscripto
+    //     en esta edición, bloquear. (Cada submit crea un team_account nuevo,
+    //     así que la unique constraint por team_account nunca lo frenaba.)
+    const { data: myTeams } = await service
+      .from("team_account")
+      .select("id")
+      .eq("owner_id", accountId);
+    const myTeamIds = (myTeams ?? []).map((t: any) => t.id);
+    if (myTeamIds.length > 0) {
+      const { data: existingReg } = await service
+        .from("team_registration")
+        .select("id")
+        .eq("tournament_edition_id", edition.id)
+        .in("team_account_id", myTeamIds)
+        .maybeSingle();
+      if (existingReg) {
+        return { ok: false as const, error: "Ya tenés un equipo inscripto en esta edición. Revisá /mi-equipo." };
+      }
+    }
+
+    // 2d. Unicidad de nombre: no puede haber dos equipos con el mismo nombre
+    //     (case-insensitive), para evitar confusiones en el bracket.
+    const { data: nameClash } = await service
+      .from("team_account")
+      .select("id, name")
+      .ilike("name", data.teamName.trim())
+      .maybeSingle();
+    if (nameClash) {
+      return { ok: false as const, error: `Ya existe un equipo llamado "${nameClash.name}". Elegí otro nombre.` };
+    }
+
     // 3. Validar que los 3 aoe2ProfileId sean distintos
     const profileIds = data.players.map((p) => p.aoe2ProfileId).filter((id): id is number => id != null);
     if (profileIds.length !== 3) {
@@ -107,6 +153,28 @@ export async function submitWizard(data: WizardData) {
     const uniqueProfileIds = new Set(profileIds);
     if (uniqueProfileIds.size !== 3) {
       return { ok: false as const, error: "Los 3 jugadores deben tener perfiles de AoE2 Companion distintos. No podés cargar el mismo jugador dos veces." };
+    }
+
+    // 3a. Anti duplicación entre equipos: ningún jugador puede estar inscripto
+    //     en dos equipos distintos de la misma edición. La unique constraint
+    //     (team_registration_id, aoe2_profile_id) solo frena duplicados DENTRO
+    //     de un equipo, no entre equipos.
+    const { data: editionRegs } = await service
+      .from("team_registration")
+      .select("id")
+      .eq("tournament_edition_id", edition.id)
+      .in("status", ["approved", "pending"]);
+    const editionRegIds = (editionRegs ?? []).map((r: any) => r.id);
+    if (editionRegIds.length > 0) {
+      const { data: dupPlayers } = await service
+        .from("player_registration")
+        .select("aoe2_profile_id, display_name")
+        .in("aoe2_profile_id", profileIds)
+        .in("team_registration_id", editionRegIds);
+      if (dupPlayers && dupPlayers.length > 0) {
+        const names = [...new Set(dupPlayers.map((p: any) => `${p.display_name} (#${p.aoe2_profile_id})`))].join(", ");
+        return { ok: false as const, error: `Estos jugadores ya están inscriptos en otro equipo de esta edición: ${names}.` };
+      }
     }
 
     // 3b. Validar emblemId: formato UUID + existe y está activo en la BD

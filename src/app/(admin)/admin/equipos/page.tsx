@@ -1,10 +1,20 @@
 import { redirect } from "next/navigation";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { approveTeamAction, rejectTeamAction } from "@/server/actions/auth";
+import { toggleRequirementAction } from "@/server/actions/requirements";
 import { Shield, Check, X, Users, Star, Crown, AlertTriangle, Clock } from "lucide-react";
 import AdminHero from "@/components/shared/admin-hero";
+import { fmt } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
+
+// Requisitos de inscripción que el staff puede marcar/desmarcar con un clic
+const REQUIREMENTS = [
+  { field: "anti_smurf_check", label: "Anti Smurf" },
+  { field: "payment_confirmed", label: "Pago" },
+  { field: "tutorial_watched", label: "Tutorial" },
+  { field: "discord_joined", label: "Discord" },
+] as const;
 
 export default async function AdminEquiposPage() {
   const supabase = (await getSupabaseServer()) as any;
@@ -17,7 +27,7 @@ export default async function AdminEquiposPage() {
 
   const { data: registrations } = (await supabase
     .from("team_registration")
-    .select("id, status, elo_freeze_snapshot, elo_verification_status, elo_verification_reason, submitted_at, approved_at, team_account:team_account_id (id, name, tagline, emblem_id), tournament_edition:tournament_edition_id (name, elo_cap, elo_tolerance)")
+    .select("id, status, elo_freeze_snapshot, elo_verification_status, elo_verification_reason, submitted_at, approved_at, anti_smurf_check, payment_confirmed, tutorial_watched, discord_joined, team_account:team_account_id (id, name, tagline, emblem_id), tournament_edition:tournament_edition_id (name, elo_cap, elo_tolerance)")
     .order("submitted_at", { ascending: false })) as { data: any };
 
   const regsWithPlayers = await Promise.all(
@@ -177,7 +187,7 @@ function TeamCard({
               <span>{edition?.name ?? "—"}</span>
               <span>·</span>
               <Clock style={{ width: 11, height: 11 }} />
-              <span>Enviado {reg.submitted_at ? new Date(reg.submitted_at).toLocaleDateString("es-AR") : "—"}</span>
+              <span>Enviado {fmt.date(reg.submitted_at)}</span>
             </div>
           </div>
         </div>
@@ -245,6 +255,39 @@ function TeamCard({
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Requisitos: un clic marca/desmarca; tutorial y Discord también se
+          autogestionan desde /mi-equipo */}
+      <div className="flex flex-wrap items-center gap-2 mt-4">
+        <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-[var(--vertigo-faint)] mr-1">
+          Requisitos
+        </span>
+        {REQUIREMENTS.map((r) => {
+          const done = !!reg[r.field];
+          return (
+            <form key={r.field} action={toggleRequirementAction}>
+              <input type="hidden" name="registrationId" value={reg.id} />
+              <input type="hidden" name="field" value={r.field} />
+              <button
+                type="submit"
+                className="vertigo-btn vertigo-btn-ghost"
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 5,
+                  padding: "5px 12px", fontSize: 10,
+                  color: done ? "var(--vertigo-success)" : "var(--vertigo-faint)",
+                  borderColor: done ? "rgba(34,197,94,0.4)" : "var(--vertigo-line)",
+                }}
+                title={done ? `Clic para desmarcar "${r.label}"` : `Clic para marcar "${r.label}"`}
+              >
+                {done
+                  ? <Check style={{ width: 11, height: 11 }} strokeWidth={2.5} />
+                  : <X style={{ width: 11, height: 11 }} />}
+                {r.label}
+              </button>
+            </form>
+          );
+        })}
       </div>
 
       {showActions && (

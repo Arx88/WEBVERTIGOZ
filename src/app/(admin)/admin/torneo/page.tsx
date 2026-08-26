@@ -9,6 +9,7 @@ import {
   EditionLifecycle,
   EditionCreateForm,
 } from "./edition-forms";
+import { fmt } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -140,7 +141,7 @@ export default async function AdminTorneoPage({
                   {t?.total ?? 0} equipo{(t?.total ?? 0) === 1 ? "" : "s"}
                   {(t?.pending ?? 0) > 0 && ` · ${t?.pending} pendiente${t?.pending === 1 ? "" : "s"}`}
                   {" · "}
-                  {new Date(e.created_at).toLocaleDateString("es-AR")}
+                  {fmt.date(e.created_at)}
                 </div>
               </Link>
             );

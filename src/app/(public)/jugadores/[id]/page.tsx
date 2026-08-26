@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Crown, Star, ExternalLink, History, Trophy, MapPin, Swords, Users } from "lucide-react";
 import { getSupabaseServer } from "@/lib/supabase/server";
+import { fmt } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -321,7 +322,7 @@ export default async function JugadorPage({
                     {m.isLoss && <span className="vertigo-badge vertigo-badge-danger" style={{ fontSize: 9, padding: "3px 8px" }}>Derrota</span>}
                     {m.scheduledAtStart && (
                       <span className="text-[10px] text-[var(--vertigo-faint)]">
-                        {new Date(m.scheduledAtStart).toLocaleDateString("es-AR", { day: "2-digit", month: "short" })}
+                        {fmt.dayMon(m.scheduledAtStart)}
                       </span>
                     )}
                   </div>

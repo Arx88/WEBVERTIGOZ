@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import ForfeitForm from "./forfeit-form";
 import { civName } from "@/lib/constants/civs";
+import { fmt } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -131,7 +132,7 @@ export default async function AdminPartidoPage({
         {match.scheduled_at_start && (
           <span className="text-xs text-[var(--vertigo-muted)] flex items-center gap-1">
             <Clock style={{ width: 12, height: 12 }} />
-            {new Date(match.scheduled_at_start).toLocaleString("es-AR")}
+            {fmt.dateTime(match.scheduled_at_start)}
           </span>
         )}
       </div>
@@ -423,8 +424,8 @@ export default async function AdminPartidoPage({
                   <div className="text-xs text-[var(--vertigo-muted)]">{c.notes}</div>
                 )}
                 <div className="text-[11px] text-[var(--vertigo-faint)] mt-2">
-                  Pedido: {new Date(c.requested_at).toLocaleString("es-AR")}
-                  {c.executed_at && ` · Ejecutado: ${new Date(c.executed_at).toLocaleString("es-AR")}`}
+                  Pedido: {fmt.dateTime(c.requested_at)}
+                  {c.executed_at && ` · Ejecutado: ${fmt.dateTime(c.executed_at)}`}
                 </div>
                 {/* El admin ejecuta/revoca los pedidos pendientes (control de stream) */}
                 {c.status === "pending" && (
@@ -582,7 +583,7 @@ export default async function AdminPartidoPage({
             </div>
             {match.finished_at && (
               <div className="text-xs text-[var(--vertigo-faint)] mt-3 pt-3 border-t border-[var(--vertigo-line-soft)]">
-                Finalizado: {new Date(match.finished_at).toLocaleString("es-AR")}
+                Finalizado: {fmt.dateTime(match.finished_at)}
               </div>
             )}
           </div>
@@ -661,13 +662,13 @@ function TeamCard({
         <div className="vertigo-info-card">
           <div className="vertigo-info-card-label">READY #1</div>
           <div className="vertigo-info-card-value text-xs">
-            {ready ? new Date(ready).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }) : "—"}
+            {fmt.time(ready)}
           </div>
         </div>
         <div className="vertigo-info-card">
           <div className="vertigo-info-card-label">READY #2</div>
           <div className="vertigo-info-card-value text-xs">
-            {readyLineup ? new Date(readyLineup).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }) : "—"}
+            {fmt.time(readyLineup)}
           </div>
         </div>
       </div>

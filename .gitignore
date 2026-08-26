@@ -11,6 +11,9 @@
 # testing
 /coverage
 
+# auditoría E2E (scripts descartables + sesiones/credenciales de prueba)
+.e2e-audit/
+
 # next.js
 /.next/
 /out/

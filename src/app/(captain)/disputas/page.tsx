@@ -4,6 +4,7 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 import { CaptainHeader } from "@/components/captain/captain-header";
 import { AlertTriangle, Shield, Clock, FileText, ArrowRight } from "lucide-react";
 import { createDisputeAction } from "@/server/actions/disputes";
+import { fmt } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -268,7 +269,7 @@ export default async function DisputasPage() {
                         </span>
                         <span className="text-[11px] text-[var(--vertigo-faint)] tracking-[1.5px] uppercase flex items-center gap-1">
                           <Clock style={{ width: 11, height: 11 }} />
-                          {new Date(d.created_at).toLocaleString("es-AR", { dateStyle: "medium", timeStyle: "short" })}
+                          {fmt.dateTimeMedium(d.created_at)}
                         </span>
                       </div>
                       <span className="text-[11px] text-[var(--vertigo-faint)]">#{d.id.slice(0, 8)}</span>

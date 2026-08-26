@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { logoutAction } from "@/server/actions/auth";
-import { LogOut, ChevronRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 
 type ActiveTab = "reino" | "partidos" | "disputas";
 
@@ -30,11 +29,11 @@ export function CaptainHeader({
         </Link>
 
         {/* Separador */}
-        <div style={{ width: "1px", height: "24px", background: "var(--vertigo-line)" }} />
+        <div className="vertigo-header-sep" style={{ width: "1px", height: "24px", background: "var(--vertigo-line)" }} />
 
         {/* Identidad del equipo */}
         {teamName && (
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div className="vertigo-header-team" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             {/* Escudo pequeño */}
             <div
               style={{
@@ -93,12 +92,7 @@ export function CaptainHeader({
         <span className="vertigo-section-tag" style={{ display: "none" }}>
           {active === "reino" ? "MI REINO" : active === "partidos" ? "MIS PARTIDOS" : "DISPUTAS"}
         </span>
-        <form action={logoutAction}>
-          <button type="submit" className="vertigo-btn vertigo-btn-ghost" style={{ padding: "8px 18px", fontSize: "10px", gap: "6px" }}>
-            <LogOut style={{ width: 13, height: 13 }} />
-            Salir
-          </button>
-        </form>
+        {/* El chip de usuario (con cerrar sesión) lo monta el layout del grupo */}
       </div>
     </header>
   );

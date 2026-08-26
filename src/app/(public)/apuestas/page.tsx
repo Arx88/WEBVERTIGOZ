@@ -8,6 +8,7 @@ import WelcomePointsModal from "./welcome-points-modal";
 import LlaveCard from "./llave-card";
 import VertigoFooter from "@/components/shared/vertigo-footer";
 import { ART_REY } from "@/lib/art";
+import { fmt } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -717,9 +718,7 @@ const BET_VISUAL: Record<string, { rail: string; bg: string }> = {
 function MyBetRow({ bet }: { bet: MyBet }) {
   const meta = BET_STATUS_META[bet.status] ?? BET_STATUS_META.pending;
   const v = BET_VISUAL[bet.status] ?? BET_VISUAL.pending;
-  const fecha = bet.placedAt
-    ? new Date(bet.placedAt).toLocaleDateString("es-AR", { day: "2-digit", month: "short" })
-    : null;
+  const fecha = bet.placedAt ? fmt.dayMon(bet.placedAt) : null;
 
   return (
     <Link

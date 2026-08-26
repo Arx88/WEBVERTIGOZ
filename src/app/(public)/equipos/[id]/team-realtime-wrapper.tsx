@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Clock, Calendar, Swords, ArrowRight } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { fmt } from "@/lib/format";
 
 export interface NextMatchData {
   id: string;
@@ -299,12 +300,7 @@ export default function TeamRealtimeWrapper({ teamRegistrationId, initialNextMat
           <div className="vertigo-info-card">
             <div className="vertigo-info-card-label">Inicio</div>
             <div className="vertigo-info-card-value" style={{ fontSize: 13 }}>
-              {new Date(nextMatch.scheduledAtStart).toLocaleString("es-AR", {
-                day: "2-digit",
-                month: "short",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+              {fmt.dayMonTime(nextMatch.scheduledAtStart)}
             </div>
           </div>
         )}
