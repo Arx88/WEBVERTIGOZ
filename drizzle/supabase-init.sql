@@ -9,6 +9,7 @@
 -- ============================================================
 
 DROP TYPE IF EXISTS account_role CASCADE;
+DROP TYPE IF EXISTS bet_status CASCADE;
 DROP TYPE IF EXISTS bracket_type CASCADE;
 DROP TYPE IF EXISTS caster_tier CASCADE;
 DROP TYPE IF EXISTS comodin_status CASCADE;
@@ -23,7 +24,8 @@ DROP TYPE IF EXISTS player_mode CASCADE;
 DROP TYPE IF EXISTS registration_status CASCADE;
 DROP TYPE IF EXISTS tournament_status CASCADE;
 
-CREATE TYPE account_role AS ENUM('owner', 'player', 'admin', 'super_admin', 'caster');
+CREATE TYPE account_role AS ENUM('owner', 'player', 'admin', 'super_admin', 'caster', 'spectator');
+CREATE TYPE bet_status AS ENUM('pending', 'won', 'lost', 'voided');
 CREATE TYPE bracket_type AS ENUM('winner', 'consolation');
 CREATE TYPE caster_tier AS ENUM('official', 'secondary', 'community');
 CREATE TYPE comodin_status AS ENUM('pending', 'executing', 'executed', 'cancelled', 'revoked');
@@ -43,6 +45,8 @@ CREATE TYPE tournament_status AS ENUM('draft', 'registration', 'active', 'finish
 -- ============================================================
 
 -- Drop en orden inverso para no romper foreign keys
+DROP TABLE IF EXISTS bet CASCADE;
+DROP TABLE IF EXISTS spectator_wallet CASCADE;
 DROP TABLE IF EXISTS dispute CASCADE;
 DROP TABLE IF EXISTS comodin_usage CASCADE;
 DROP TABLE IF EXISTS comodin_inventory CASCADE;
@@ -340,6 +344,32 @@ CREATE TABLE dispute (
   updated_at timestamptz DEFAULT now() NOT NULL
 );
 
+CREATE TABLE spectator_wallet (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+  account_id uuid NOT NULL,
+  balance integer DEFAULT 0 NOT NULL,
+  updated_at timestamptz DEFAULT now() NOT NULL,
+  CONSTRAINT spectator_wallet_account_id_unique UNIQUE(account_id),
+  CONSTRAINT spectator_wallet_balance_nonnegative CHECK (balance >= 0)
+);
+
+CREATE TABLE bet (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+  spectator_account_id uuid NOT NULL,
+  match_id uuid NOT NULL,
+  picked_team_id uuid NOT NULL,
+  stake integer NOT NULL,
+  status bet_status DEFAULT 'pending' NOT NULL,
+  payout integer DEFAULT 0 NOT NULL,
+  placed_at timestamptz DEFAULT now() NOT NULL,
+  settled_at timestamptz,
+  CONSTRAINT bet_stake_positive CHECK (stake > 0),
+  CONSTRAINT bet_payout_nonnegative CHECK (payout >= 0)
+);
+CREATE UNIQUE INDEX bet_unique_spectator_match ON bet(spectator_account_id, match_id);
+CREATE INDEX bet_match_idx ON bet(match_id);
+CREATE INDEX bet_status_idx ON bet(status);
+
 CREATE TABLE tournament_config (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
   tournament_edition_id uuid NOT NULL,
@@ -433,6 +463,16 @@ ALTER TABLE dispute ADD CONSTRAINT dispute_team_fkey
 ALTER TABLE dispute ADD CONSTRAINT dispute_resolver_fkey
   FOREIGN KEY (resolved_by_super_admin_id) REFERENCES account(id) ON DELETE SET NULL;
 
+ALTER TABLE spectator_wallet ADD CONSTRAINT spectator_wallet_account_fkey
+  FOREIGN KEY (account_id) REFERENCES account(id) ON DELETE CASCADE;
+
+ALTER TABLE bet ADD CONSTRAINT bet_spectator_fkey
+  FOREIGN KEY (spectator_account_id) REFERENCES account(id) ON DELETE CASCADE;
+ALTER TABLE bet ADD CONSTRAINT bet_match_fkey
+  FOREIGN KEY (match_id) REFERENCES "match"(id) ON DELETE CASCADE;
+ALTER TABLE bet ADD CONSTRAINT bet_picked_team_fkey
+  FOREIGN KEY (picked_team_id) REFERENCES team_registration(id) ON DELETE CASCADE;
+
 ALTER TABLE tournament_config ADD CONSTRAINT tournament_config_edition_fkey
   FOREIGN KEY (tournament_edition_id) REFERENCES tournament_edition(id) ON DELETE CASCADE;
 
@@ -468,6 +508,8 @@ DROP TRIGGER IF EXISTS comodin_inventory_updated ON comodin_inventory;
 CREATE TRIGGER comodin_inventory_updated BEFORE UPDATE ON comodin_inventory FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 DROP TRIGGER IF EXISTS dispute_updated ON dispute;
 CREATE TRIGGER dispute_updated BEFORE UPDATE ON dispute FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS spectator_wallet_updated ON spectator_wallet;
+CREATE TRIGGER spectator_wallet_updated BEFORE UPDATE ON spectator_wallet FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 DROP TRIGGER IF EXISTS tournament_config_updated ON tournament_config;
 CREATE TRIGGER tournament_config_updated BEFORE UPDATE ON tournament_config FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
@@ -503,6 +545,8 @@ ALTER TABLE comodin_inventory ENABLE ROW LEVEL SECURITY;
 ALTER TABLE comodin_usage ENABLE ROW LEVEL SECURITY;
 ALTER TABLE caster ENABLE ROW LEVEL SECURITY;
 ALTER TABLE dispute ENABLE ROW LEVEL SECURITY;
+ALTER TABLE spectator_wallet ENABLE ROW LEVEL SECURITY;
+ALTER TABLE bet ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tournament_config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE emblem ENABLE ROW LEVEL SECURITY;
 ALTER TABLE preset_version ENABLE ROW LEVEL SECURITY;
@@ -591,10 +635,16 @@ CREATE POLICY "PresetVersion: escritura admin" ON preset_version FOR ALL TO auth
 CREATE POLICY "Account: lectura propia o admin"
   ON account FOR SELECT TO authenticated
   USING (supabase_auth_id = auth.uid() OR is_admin());
+-- Hardening: fija el role en el WITH CHECK para que un usuario no pueda
+-- cambiarse su propio role (p. ej. a admin) vía API directa. Los cambios
+-- de rol legítimos usan service role, que bypasea RLS.
 CREATE POLICY "Account: escritura propia"
   ON account FOR UPDATE TO authenticated
   USING (supabase_auth_id = auth.uid())
-  WITH CHECK (supabase_auth_id = auth.uid());
+  WITH CHECK (
+    supabase_auth_id = auth.uid()
+    AND role = (SELECT a.role FROM public.account a WHERE a.supabase_auth_id = auth.uid())
+  );
 CREATE POLICY "Account: insert propia"
   ON account FOR INSERT TO authenticated
   WITH CHECK (supabase_auth_id = auth.uid());
@@ -712,6 +762,24 @@ CREATE POLICY "Caster: insert propia" ON caster FOR INSERT TO authenticated
 CREATE POLICY "Caster: update admin o propia" ON caster FOR UPDATE TO authenticated
   USING (is_admin() OR account_id = current_account_id())
   WITH CHECK (is_admin() OR account_id = current_account_id());
+
+-- Spectator wallet (solo lectura propia/admin; escritura exclusivamente
+-- vía triggers SECURITY DEFINER / service role)
+CREATE POLICY "SpectatorWallet: lectura propia o admin"
+  ON spectator_wallet FOR SELECT TO authenticated
+  USING (account_id = current_account_id() OR is_admin());
+
+-- Bets: lectura propia o admin; las sumas públicas (cuotas) se calculan
+-- server-side con service role, no se exponen filas ajenas
+CREATE POLICY "Bet: lectura propia o admin"
+  ON bet FOR SELECT TO authenticated
+  USING (spectator_account_id = current_account_id() OR is_admin());
+CREATE POLICY "Bet: insert propia"
+  ON bet FOR INSERT TO authenticated
+  WITH CHECK (spectator_account_id = current_account_id());
+CREATE POLICY "Bet: delete propia pendiente"
+  ON bet FOR DELETE TO authenticated
+  USING (spectator_account_id = current_account_id() AND status = 'pending');
 
 -- Dispute
 CREATE POLICY "Dispute: lectura dueño o admin"
@@ -903,8 +971,150 @@ CREATE TRIGGER on_team_registration_created
   FOR EACH ROW EXECUTE FUNCTION create_comodin_inventory();
 
 -- ============================================================
+-- 11. TRIGGERS: espectadores y apuestas (pari-mutuel)
+-- ============================================================
+
+-- Wallet de 1000 puntos al adquirir el rol spectator.
+-- Cubre INSERT (cuenta creada ya como spectator) y UPDATE
+-- (cuenta owner existente promovida a spectator por el servidor).
+CREATE OR REPLACE FUNCTION grant_spectator_wallet()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  IF NEW.role = 'spectator'
+     AND (TG_OP = 'INSERT' OR OLD.role IS DISTINCT FROM 'spectator') THEN
+    INSERT INTO spectator_wallet (account_id, balance)
+    VALUES (NEW.id, 1000)
+    ON CONFLICT (account_id) DO NOTHING;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS on_account_spectator_wallet ON account;
+CREATE TRIGGER on_account_spectator_wallet
+  AFTER INSERT OR UPDATE ON account
+  FOR EACH ROW EXECUTE FUNCTION grant_spectator_wallet();
+
+-- Débito del stake al colocar la apuesta.
+-- El CHECK balance >= 0 aborta la transacción si no alcanza.
+CREATE OR REPLACE FUNCTION debit_bet_stake()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  UPDATE spectator_wallet
+  SET balance = balance - NEW.stake, updated_at = now()
+  WHERE account_id = NEW.spectator_account_id;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS on_bet_placed ON bet;
+CREATE TRIGGER on_bet_placed
+  AFTER INSERT ON bet
+  FOR EACH ROW EXECUTE FUNCTION debit_bet_stake();
+
+-- Reintegro al cancelar (delete) una apuesta todavía pendiente.
+CREATE OR REPLACE FUNCTION refund_bet_on_delete()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  IF OLD.status = 'pending' THEN
+    UPDATE spectator_wallet
+    SET balance = balance + OLD.stake, updated_at = now()
+    WHERE account_id = OLD.spectator_account_id;
+  END IF;
+  RETURN OLD;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS on_bet_deleted ON bet;
+CREATE TRIGGER on_bet_deleted
+  AFTER DELETE ON bet
+  FOR EACH ROW EXECUTE FUNCTION refund_bet_on_delete();
+
+-- Liquidación pari-mutuel cuando la llave termina.
+-- finished/forfeit con ganador → ganadores cobran
+-- floor(stake * pool / stake_acertante), perdedores pierden.
+-- cancelled → voided + reintegro.
+-- Solo actúa en la PRIMERA transición a estado terminal
+-- (si el admin corrige un resultado después, no se re-liquida).
+CREATE OR REPLACE FUNCTION settle_match_bets()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  total_pool bigint;
+  winning_stake bigint;
+BEGIN
+  IF NEW.winner_team_id IS NOT NULL
+     AND NEW.status IN ('finished', 'forfeit')
+     AND OLD.status NOT IN ('finished', 'forfeit', 'cancelled') THEN
+
+    SELECT COALESCE(SUM(stake), 0),
+           COALESCE(SUM(stake) FILTER (WHERE picked_team_id = NEW.winner_team_id), 0)
+    INTO total_pool, winning_stake
+    FROM bet
+    WHERE match_id = NEW.id AND status = 'pending';
+
+    IF total_pool > 0 THEN
+      IF winning_stake > 0 THEN
+        UPDATE bet
+        SET status = 'won',
+            payout = floor(stake::numeric * total_pool / winning_stake)::bigint,
+            settled_at = now()
+        WHERE match_id = NEW.id
+          AND status = 'pending'
+          AND picked_team_id = NEW.winner_team_id;
+
+        UPDATE spectator_wallet w
+        SET balance = balance + b.payout, updated_at = now()
+        FROM bet b
+        WHERE b.spectator_account_id = w.account_id
+          AND b.match_id = NEW.id
+          AND b.status = 'won';
+      END IF;
+
+      -- Perdedores (o todos, si nadie acertó: el pozo no se reparte).
+      UPDATE bet
+      SET status = 'lost', settled_at = now()
+      WHERE match_id = NEW.id AND status = 'pending';
+    END IF;
+
+  ELSIF NEW.status = 'cancelled'
+        AND OLD.status IS DISTINCT FROM 'cancelled' THEN
+
+    UPDATE bet
+    SET status = 'voided', settled_at = now()
+    WHERE match_id = NEW.id AND status = 'pending';
+
+    UPDATE spectator_wallet w
+    SET balance = balance + b.stake, updated_at = now()
+    FROM bet b
+    WHERE b.spectator_account_id = w.account_id
+      AND b.match_id = NEW.id
+      AND b.status = 'voided';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS match_settle_bets ON "match";
+CREATE TRIGGER match_settle_bets
+  AFTER UPDATE ON "match"
+  FOR EACH ROW EXECUTE FUNCTION settle_match_bets();
+
+-- ============================================================
 -- FIN
 -- Verificar con:
 -- SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public';
--- Debería devolver 17
+-- Debería devolver 19
 -- ============================================================

@@ -46,7 +46,7 @@ function useDemoClock(speed: number): number {
 
 function SceneLoading({ text }: { text: string }) {
   return (
-    <div className="tut-full grid place-items-center" style={{ color: "#fff", fontFamily: "var(--font-oswald)", fontSize: 13, letterSpacing: "0.3em" }}>
+    <div className="tut-full grid place-items-center" style={{ color: "#fff", fontFamily: "var(--font-inter)", fontSize: 13, letterSpacing: "0.3em" }}>
       {text.toUpperCase()}
     </div>
   );

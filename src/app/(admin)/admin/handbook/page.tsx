@@ -1,12 +1,18 @@
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { BookOpen, ExternalLink, FileText, Calendar, Info } from "lucide-react";
+import AdminHero from "@/components/shared/admin-hero";
+import { getEditionForAdmin, signHandbookUrl } from "@/lib/edition";
+import HandbookUploader from "./handbook-uploader";
 
 export const dynamic = "force-dynamic";
 
-const DEFAULT_HANDBOOK_URL = "https://tomlvgzwleolsxksiygs.supabase.co/storage/v1/object/public/handbook/vertigo-handbook.pdf";
-
-export default async function AdminHandbookPage() {
+export default async function AdminHandbookPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ edition?: string }>;
+}) {
+  const params = await searchParams;
   const supabase = (await getSupabaseServer()) as any;
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -15,45 +21,29 @@ export default async function AdminHandbookPage() {
     .from("account").select("id, role").eq("supabase_auth_id", user.id).single()) as { data: any };
   if (!account || !["admin", "super_admin"].includes(account.role)) redirect("/mi-equipo");
 
-  const { data: edition } = (await supabase
-    .from("tournament_edition")
-    .select("id, name, handbook_url, handbook_uploaded_at")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .single()) as { data: any };
-
-  const handbookUrl = edition?.handbook_url ?? DEFAULT_HANDBOOK_URL;
+  const edition = await getEditionForAdmin(supabase, params.edition);
+  const signedUrl = await signHandbookUrl(edition);
   const uploadedAt = edition?.handbook_uploaded_at;
-  const hasHandbook = Boolean(edition?.handbook_url || DEFAULT_HANDBOOK_URL);
+  // El handbook puede ser un path de Storage (nuevo) o una URL http (datos viejos).
+  const storagePath = edition?.handbook_url && !/^https?:\/\//i.test(edition.handbook_url)
+    ? edition.handbook_url
+    : null;
 
   return (
     <div className="vertigo-fade-in">
-      <span className="vertigo-kicker">HANDBOOK</span>
-      <h1 className="vertigo-title">Reglamento del torneo</h1>
-      <div className="vertigo-divider"><span></span><i></i><span></span></div>
-      <p className="vertigo-desc">
-        El handbook es el PDF con el reglamento completo. Los equipos deben descargarlo obligatoriamente
-        antes de aceptar los términos y completar la inscripción.
-      </p>
-
-      <div className="vertigo-stats">
-        <div className="vertigo-stat">
-          <div className="vertigo-stat-label">Edición</div>
-          <div className="vertigo-stat-value text-base">{edition?.name ?? "—"}</div>
-        </div>
-        <div className="vertigo-stat">
-          <div className="vertigo-stat-label">Estado</div>
-          <div className="vertigo-stat-value text-base">
-            {hasHandbook ? "Disponible" : "Falta subir"}
-          </div>
-        </div>
-        <div className="vertigo-stat">
-          <div className="vertigo-stat-label">Subido</div>
-          <div className="vertigo-stat-value text-base">
-            {uploadedAt ? new Date(uploadedAt).toLocaleDateString("es-AR") : "—"}
-          </div>
-        </div>
-      </div>
+      <AdminHero
+        kicker="HANDBOOK"
+        title="Reglamento del torneo"
+        desc="El handbook es el PDF con el reglamento completo. Los equipos deben descargarlo obligatoriamente antes de aceptar los términos y completar la inscripción."
+        stats={[
+          { value: edition?.name ?? "—", label: "Edición" },
+          { value: signedUrl ? "Disponible" : "Falta subir", label: "Estado", color: signedUrl ? "var(--vertigo-success)" : "#fbbf24" },
+          {
+            value: uploadedAt ? new Date(uploadedAt).toLocaleDateString("es-AR") : "—",
+            label: "Subido",
+          },
+        ]}
+      />
 
       <section className="mb-8">
         <div className="vertigo-subtitle">Handbook actual</div>
@@ -77,17 +67,24 @@ export default async function AdminHandbookPage() {
                   </>
                 )}
                 {!uploadedAt && <span>Versión por defecto (sin fecha de subida registrada)</span>}
+                {storagePath && (
+                  <span className="text-[var(--vertigo-faint)]">· storage: {storagePath}</span>
+                )}
               </div>
             </div>
-            <a
-              href={handbookUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="vertigo-btn vertigo-btn-primary flex-none"
-            >
-              <ExternalLink style={{ width: 14, height: 14 }} />
-              Ver handbook
-            </a>
+            {signedUrl ? (
+              <a
+                href={signedUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="vertigo-btn vertigo-btn-primary flex-none"
+              >
+                <ExternalLink style={{ width: 14, height: 14 }} />
+                Ver handbook
+              </a>
+            ) : (
+              <span className="vertigo-badge vertigo-badge-warning flex-none">Sin PDF</span>
+            )}
           </div>
         </div>
       </section>
@@ -95,14 +92,15 @@ export default async function AdminHandbookPage() {
       <section className="mb-8">
         <div className="vertigo-subtitle">Reemplazar handbook</div>
         <div className="vertigo-card">
-          <div className="vertigo-empty">
-            <BookOpen className="mx-auto mb-4" style={{ width: 48, height: 48, color: "var(--vertigo-faint)" }} strokeWidth={1} />
-            <div className="vertigo-empty-title">Uploader en desarrollo</div>
-            <p className="vertigo-empty-desc">
-              Para subir un nuevo handbook, usá el endpoint <code className="text-[var(--vertigo-purple-pale)]">/api/admin/upload-handbook</code>
-              {" "}con un PDF. El uploader visual estará disponible próximamente.
-            </p>
-          </div>
+          {edition ? (
+            <HandbookUploader editionId={edition.id} />
+          ) : (
+            <div className="vertigo-empty">
+              <BookOpen className="mx-auto mb-4" style={{ width: 48, height: 48, color: "var(--vertigo-faint)" }} strokeWidth={1} />
+              <div className="vertigo-empty-title">Sin edición activa</div>
+              <p className="vertigo-empty-desc">Creá una edición del torneo primero, desde la sección Torneo.</p>
+            </div>
+          )}
         </div>
       </section>
 
@@ -116,8 +114,9 @@ export default async function AdminHandbookPage() {
               <p className="text-sm text-[var(--vertigo-muted)] mt-2 leading-relaxed">
                 El handbook lo manejan los admins del torneo. No es editable desde la web — el contenido
                 del PDF (reglas, formato, sanciones, schedules) se define offline y se sube como archivo final.
-                Una vez subido, queda referenciado desde la edición activa y el wizard lo requiere como paso
-                obligatorio antes de aceptar términos.
+                El archivo vive en un bucket privado de Storage: a los equipos se les sirve con una URL
+                firmada temporal generada al momento. Una vez subido, queda referenciado desde la edición
+                y el wizard lo requiere como paso obligatorio antes de aceptar términos.
               </p>
             </div>
           </div>

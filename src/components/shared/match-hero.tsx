@@ -12,7 +12,7 @@
  */
 
 import Image from "next/image";
-import { artForMode, artForMap, ART_FALLBACK } from "@/lib/art";
+import { artForMode, artForMap, ART_FALLBACK, ART_MINA_ORO } from "@/lib/art";
 import { Trophy, Dices, Layers, Map as MapIcon, Zap } from "lucide-react";
 
 export interface MatchHeroProps {
@@ -77,7 +77,19 @@ export default function MatchHero({
             }}
           />
         ) : (
-          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, #0a0714 0%, #120a1e 50%, #05030a 100%)" }} />
+          // Sin sorteo: la mina de oro — el arte de "Modo por sortear"
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={ART_MINA_ORO}
+            alt=""
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              objectPosition: "center 30%",
+              opacity: 0.45,
+            }}
+          />
         )}
         {/* Overlay oscuro para legibilidad */}
         <div
@@ -188,8 +200,8 @@ export default function MatchHero({
           )}
         </div>
 
-        {/* Civs sorteadas si las hay */}
-        {(civsA?.length || civsB?.length) && (
+        {/* Civs sorteadas si las hay — ojo: sin el `> 0` React pintaría un "0" suelto */}
+        {(civsA?.length ?? 0) + (civsB?.length ?? 0) > 0 && (
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 20 }}>
             {[...(civsA ?? []).map((c) => ({ civ: c, side: "A" })), ...(civsB ?? []).map((c) => ({ civ: c, side: "B" }))].map((item, i) => (
               <div

@@ -62,7 +62,7 @@ export default function CivSection() {
 
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(10,0,20,0.55)_100%)]" />
         <div className="pointer-events-none absolute inset-x-0 top-0 h-2/5 bg-gradient-to-b from-[#0a0011] via-[rgba(10,0,17,0.7)] to-transparent" />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 md:h-40 bg-gradient-to-b from-transparent to-[#0a0011]" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 md:h-56 bg-gradient-to-b from-transparent via-[rgba(10,0,17,0.55)] to-[#0a0011]" />
       </div>
 
       <div className="relative z-20 mx-auto max-w-3xl px-6 pb-16 pt-10 text-center md:absolute md:inset-x-0 md:top-0 md:pt-20 md:pb-0">
@@ -81,7 +81,7 @@ export default function CivSection() {
           <h3
             key={index}
             data-testid="civ-phrase"
-            className="phrase-in mt-5 font-cinzel text-[20px] md:text-[32px] leading-[1.3] uppercase tracking-[0.05em] text-neon min-h-[2.6em] flex items-center justify-center"
+            className="phrase-in landing-title mt-5 font-cinzel text-[20px] md:text-[32px] leading-[1.3] uppercase tracking-[0.05em] min-h-[2.6em] flex items-center justify-center"
           >
             &ldquo;{PHRASES[index]}&rdquo;
           </h3>

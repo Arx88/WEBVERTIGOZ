@@ -2,6 +2,7 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { resolveDisputeAction } from "@/server/actions/auth";
 import { AlertTriangle, Shield, Clock, Image as ImageIcon, ExternalLink } from "lucide-react";
+import AdminHero from "@/components/shared/admin-hero";
 
 export const dynamic = "force-dynamic";
 
@@ -42,32 +43,17 @@ export default async function AdminDisputasPage() {
 
   return (
     <div className="vertigo-fade-in">
-      <span className="vertigo-kicker">DISPUTAS</span>
-      <h1 className="vertigo-title">Resolución de disputas</h1>
-      <div className="vertigo-divider"><span></span><i></i><span></span></div>
-      <p className="vertigo-desc">
-        Reclamos de capitanes sobre partidos. Ventana de 30 min post-finalizado. Revisar screenshots y aplicar decisión.
-        Solo super_admin puede resolver.
-      </p>
-
-      <div className="vertigo-stats">
-        <div className="vertigo-stat">
-          <div className="vertigo-stat-label">Abiertas</div>
-          <div className="vertigo-stat-value text-[var(--vertigo-danger)]">{open}</div>
-        </div>
-        <div className="vertigo-stat">
-          <div className="vertigo-stat-label">En revisión</div>
-          <div className="vertigo-stat-value text-[#fbbf24]">{reviewing}</div>
-        </div>
-        <div className="vertigo-stat">
-          <div className="vertigo-stat-label">Resueltas</div>
-          <div className="vertigo-stat-value text-[var(--vertigo-success)]">{resolved}</div>
-        </div>
-        <div className="vertigo-stat">
-          <div className="vertigo-stat-label">Total</div>
-          <div className="vertigo-stat-value">{total}</div>
-        </div>
-      </div>
+      <AdminHero
+        kicker="DISPUTAS"
+        title="Resolución de disputas"
+        desc="Reclamos de capitanes sobre partidos. Ventana de 30 min post-finalizado. Revisar screenshots y aplicar decisión. Solo super_admin puede resolver."
+        stats={[
+          { value: open, label: "Abiertas", color: "var(--vertigo-danger)" },
+          { value: reviewing, label: "En revisión", color: "#fbbf24" },
+          { value: resolved, label: "Resueltas", color: "var(--vertigo-success)" },
+          { value: total, label: "Total" },
+        ]}
+      />
 
       {total === 0 ? (
         <div className="vertigo-card">

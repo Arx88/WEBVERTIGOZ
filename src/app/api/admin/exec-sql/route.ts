@@ -37,6 +37,10 @@ const POOLER_REGIONS = [
   "ap-southeast-1",
 ];
 
+// Los proyectos nuevos de Supabase usan pooler "aws-1" en vez de "aws-0"
+// y pueden vivir en regiones fuera de la lista histórica.
+const EXTRA_POOLER_HOSTS = ["aws-1-eu-west-1", "aws-1-us-east-1"];
+
 async function tryConnect(): Promise<ReturnType<typeof postgres> | null> {
   const SUPABASE_REF = getSupabaseRef();
   if (!SUPABASE_REF || !SUPABASE_DB_PASSWORD) {
@@ -45,9 +49,13 @@ async function tryConnect(): Promise<ReturnType<typeof postgres> | null> {
     );
     return null;
   }
-  for (const region of POOLER_REGIONS) {
+  const hosts = [
+    ...EXTRA_POOLER_HOSTS,
+    ...POOLER_REGIONS.map((region) => `aws-0-${region}`),
+  ];
+  for (const hostBase of hosts) {
     for (const port of [5432, 6543]) {
-      const host = `aws-0-${region}.pooler.supabase.com`;
+      const host = `${hostBase}.pooler.supabase.com`;
       const url = `postgresql://postgres.${SUPABASE_REF}:${encodeURIComponent(SUPABASE_DB_PASSWORD)}@${host}:${port}/postgres`;
       try {
         const sql = postgres(url, {

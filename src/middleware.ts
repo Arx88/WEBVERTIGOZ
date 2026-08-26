@@ -53,14 +53,8 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  // Si está logueado y va a /login → redirigir a /mi-equipo
-  // /registro sí se permite (primera vez, completar inscripción)
-  if (user && req.nextUrl.pathname === "/login") {
-    const redirectUrl = req.nextUrl.clone();
-    redirectUrl.pathname = "/mi-equipo";
-    redirectUrl.search = "";
-    return NextResponse.redirect(redirectUrl);
-  }
+  // El redirect de usuarios logueados que entran a /login lo resuelve la
+  // propia página según el rol (spectator → /apuestas, caster → /casters).
 
   return res;
 }

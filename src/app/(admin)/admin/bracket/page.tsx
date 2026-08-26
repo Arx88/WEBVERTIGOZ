@@ -5,6 +5,7 @@ import { generateBracketAction } from "@/server/actions/auth";
 import { generateRealBracketFormAction, deleteBracketFormAction } from "@/server/actions/tournament";
 import { generateBracket, ROUND_NAMES_32, BRACKET_SIZE, BRACKET_ROUNDS } from "@/lib/bracket/engine";
 import { Layers, Shuffle, AlertCircle, ChevronRight, Crown, Users } from "lucide-react";
+import AdminHero from "@/components/shared/admin-hero";
 
 export const dynamic = "force-dynamic";
 
@@ -104,31 +105,17 @@ export default async function AdminBracketPage() {
 
   return (
     <div className="vertigo-fade-in">
-      <span className="vertigo-kicker">BRACKET</span>
-      <h1 className="vertigo-title">Bracket del torneo</h1>
-      <div className="vertigo-divider"><span></span><i></i><span></span></div>
-      <p className="vertigo-desc">
-        Generar bracket SE de 32, sorteo inicial de seeds (aleatorio puro), visualizar partidos por ronda.
-      </p>
-
-      <div className="vertigo-stats">
-        <div className="vertigo-stat">
-          <div className="vertigo-stat-label">Equipos aprobados</div>
-          <div className="vertigo-stat-value">{approvedCount} / {BRACKET_SIZE}</div>
-        </div>
-        <div className="vertigo-stat">
-          <div className="vertigo-stat-label">Con seed asignado</div>
-          <div className="vertigo-stat-value text-[var(--vertigo-purple-pale)]">{seededCount}</div>
-        </div>
-        <div className="vertigo-stat">
-          <div className="vertigo-stat-label">Partidos creados</div>
-          <div className="vertigo-stat-value">{totalMatches}</div>
-        </div>
-        <div className="vertigo-stat">
-          <div className="vertigo-stat-label">Rondas</div>
-          <div className="vertigo-stat-value">{BRACKET_ROUNDS}</div>
-        </div>
-      </div>
+      <AdminHero
+        kicker="BRACKET"
+        title="Bracket del torneo"
+        desc="Generar bracket SE de 32, sorteo inicial de seeds (aleatorio puro), visualizar partidos por ronda."
+        stats={[
+          { value: `${approvedCount} / ${BRACKET_SIZE}`, label: "Equipos aprobados" },
+          { value: seededCount, label: "Con seed asignado", color: "var(--vertigo-purple-pale)" },
+          { value: totalMatches, label: "Partidos creados" },
+          { value: BRACKET_ROUNDS, label: "Rondas" },
+        ]}
+      />
 
       {/* Sorteo inicial de seeds */}
       <section className="mb-8">

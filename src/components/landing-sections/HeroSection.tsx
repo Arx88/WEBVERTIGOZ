@@ -12,6 +12,7 @@ export default function HeroSection() {
           alt="Vertigo Cup Hero"
           fill
           priority
+          quality={90}
           className="object-cover object-center"
           sizes="100vw"
         />
@@ -31,7 +32,7 @@ export default function HeroSection() {
       </div>
 
       <div className="absolute bottom-16 md:bottom-20 left-0 right-0 z-10 flex flex-col items-center">
-        <h2 className="font-cinzel text-[13px] md:text-[15px] tracking-[0.42em] uppercase text-neon reveal">
+        <h2 className="landing-title font-cinzel text-[13px] md:text-[15px] tracking-[0.42em] uppercase reveal">
           Un giro, tres destinos.
         </h2>
         <a

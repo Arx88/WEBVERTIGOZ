@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { approveTeamAction, rejectTeamAction } from "@/server/actions/auth";
 import { Shield, Check, X, Users, Star, Crown, AlertTriangle, Clock } from "lucide-react";
+import AdminHero from "@/components/shared/admin-hero";
 
 export const dynamic = "force-dynamic";
 
@@ -35,31 +36,17 @@ export default async function AdminEquiposPage() {
 
   return (
     <div className="vertigo-fade-in">
-      <span className="vertigo-kicker">INSCRIPCIONES</span>
-      <h1 className="vertigo-title">Equipos</h1>
-      <div className="vertigo-divider"><span></span><i></i><span></span></div>
-      <p className="vertigo-desc">
-        Revisá y aprobá cada inscripción. Verificá ELO cap, perfiles de AoE2 Companion y datos del equipo antes de confirmar.
-      </p>
-
-      <div className="vertigo-stats">
-        <div className="vertigo-stat">
-          <div className="vertigo-stat-label">Total</div>
-          <div className="vertigo-stat-value">{regsWithPlayers.length}</div>
-        </div>
-        <div className="vertigo-stat">
-          <div className="vertigo-stat-label">Pendientes</div>
-          <div className="vertigo-stat-value text-[#fbbf24]">{pending.length}</div>
-        </div>
-        <div className="vertigo-stat">
-          <div className="vertigo-stat-label">Aprobados</div>
-          <div className="vertigo-stat-value text-[var(--vertigo-success)]">{approved.length}</div>
-        </div>
-        <div className="vertigo-stat">
-          <div className="vertigo-stat-label">Rechazados</div>
-          <div className="vertigo-stat-value text-[var(--vertigo-danger)]">{rejected.length}</div>
-        </div>
-      </div>
+      <AdminHero
+        kicker="INSCRIPCIONES"
+        title="Equipos"
+        desc="Revisá y aprobá cada inscripción. Verificá ELO cap, perfiles de AoE2 Companion y datos del equipo antes de confirmar."
+        stats={[
+          { value: regsWithPlayers.length, label: "Total" },
+          { value: pending.length, label: "Pendientes", color: "#fbbf24" },
+          { value: approved.length, label: "Aprobados", color: "var(--vertigo-success)" },
+          { value: rejected.length, label: "Rechazados", color: "var(--vertigo-danger)" },
+        ]}
+      />
 
       {regsWithPlayers.length === 0 ? (
         <div className="vertigo-card">

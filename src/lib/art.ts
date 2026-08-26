@@ -57,6 +57,7 @@ const BRAND_ART: Record<string, string> = {
   "modo-antimeta": "/brand/modo-antimeta.png",
   "regicida-aftermath": "/brand/regicida-aftermath.png",
   "explosion-tension": "/brand/explosion-tension.png",
+  "mina-de-oro": "/brand/mina-de-oro.webp",
 };
 
 /** Devuelve la imagen de arte para un id de modo/mapa/formato/llave. */
@@ -92,6 +93,21 @@ function normalizeKey(s: string): string {
 
 /** Imagen por defecto si no hay match: el vortex del torneo. */
 export const ART_FALLBACK = "/modes/vortex.webp";
+
+/** La mina de oro: hero de apuestas y fondo de "modo por sortear". */
+export const ART_MINA_ORO = "/brand/mina-de-oro.webp";
+
+/** La bandera de VÉRTIGO CUP: footer cinematográfico del hub y del partido. */
+export const ART_BANDERA = "/brand/bandera-vertigo.webp";
+
+/** El rey ante su reino: fondo del ranking de espectadores. */
+export const ART_REY = "/brand/rey-vertigo.webp";
+
+/** El predicador ante el pueblo: hero de casters y su gestión. */
+export const ART_PREDICADOR = "/brand/predicador-vertigo.webp";
+
+/** El castillo en llamas con la bandera: hero estándar del panel de staff. */
+export const ART_CASTILLO = "/brand/castillo-vertigo.webp";
 
 /** Comodines (del Drive de icons). */
 export const COMODIN_ART: Record<string, string> = {

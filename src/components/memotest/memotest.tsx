@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 // ============================================================
 //
 // Mecánica:
-// 1. Grilla de N tarjetas cuadradas con el dorso AoE2 (logo "II" violeta)
+// 1. Grilla de N tarjetas cuadradas con el dorso AoE2 (logo "AGE OF EMPIRES II" violeta)
 // 2. Un selector se mueve tipo slot-machine entre las tarjetas
 // 3. Cuando frena, esa tarjeta hace flip 3D y revela la civ
 // 4. La civ revelada se "asigna" al jugador actual
@@ -240,11 +240,10 @@ function MemotestCard({
           transform: (isRevealed || isFlipping) ? "rotateY(180deg)" : "rotateY(0deg)",
         }}
       >
-        {/* DORSO */}
+        {/* DORSO — logo AoE2; al frenar el selector, flip y aparece el escudo */}
         <div
           className={cn(
-            "absolute inset-0 flex flex-col items-center justify-center",
-            "border-2 rounded-md overflow-hidden",
+            "absolute inset-0 border-2 rounded-md overflow-hidden bg-[#6A0DAD]",
             isActive
               ? "border-gold scale-105"
               : "border-border-subtle"
@@ -252,21 +251,14 @@ function MemotestCard({
           style={{
             backfaceVisibility: "hidden",
             WebkitBackfaceVisibility: "hidden",
-            background: "linear-gradient(135deg, #8B2CF5 0%, #6A0DAD 100%)",
           }}
         >
-          <div
-            className="font-serif text-5xl font-bold text-[#E63946]"
-            style={{ textShadow: "0 2px 8px rgba(0,0,0,0.4)" }}
-          >
-            II
-          </div>
-          <div className="absolute top-2 text-caption text-white tracking-widest uppercase opacity-80">
-            AGE OF
-          </div>
-          <div className="absolute bottom-2 text-caption text-white tracking-widest uppercase opacity-80">
-            EMPIRES
-          </div>
+          <img
+            src="/brand/aoe2-logo.webp"
+            alt="Age of Empires II"
+            draggable={false}
+            className="absolute inset-0 w-full h-full object-cover"
+          />
           {isActive && (
             <div
               className="absolute inset-0 border-4 border-gold rounded-md animate-pulse"

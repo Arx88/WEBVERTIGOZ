@@ -9,6 +9,7 @@ export const ACCOUNT_ROLES = {
   ADMIN: "admin",            // staff del torneo
   SUPER_ADMIN: "super_admin", // admin con poderes extra (rollback, disputes)
   CASTER: "caster",           // streamer registrado
+  SPECTATOR: "spectator",     // espectador con wallet de apuestas
 } as const;
 
 export type AccountRole = (typeof ACCOUNT_ROLES)[keyof typeof ACCOUNT_ROLES];
@@ -153,6 +154,18 @@ export const DEFAULTS = {
 export const BRACKET_SIZE = 32;
 export const BRACKET_ROUNDS = 5; // 32 → 16 → 8 → 4 → 2 → 1
 
+// Apuestas de espectadores (pari-mutuel con puntos)
+export const WELCOME_POINTS = 1000;
+
+export const BET_STATUS = {
+  PENDING: "pending",
+  WON: "won",
+  LOST: "lost",
+  VOIDED: "voided",
+} as const;
+
+export type BetStatus = (typeof BET_STATUS)[keyof typeof BET_STATUS];
+
 // Avatares genéricos auto-asignados (12 siluetas medievales)
 export const GENERIC_AVATARS = [
   "knight", "archer", "monk", "scout", "berserker",
@@ -161,3 +174,12 @@ export const GENERIC_AVATARS = [
 ] as const;
 
 export type GenericAvatar = (typeof GENERIC_AVATARS)[keyof typeof GENERIC_AVATARS];
+
+// Etiquetas visibles por rol de cuenta
+export const ROLE_LABEL: Record<string, string> = {
+  owner: "Capitán",
+  spectator: "Espectador",
+  caster: "Caster",
+  admin: "Administrador",
+  super_admin: "Super admin",
+};

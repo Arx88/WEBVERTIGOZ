@@ -5,6 +5,7 @@ import {
   Trophy, Users, Shield, Calendar, Mic, AlertTriangle, ScrollText,
   BookOpen, ArrowRight, type LucideIcon,
 } from "lucide-react";
+import AdminHero from "@/components/shared/admin-hero";
 
 export const dynamic = "force-dynamic";
 
@@ -143,46 +144,28 @@ export default async function AdminHomePage() {
 
   return (
     <div className="vertigo-fade-in">
-      {/* Cabecera con estado vivo de la edición */}
-      <div className="vertigo-page-title">
-        <span className="vertigo-kicker">Panel de administración</span>
-        <h1 className="vertigo-title">Centro de control</h1>
-        <div className="vertigo-divider"><span></span><i></i><span></span></div>
-        <p className="vertigo-desc">
-          {edition?.name ? <>
-            <strong style={{ color: "var(--vertigo-purple-pale)" }}>{edition.name}</strong> — {editionLabel.toLowerCase()} ·
-            ELO cap {edition.elo_cap?.toLocaleString()} (+{edition.elo_tolerance}). Todo lo que necesitás para gestionar el ciclo de vida del torneo, en un solo lugar.
-          </> : "Gestioná todos los aspectos del torneo VÉRTIGO desde este panel."}
-        </p>
-
-        {/* Métricas de un vistazo */}
-        <div className="vertigo-stats" style={{ marginBottom: "8px" }}>
-          <div className="vertigo-stat">
-            <div className="vertigo-stat-label">Inscripciones</div>
-            <div className="vertigo-stat-value">{registered}</div>
-            <div className="vertigo-stat-sub">{registered} / {maxTeams} reinos</div>
-          </div>
-          <div className="vertigo-stat">
-            <div className="vertigo-stat-label">Pendientes</div>
-            <div className="vertigo-stat-value" style={{ color: pending > 0 ? "var(--vertigo-warning)" : undefined }}>
-              {pending}
-            </div>
-            <div className="vertigo-stat-sub">por revisar</div>
-          </div>
-          <div className="vertigo-stat">
-            <div className="vertigo-stat-label">Aprobados</div>
-            <div className="vertigo-stat-value" style={{ color: "var(--vertigo-success)" }}>{approved}</div>
-            <div className="vertigo-stat-sub">en el torneo</div>
-          </div>
-          <div className="vertigo-stat">
-            <div className="vertigo-stat-label">Disputas</div>
-            <div className="vertigo-stat-value" style={{ color: openDisputes > 0 ? "var(--vertigo-danger)" : undefined }}>
-              {openDisputes}
-            </div>
-            <div className="vertigo-stat-sub">abiertas</div>
-          </div>
-        </div>
-      </div>
+      {/* Cabecera con estado vivo de la edición — métricas integradas al hero */}
+      <AdminHero
+        kicker="Panel de administración"
+        title="Centro de control"
+        desc={
+          edition?.name ? (
+            <>
+              <strong style={{ color: "var(--vertigo-purple-pale)" }}>{edition.name}</strong> —{" "}
+              {editionLabel.toLowerCase()} · ELO cap {edition.elo_cap?.toLocaleString()} (+{edition.elo_tolerance}).
+              Todo lo que necesitás para gestionar el ciclo de vida del torneo, en un solo lugar.
+            </>
+          ) : (
+            "Gestioná todos los aspectos del torneo VÉRTIGO desde este panel."
+          )
+        }
+        stats={[
+          { value: `${registered} / ${maxTeams}`, label: "Inscripciones" },
+          { value: pending, label: "Pendientes", color: pending > 0 ? "var(--vertigo-warning)" : "var(--vertigo-text)" },
+          { value: approved, label: "Aprobados", color: "var(--vertigo-success)" },
+          { value: openDisputes, label: "Disputas", color: openDisputes > 0 ? "var(--vertigo-danger)" : "var(--vertigo-text)" },
+        ]}
+      />
 
       {/* Grid de secciones */}
       <div className="vertigo-stagger" style={{

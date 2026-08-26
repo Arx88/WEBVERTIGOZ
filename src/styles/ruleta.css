@@ -10,7 +10,7 @@
   z-index: 50;
   background: #050505;
   color: #fff;
-  font-family: var(--font-oswald), sans-serif;
+  font-family: var(--font-inter), sans-serif;
   user-select: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Clock,
   Calendar,
@@ -13,6 +14,8 @@ import {
   Twitch,
   Layers,
   Users,
+  ChevronDown,
+  ArrowLeft,
 } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { civName } from "@/lib/constants/civs";
@@ -20,6 +23,7 @@ import LiveDrawRoulette from "@/components/ruleta/live-draw-roulette";
 import MatchHero from "@/components/shared/match-hero";
 import { artForMode, artForMap } from "@/lib/art";
 import { CaptainMatchPanel, type CaptainPanelContext } from "@/components/captain/captain-match-panel";
+import BetPanel, { type BetPanelContext } from "@/components/apuestas/bet-panel";
 import { loadMatch, type GameView, type MatchData } from "./match-data";
 
 export { loadMatch };
@@ -30,6 +34,8 @@ interface Props {
   initialMatch: MatchData | null;
   /** Contexto del capitán si el viewer es capitán de un equipo de este match */
   captainContext?: CaptainPanelContext | null;
+  /** Contexto del espectador para el panel de apuestas (null si no se resolvió) */
+  spectatorContext?: BetPanelContext | null;
 }
 
 const MATCH_STATUS_META: Record<string, { label: string; cls: string }> = {
@@ -71,7 +77,8 @@ function formatCountdown(ms: number): string {
   return `${pad(h)}:${pad(m)}:${pad(s)}`;
 }
 
-export default function MatchRealtimeWrapper({ matchId, initialMatch, captainContext }: Props) {
+export default function MatchRealtimeWrapper({ matchId, initialMatch, captainContext, spectatorContext }: Props) {
+  const router = useRouter();
   const [match, setMatch] = useState<MatchData | null>(initialMatch);
   const now = useNow(1000);
 
@@ -141,6 +148,11 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
       ? "B"
       : null;
 
+  // Antes de que caiga el primer juego no hay score real: los 0 son un placeholder
+  // feo, así que se muestra el sello VS hasta que exista número o resultado.
+  const showScores =
+    match.scoreA > 0 || match.scoreB > 0 || isFinished || match.status === "disputed" || match.status === "forfeit";
+
   // Juego para el HERO: la partida con sorteo más reciente (con mapa),
   // para que un BO3 en 1-1 muestre la partida decisiva y no la 1.
   const heroGame =
@@ -160,6 +172,28 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
           onDone={() => void refresh()}
         />
       )}
+
+      {/* VOLVER ATRÁS — flecha de historial del navegador, arriba del hero */}
+      <button
+        type="button"
+        onClick={() => router.back()}
+        aria-label="Volver atrás"
+        className="self-start inline-flex items-center gap-2 rounded-full transition-all hover:-translate-x-0.5"
+        style={{
+          padding: "7px 14px 7px 11px",
+          fontSize: "11px",
+          letterSpacing: "1.5px",
+          textTransform: "uppercase",
+          fontWeight: 600,
+          color: "var(--vertigo-muted)",
+          background: "rgba(19,15,27,0.6)",
+          border: "1px solid var(--vertigo-line)",
+          cursor: "pointer",
+        }}
+      >
+        <ArrowLeft style={{ width: 13, height: 13 }} />
+        Volver
+      </button>
 
       {/* HERO cinematográfico del partido (modo + mapa, fondo con arte del sorteo).
           Muestra la partida ACTIVA: en BO3 1-1 es la partida 2/3, no la 1. */}
@@ -199,41 +233,101 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
         />
       )}
 
+      {/* BOLETA DE APUESTAS — para el espectador es lo principal de la página:
+          va antes del scoreboard. Los demás ven un CTA de registro discreto.
+          Se cierra sola cuando la llave abre (status llega por realtime). */}
+      {spectatorContext && (
+        <BetPanel
+          context={spectatorContext}
+          matchId={matchId}
+          status={match.status}
+          teamA={match.teamA ? { id: match.teamA.id, name: match.teamA.name, seed: match.teamA.seed } : null}
+          teamB={match.teamB ? { id: match.teamB.id, name: match.teamB.name, seed: match.teamB.seed } : null}
+        />
+      )}
+
       {/* SCOREBOARD */}
-      <div className="vertigo-card">
-        <div className="vertigo-card-header">
-          <div className="vertigo-card-title">
-            <Swords
-              style={{ width: 16, height: 16, display: "inline", marginRight: 8, color: "var(--vertigo-purple-soft)" }}
-            />
+      <div
+        className="vertigo-card"
+        style={{ background: "linear-gradient(180deg, rgba(23,16,38,0.55) 0%, rgba(13,9,19,0.92) 100%)" }}
+      >
+        {/* Ronda al centro, flanqueada por hairlines doradas */}
+        <div className="flex items-center justify-center gap-3 flex-wrap" style={{ padding: "20px 24px 0" }}>
+          <span style={{ width: 26, height: 1, background: "rgba(212,175,55,0.45)" }} />
+          <span
+            className="font-cinzel font-bold"
+            style={{ fontSize: 12, letterSpacing: 3, textTransform: "uppercase", color: "var(--vertigo-muted)" }}
+          >
             {match.roundName ?? "Partido"}
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className={`vertigo-badge ${statusMeta.cls}`}>{statusMeta.label}</span>
-            {match.format && <span className="vertigo-badge vertigo-badge-purple">{match.format}</span>}
-            {match.jornadaLabel && <span className="vertigo-badge vertigo-badge-purple">{match.jornadaLabel}</span>}
-          </div>
+          </span>
+          <span style={{ width: 26, height: 1, background: "rgba(212,175,55,0.45)" }} />
+        </div>
+        <div className="flex items-center justify-center gap-2 flex-wrap" style={{ marginTop: 10, padding: "0 24px" }}>
+          <span className={`vertigo-badge ${statusMeta.cls}`}>{statusMeta.label}</span>
+          {match.format && <span className="vertigo-badge vertigo-badge-purple">{match.format}</span>}
+          {match.jornadaLabel && <span className="vertigo-badge vertigo-badge-purple">{match.jornadaLabel}</span>}
         </div>
 
-        {/* Scoreboard principal */}
-        <div className="grid items-center gap-4" style={{ gridTemplateColumns: "1fr auto 1fr" }}>
+        {/* Enfrentamiento: escudos grandes cara a cara con resplandor central */}
+        <div
+          className="relative grid items-center"
+          style={{ gridTemplateColumns: "1fr auto 1fr", padding: "30px 24px 26px", columnGap: 14 }}
+        >
+          <div
+            aria-hidden
+            className="absolute pointer-events-none"
+            style={{
+              left: "50%",
+              top: "50%",
+              transform: "translate(-50%, -50%)",
+              width: 260,
+              height: 260,
+              borderRadius: "50%",
+              background: "radial-gradient(circle, rgba(124,58,237,0.22) 0%, transparent 65%)",
+            }}
+          />
           <TeamSide
             name={match.teamA?.name ?? "Por definir"}
             seed={match.teamA?.seed ?? null}
             emblemUrl={match.teamA?.emblemUrl ?? null}
-            score={match.scoreA}
+            score={showScores ? match.scoreA : null}
             isWinner={winnerSide === "A"}
             align="right"
             teamId={match.teamA?.id}
           />
 
-          <div className="text-center">
-            <div className="text-[10px] tracking-[2px] uppercase text-[var(--vertigo-faint)] mb-1">Score</div>
-            <div className="font-cinzel font-bold text-3xl text-[var(--vertigo-purple-pale)]">
-              {match.scoreA} <span className="text-[var(--vertigo-faint)] mx-1">—</span> {match.scoreB}
-            </div>
+          <div className="relative text-center">
+            {showScores ? (
+              <>
+                <div className="text-[9px] tracking-[3px] uppercase text-[var(--vertigo-faint)] mb-1.5">Score</div>
+                <div
+                  className="font-cinzel font-bold leading-none text-[var(--vertigo-purple-pale)]"
+                  style={{ fontSize: 40, textShadow: "0 0 26px rgba(124,58,237,0.35)" }}
+                >
+                  {match.scoreA}
+                  <span className="text-[var(--vertigo-faint)] mx-2">—</span>
+                  {match.scoreB}
+                </div>
+              </>
+            ) : (
+              <div className="flex items-center justify-center" style={{ minHeight: 64 }}>
+                <span
+                  className="font-cinzel font-bold text-[17px] tracking-[1px] flex items-center justify-center rounded-full"
+                  style={{
+                    width: 58,
+                    height: 58,
+                    color: "var(--vertigo-gold)",
+                    background: "#0b0713",
+                    border: "1px solid rgba(212,175,55,0.5)",
+                    boxShadow: "0 0 0 6px rgba(10,6,17,0.9), 0 0 26px rgba(212,175,55,0.18)",
+                  }}
+                >
+                  VS
+                </span>
+              </div>
+            )}
             {isFinished && winnerSide && (
-              <div className="mt-2">
+              <div className="mt-3">
                 <span className="vertigo-badge vertigo-badge-success">
                   <Trophy style={{ width: 11, height: 11 }} />
                   {winnerSide === "A" ? match.teamA?.name : match.teamB?.name}
@@ -246,58 +340,42 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
             name={match.teamB?.name ?? "Por definir"}
             seed={match.teamB?.seed ?? null}
             emblemUrl={match.teamB?.emblemUrl ?? null}
-            score={match.scoreB}
+            score={showScores ? match.scoreB : null}
             isWinner={winnerSide === "B"}
             align="left"
             teamId={match.teamB?.id}
           />
         </div>
 
-        {/* Info grid */}
+        {/* Meta en una línea bajo hairline — nada de cajitas */}
         <div
-          className="grid gap-3 mt-6"
-          style={{ gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))" }}
+          className="flex items-center justify-center gap-x-6 gap-y-2 flex-wrap"
+          style={{ padding: "14px 24px 18px", borderTop: "1px solid var(--vertigo-line-soft)" }}
         >
           {match.scheduledAtStart && (
-            <div className="vertigo-info-card">
-              <div className="vertigo-info-card-label">
-                <Calendar style={{ width: 11, height: 11 }} />
-                Inicio
-              </div>
-              <div className="vertigo-info-card-value" style={{ fontSize: 13 }}>
-                {new Date(match.scheduledAtStart).toLocaleString("es-AR", {
-                  day: "2-digit",
-                  month: "short",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </div>
-            </div>
+            <span className="inline-flex items-center gap-1.5 text-[11px]" style={{ color: "var(--vertigo-muted)" }}>
+              <Calendar style={{ width: 12, height: 12, color: "var(--vertigo-faint)" }} />
+              {new Date(match.scheduledAtStart).toLocaleString("es-AR", {
+                day: "2-digit",
+                month: "short",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </span>
           )}
-          {match.scheduledAtEnd && (
-            <div className="vertigo-info-card">
-              <div className="vertigo-info-card-label">Fin estimado</div>
-              <div className="vertigo-info-card-value" style={{ fontSize: 13 }}>
-                {new Date(match.scheduledAtEnd).toLocaleString("es-AR", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </div>
-            </div>
-          )}
-          {match.format && (
-            <div className="vertigo-info-card">
-              <div className="vertigo-info-card-label">Formato</div>
-              <div className="vertigo-info-card-value">{match.format}</div>
-            </div>
+          {/* Fin estimado y formato: datos operativos, solo interesan al capitán */}
+          {captainContext && match.scheduledAtEnd && (
+            <span className="inline-flex items-center gap-1.5 text-[11px]" style={{ color: "var(--vertigo-muted)" }}>
+              <Clock style={{ width: 12, height: 12, color: "var(--vertigo-faint)" }} />
+              Fin estimado{" "}
+              {new Date(match.scheduledAtEnd).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}
+            </span>
           )}
           {match.streamCaster && (
-            <div className="vertigo-info-card">
-              <div className="vertigo-info-card-label">Caster</div>
-              <div className="vertigo-info-card-value truncate">
-                {match.streamCaster.displayName}
-              </div>
-            </div>
+            <span className="inline-flex items-center gap-1.5 text-[11px]" style={{ color: "var(--vertigo-muted)" }}>
+              <Youtube style={{ width: 12, height: 12, color: "var(--vertigo-faint)" }} />
+              <span className="truncate max-w-[180px]">{match.streamCaster.displayName}</span>
+            </span>
           )}
         </div>
 
@@ -344,19 +422,31 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
         )}
       </div>
 
-      {/* GAMES BO3 */}
+      {/* GAMES BO3 — plegados por defecto para espectadores: son specs del sorteo,
+          relevantes sobre todo para capitanes. El panel de apuestas queda protagonista. */}
       {match.games.length > 0 && (
-        <>
-          <div className="vertigo-subtitle">
-            <Gamepad2 style={{ width: 12, height: 12, color: "var(--vertigo-purple-soft)" }} />
-            Partidas ({match.games.length})
+        <details className="apu-fold" open={!!captainContext || match.games.length <= 1}>
+          <summary>
+            <Gamepad2 style={{ width: 13, height: 13, color: "var(--vertigo-purple-soft)", flexShrink: 0 }} />
+            Partidas del sorteo ({match.games.length})
+            {!captainContext && (
+              <span
+                className="font-normal normal-case"
+                style={{ fontSize: 11, letterSpacing: "0.5px", color: "var(--vertigo-faint)" }}
+              >
+                · detalles técnicos del sorteo
+              </span>
+            )}
+            <ChevronDown className="apu-chev" style={{ width: 14, height: 14 }} />
+          </summary>
+          <div className="apu-fold-body">
+            <div className="flex flex-col gap-4">
+              {match.games.map((g) => (
+                <GameCard key={g.id} game={g} teamAName={match.teamA?.name ?? "A"} teamBName={match.teamB?.name ?? "B"} teamAId={match.teamA?.id} teamBId={match.teamB?.id} />
+              ))}
+            </div>
           </div>
-          <div className="flex flex-col gap-4">
-            {match.games.map((g) => (
-              <GameCard key={g.id} game={g} teamAName={match.teamA?.name ?? "A"} teamBName={match.teamB?.name ?? "B"} teamAId={match.teamA?.id} teamBId={match.teamB?.id} />
-            ))}
-          </div>
-        </>
+        </details>
       )}
 
       {/* COMODINES USADOS */}
@@ -406,6 +496,11 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
 
       {/* VOLVER */}
       <div className="vertigo-action-bar">
+        {spectatorContext?.kind === "spectator" && (
+          <Link href="/apuestas" className="vertigo-btn vertigo-btn-primary">
+            ← Mis apuestas
+          </Link>
+        )}
         <Link href="/resultados" className="vertigo-btn vertigo-btn-ghost">
           ← Ver resultados
         </Link>
@@ -426,43 +521,60 @@ function TeamSide({
   name: string;
   seed: number | null;
   emblemUrl: string | null;
-  score: number;
+  score: number | null;
   isWinner: boolean;
   align: "left" | "right";
   teamId?: string;
 }) {
   const inner = (
     <>
+      {/* Escudo grande con doble aro: dorado si ganó, violeta si no */}
       <div
-        className="flex items-center justify-center flex-none rounded-lg border overflow-hidden mb-3"
+        className="relative flex items-center justify-center flex-none rounded-full overflow-hidden"
         style={{
-          width: 56, height: 56,
-          borderColor: emblemUrl ? "rgba(212,175,55,0.5)" : "var(--vertigo-purple)",
+          width: "clamp(68px, 17vw, 96px)",
+          height: "clamp(68px, 17vw, 96px)",
+          border: isWinner ? "2px solid rgba(212,175,55,0.75)" : "2px solid rgba(124,58,237,0.5)",
           background: "var(--vertigo-input-bg, #0e0a14)",
-          boxShadow: isWinner ? "0 0 18px rgba(124,58,237,0.3)" : undefined,
+          boxShadow: isWinner
+            ? "0 0 0 5px rgba(212,175,55,0.12), 0 0 32px rgba(212,175,55,0.28)"
+            : "0 0 0 5px rgba(124,58,237,0.08), 0 0 24px rgba(124,58,237,0.16)",
         }}
       >
         {emblemUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={emblemUrl} alt={`${name}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
         ) : (
-          <Trophy style={{ width: 24, height: 24, color: "var(--vertigo-purple-soft)" }} strokeWidth={1.25} />
+          <Trophy style={{ width: 34, height: 34, color: "var(--vertigo-purple-soft)" }} strokeWidth={1.1} />
         )}
       </div>
-      <div className={align === "right" ? "text-right" : "text-left"}>
+      <div className={`mt-3 min-w-0 ${align === "right" ? "text-right" : "text-left"}`}>
         {seed != null && (
-          <div className={`vertigo-badge vertigo-badge-purple mb-1 ${align === "right" ? "ml-auto" : ""}`}>
+          <div
+            className="text-[9px] font-bold uppercase mb-1"
+            style={{ letterSpacing: 2, color: "var(--vertigo-faint)" }}
+          >
             Seed #{seed}
           </div>
         )}
         <div
-          className={`font-cinzel text-[18px] font-semibold truncate ${isWinner ? "text-[var(--vertigo-purple-pale)]" : "text-[var(--vertigo-text)]"}`}
+          className={`font-cinzel font-bold truncate ${isWinner ? "text-[var(--vertigo-gold)]" : "text-[var(--vertigo-text)]"}`}
+          style={{ fontSize: "clamp(17px, 2vw, 23px)", lineHeight: 1.15, textShadow: "0 2px 18px rgba(0,0,0,0.5)" }}
         >
           {name}
         </div>
-        <div className="font-cinzel text-4xl font-bold text-[var(--vertigo-text)] mt-1">
-          {score}
-        </div>
+        {score != null && (
+          <div
+            className="font-cinzel font-bold mt-1.5 leading-none"
+            style={{
+              fontSize: 34,
+              color: isWinner ? "var(--vertigo-gold)" : "var(--vertigo-purple-pale)",
+              textShadow: "0 0 22px rgba(124,58,237,0.3)",
+            }}
+          >
+            {score}
+          </div>
+        )}
       </div>
     </>
   );

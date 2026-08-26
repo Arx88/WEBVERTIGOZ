@@ -20,6 +20,8 @@ VÉRTIGO es un torneo de Age of Empires II con una mecánica única: las partida
 - **ELO cap 3500** (suma de los 3 maxRating RM 1v1 históricos) con tolerancia +20
 - **Commit-reveal fairness** SHA-256 para sorteos auditables criptográficamente
 - **Multi-edición recurrente** — el sistema soporta varias ediciones del torneo
+- **Apuestas de espectadores** — registro libre con 1000 puntos de bienvenida; se apuesta en cada llave qué equipo gana (pari-mutuel con cuotas dinámicas); ranking con premio para el mejor apostador
+- **Casters** — registro libre con moderación admin (tiers oficial / secundario / community)
 - **Mobile-first crítico** — los capitanes van a usar el sitio desde el celular
 
 ## Stack tecnológico
@@ -29,7 +31,7 @@ VÉRTIGO es un torneo de Age of Empires II con una mecánica única: las partida
 | Framework | Next.js 16 (App Router, RSC, Server Actions) |
 | DB | Postgres (Supabase) |
 | ORM | Drizzle |
-| Auth | Supabase Auth (roles: owner, player, admin, super_admin, caster) |
+| Auth | Supabase Auth (roles: owner, player, admin, super_admin, caster, spectator) |
 | Realtime | Supabase Realtime |
 | Storage | Supabase Storage |
 | Animación | Framer Motion + CSS 3D |
@@ -75,7 +77,7 @@ Ver `.env.example` para la lista completa:
 ```
 src/
 ├── app/                      # App Router (Next.js 16)
-│   ├── (public)/             # Rutas públicas (landing, torneo, equipos, casters)
+│   ├── (public)/             # Rutas públicas (landing, torneo, equipos, casters, apuestas)
 │   ├── (auth)/               # Login, registro (wizard)
 │   ├── (captain)/            # Dashboard de capitán
 │   ├── (admin)/              # Panel admin
@@ -92,6 +94,7 @@ src/
 │   ├── bracket/              # Visualización SVG del bracket
 │   ├── memotest/             # Memotest animado de civs
 │   ├── admin/                # Componentes admin
+│   ├── apuestas/             # Panel de apuesta del espectador (bet-panel)
 │   ├── team/                 # Perfil de equipo
 │   └── shared/               # Layout components (header, footer, etc.)
 ├── lib/
@@ -151,7 +154,8 @@ Torneo jugable punta a punta, sin fairness ni Twitch ni disputes.
 ### Fase 3 — V2 Engagement (4-6 semanas)
 - Stats globales
 - Copa de consolación
-- Pick'em de fans
+- ✅ Pick'em de fans → apuestas de espectadores con puntos (pari-mutuel, 1000 pts de bienvenida, ranking con premio)
+- ✅ Registro de casters + moderación admin
 - Mobile PWA
 - Multi-edición completa
 

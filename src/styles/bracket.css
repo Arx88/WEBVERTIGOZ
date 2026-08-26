@@ -149,6 +149,14 @@
   border-top: none;
   border-left: 2px solid rgba(167, 139, 250, 0.28);
 }
+/* conector encendido: la llave previa ya tiene ganador */
+.brk-conn-lit {
+  border-top-color: rgba(212, 175, 55, 0.55) !important;
+}
+.brk-conn-v.brk-conn-lit {
+  border-top: none;
+  border-left-color: rgba(212, 175, 55, 0.55) !important;
+}
 
 /* ---------- Card ---------- */
 .brk-card {
@@ -214,6 +222,13 @@
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--vertigo-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.brk-card-fecha {
+  letter-spacing: 0.04em;
+  opacity: 0.85;
 }
 .brk-status {
   display: inline-flex;
@@ -266,14 +281,20 @@
   opacity: 0.45;
 }
 .brk-team.is-winner .brk-team-name {
-  color: var(--vertigo-purple-pale);
+  color: var(--vertigo-gold);
   font-weight: 700;
+}
+.brk-team.is-winner .brk-score {
+  color: var(--vertigo-gold);
+  background: rgba(212, 175, 55, 0.12);
+  border-radius: 6px;
+  padding: 1px 6px;
 }
 
 .brk-emblem {
   flex: none;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   overflow: hidden;
   border: 1px solid var(--vertigo-line);
@@ -283,8 +304,8 @@
   background: rgba(124, 58, 237, 0.08);
 }
 .brk-emblem.is-winner {
-  border-color: var(--vertigo-purple-soft);
-  box-shadow: 0 0 10px rgba(124, 58, 237, 0.45);
+  border-color: rgba(212, 175, 55, 0.7);
+  box-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
 }
 .brk-emblem img {
   width: 100%;
@@ -451,4 +472,18 @@
   .brk-scroll {
     padding: 6px 12px 16px;
   }
+}
+
+/* ---------- Fixture: tarjetas fx ---------- */
+.fx-card {
+  transition:
+    border-color 0.25s var(--vertigo-ease),
+    box-shadow 0.25s var(--vertigo-ease),
+    transform 0.25s var(--vertigo-ease);
+}
+.fx-card:hover {
+  border-color: rgba(124, 58, 237, 0.55) !important;
+  box-shadow:
+    0 12px 30px rgba(0, 0, 0, 0.5),
+    0 0 22px rgba(124, 58, 237, 0.18);
 }

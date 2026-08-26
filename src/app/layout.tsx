@@ -1,14 +1,7 @@
 import type { Metadata } from "next";
-import { Oswald, Cinzel, Anton, Inter, Rajdhani } from "next/font/google";
+import { Cinzel, Anton, Inter, Rajdhani } from "next/font/google";
 import { Toaster } from "@/components/ui/toaster";
 import "./globals.css";
-
-const oswald = Oswald({
-  subsets: ["latin"],
-  variable: "--font-oswald",
-  display: "swap",
-  weight: ["200", "300", "400", "500", "600", "700"],
-});
 
 const cinzel = Cinzel({
   subsets: ["latin"],
@@ -66,7 +59,7 @@ export default function RootLayout({
   return (
     <html
       lang="es"
-      className={`${oswald.variable} ${cinzel.variable} ${anton.variable} ${inter.variable} ${rajdhani.variable} dark`}
+      className={`${cinzel.variable} ${anton.variable} ${inter.variable} ${rajdhani.variable} dark`}
     >
       <body className="bg-bg text-text antialiased min-h-screen">
         {children}

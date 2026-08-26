@@ -328,7 +328,6 @@ html:has(.vertigo-page) {
   box-shadow: var(--shadow-sm);
   position: relative;
   overflow: hidden;
-  will-change: transform;
 }
 
 /* Highlight superior 1px + inner glow sutil */
@@ -534,7 +533,6 @@ html:has(.vertigo-page) {
   box-shadow:
     0 4px 20px rgba(124, 58, 237, 0.35),
     inset 0 1px 0 rgba(255, 255, 255, 0.18);
-  will-change: transform;
 }
 
 /* Sweep effect en hover — cruzada skewed */

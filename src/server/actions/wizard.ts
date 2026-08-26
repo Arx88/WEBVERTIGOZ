@@ -6,6 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { GENERIC_AVATARS } from "@/lib/constants";
 import { validateTeamEloCap } from "@/lib/aoe2";
+import { getEditionForRegistration } from "@/lib/edition";
 import type { WizardData } from "@/components/wizard/wizard-context";
 
 // ============================================================
@@ -91,13 +92,12 @@ export async function submitWizard(data: WizardData) {
       accountId = accountRow.id;
     }
 
-    // 2. Buscar edition
-    const { data: edition, error: edErr } = await supabase
-      .from("tournament_edition")
-      .select("id, civs_base, civs_extra_finalist, elo_cap, elo_tolerance")
-      .eq("slug", "vertigo-2026-1")
-      .single();
-    if (edErr || !edition) return { ok: false as const, error: `Edición no encontrada: ${edErr?.message ?? "desconocido"}` };
+    // 2. Buscar la edición con inscripciones abiertas (la abre el admin desde
+    //    /admin/torneo — no hay slug hardcodeado: cada edición nueva la recibe).
+    const edition = await getEditionForRegistration(supabase);
+    if (!edition) {
+      return { ok: false as const, error: "No hay ninguna edición con inscripciones abiertas." };
+    }
 
     // 3. Validar que los 3 aoe2ProfileId sean distintos
     const profileIds = data.players.map((p) => p.aoe2ProfileId).filter((id): id is number => id != null);

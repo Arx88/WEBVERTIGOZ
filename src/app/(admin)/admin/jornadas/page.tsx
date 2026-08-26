@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { scheduleMatchFormAction } from "@/server/actions/tournament";
 import { Calendar, Clock, AlertCircle, ChevronRight, Save } from "lucide-react";
+import AdminHero from "@/components/shared/admin-hero";
 
 export const dynamic = "force-dynamic";
 
@@ -57,31 +58,17 @@ export default async function AdminJornadasPage() {
 
   return (
     <div className="vertigo-fade-in">
-      <span className="vertigo-kicker">JORNADAS</span>
-      <h1 className="vertigo-title">Programación de partidos</h1>
-      <div className="vertigo-divider"><span></span><i></i><span></span></div>
-      <p className="vertigo-desc">
-        Asigná fecha y hora a cada partido. Sin partidas simultáneas — el torneo se streama de a una llave por vez.
-      </p>
-
-      <div className="vertigo-stats">
-        <div className="vertigo-stat">
-          <div className="vertigo-stat-label">Total partidos</div>
-          <div className="vertigo-stat-value">{total}</div>
-        </div>
-        <div className="vertigo-stat">
-          <div className="vertigo-stat-label">Programados</div>
-          <div className="vertigo-stat-value text-[var(--vertigo-purple-pale)]">{scheduled}</div>
-        </div>
-        <div className="vertigo-stat">
-          <div className="vertigo-stat-label">En juego</div>
-          <div className="vertigo-stat-value text-[#fbbf24]">{inProgress}</div>
-        </div>
-        <div className="vertigo-stat">
-          <div className="vertigo-stat-label">Finalizados</div>
-          <div className="vertigo-stat-value text-[var(--vertigo-success)]">{finished}</div>
-        </div>
-      </div>
+      <AdminHero
+        kicker="JORNADAS"
+        title="Programación de partidos"
+        desc="Asigná fecha y hora a cada partido. Sin partidas simultáneas — el torneo se streama de a una llave por vez."
+        stats={[
+          { value: total, label: "Total partidos" },
+          { value: scheduled, label: "Programados", color: "var(--vertigo-purple-pale)" },
+          { value: inProgress, label: "En juego", color: "#fbbf24" },
+          { value: finished, label: "Finalizados", color: "var(--vertigo-success)" },
+        ]}
+      />
 
       {total === 0 ? (
         <div className="vertigo-card">

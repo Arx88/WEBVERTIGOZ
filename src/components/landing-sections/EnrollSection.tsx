@@ -20,7 +20,7 @@ export default function EnrollSection() {
           <span className="badge-thin">Últimos 3 cupos disponibles</span>
         </div>
 
-        <h2 className="reveal relative mt-8 font-cinzel text-[26px] leading-[1.25] md:text-[42px] md:leading-[1.2] uppercase tracking-[0.06em] text-neon max-w-3xl">
+        <h2 className="reveal landing-title relative mt-8 font-cinzel text-[26px] leading-[1.25] md:text-[42px] md:leading-[1.2] uppercase tracking-[0.06em] max-w-3xl">
           El vértigo es el instante<br />
           entre conocer tu destino y<br />
           tener que enfrentarlo
@@ -34,6 +34,15 @@ export default function EnrollSection() {
         <div className="reveal relative mt-10">
           <a href="/registro" className="btn-vertigo">
             Inscribir equipo
+          </a>
+        </div>
+
+        <div className="reveal relative mt-9">
+          <a
+            href="/registro-espectador"
+            className="badge-thin transition-all duration-200 hover:border-[#ff2e9e]/80 hover:text-white"
+          >
+            ¿No jugás? · Apostá como espectador · 1000 puntos de bienvenida
           </a>
         </div>
       </div>

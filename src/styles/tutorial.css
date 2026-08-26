@@ -1,8 +1,7 @@
 /* ============================================================
    VÉRTIGO Cup — TUTORIAL (modo demo)
    100% alineado al Design System interno (vertigo-design-system.css):
-   paleta púrpura profunda, Cinzel para marca, Inter para badges/botones,
-   Oswald para display. Dorado SOLO como ornamento (trofeo, comodines,
+   paleta púrpura profunda, Cinzel para marca/títulos, Inter para UI y display. Dorado SOLO como ornamento (trofeo, comodines,
    linaje de reinos). Rojo → danger del sistema (#fb7185).
    La ruleta es INTOCABLE: usa su propio CSS.
    ============================================================ */
@@ -30,7 +29,7 @@
   z-index: 80;
   background: var(--tut-bg);
   color: var(--tut-text);
-  font-family: var(--font-oswald), Inter, system-ui, sans-serif;
+  font-family: var(--font-inter), Inter, system-ui, sans-serif;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -145,7 +144,7 @@
   gap: 12px;
 }
 .tut-scene-title {
-  font-family: var(--font-oswald), sans-serif;
+  font-family: var(--font-inter), sans-serif;
   font-weight: 500;
   font-size: 14px;
   letter-spacing: 0.08em;
@@ -247,7 +246,7 @@
   margin-bottom: 7px;
 }
 .tut-desc {
-  font-family: var(--font-oswald), sans-serif;
+  font-family: var(--font-inter), sans-serif;
   font-weight: 300;
   font-size: clamp(14px, 1.6vw, 16px);
   line-height: 1.55;
@@ -404,7 +403,7 @@
 .tut-teamcard .players { display: flex; flex-direction: column; gap: 5px; width: 100%; margin-top: 6px; }
 .tut-teamcard .players li {
   list-style: none; display: flex; justify-content: space-between; gap: 16px;
-  font-family: var(--font-oswald), sans-serif; font-weight: 300; font-size: 13px;
+  font-family: var(--font-inter), sans-serif; font-weight: 300; font-size: 13px;
   color: var(--tut-text); padding: 3px 10px;
 }
 .tut-teamcard .players li.captain { color: var(--tut-violet-pale); }
@@ -449,7 +448,7 @@
 }
 .tut-mock-body { padding: 24px 28px; }
 
-.tut-mock-title { font-family: var(--font-oswald), sans-serif; font-weight: 500; font-size: 16px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--tut-text); margin: 0 0 6px; }
+.tut-mock-title { font-family: var(--font-inter), sans-serif; font-weight: 500; font-size: 16px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--tut-text); margin: 0 0 6px; }
 .tut-mock-sub { font-family: Inter, system-ui, sans-serif; font-weight: 400; font-size: 13px; color: var(--tut-muted); margin: 0 0 16px; line-height: 1.5; }
 
 .tut-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 18px; }
@@ -511,14 +510,14 @@
 /* ---------- SCORE MINI / TIMER ---------- */
 .tut-score-mini {
   display: flex; align-items: center; gap: 14px; justify-content: center;
-  font-family: var(--font-oswald), sans-serif; font-weight: 500; font-size: 20px; letter-spacing: 0.1em; color: var(--tut-text);
+  font-family: var(--font-inter), sans-serif; font-weight: 500; font-size: 20px; letter-spacing: 0.1em; color: var(--tut-text);
   margin-bottom: 14px; text-transform: uppercase;
 }
 .tut-score-mini .n { font-weight: 600; font-size: 14px; }
 .tut-score-mini .v { color: var(--tut-violet-pale); font-variant-numeric: tabular-nums; }
 
 .tut-window-timer {
-  font-family: var(--font-oswald), sans-serif; font-weight: 500; font-size: 38px; letter-spacing: 0.12em;
+  font-family: var(--font-inter), sans-serif; font-weight: 500; font-size: 38px; letter-spacing: 0.12em;
   color: var(--tut-violet-pale); text-align: center; margin-bottom: 6px;
   font-variant-numeric: tabular-nums;
   text-shadow: 0 0 24px rgba(124, 58, 237, 0.35);
@@ -606,7 +605,7 @@
 .tut-civ-pill {
   display: inline-flex; align-items: center; gap: 8px; padding: 4px 14px 4px 5px;
   border: 1px solid var(--tut-line-strong); border-radius: 999px; background: var(--tut-panel-2);
-  font-family: var(--font-oswald), sans-serif; font-weight: 400; font-size: 13px; color: var(--tut-text);
+  font-family: var(--font-inter), sans-serif; font-weight: 400; font-size: 13px; color: var(--tut-text);
   animation: tut-pop 0.35s ease both;
 }
 /* Nitidez: los escudos agrandados se renderizan nítidos, no pixelados */
@@ -642,7 +641,7 @@
 .tut-roster-row.plays { border-color: rgba(124, 58, 237, 0.45); background: rgba(124, 58, 237, 0.06); }
 .tut-roster-row.benched { opacity: 0.45; }
 .rr-left { display: flex; align-items: baseline; gap: 12px; }
-.rr-name { font-family: var(--font-oswald), sans-serif; font-weight: 500; font-size: 15px; letter-spacing: 0.06em; color: var(--tut-text); }
+.rr-name { font-family: var(--font-inter), sans-serif; font-weight: 500; font-size: 15px; letter-spacing: 0.06em; color: var(--tut-text); }
 .rr-role { font-family: Inter, system-ui, sans-serif; font-weight: 700; font-size: 9px; letter-spacing: 0.2em; color: var(--tut-faint); }
 .rr-right { display: flex; align-items: center; }
 .rr-state { font-family: Inter, system-ui, sans-serif; font-weight: 700; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--tut-faint); }
@@ -684,7 +683,7 @@
 }
 .tinv-item img { width: 34px; height: 34px; object-fit: contain; flex: none; }
 .tinv-txt { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-.tinv-label { font-family: var(--font-oswald), sans-serif; font-weight: 500; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--tut-text); }
+.tinv-label { font-family: var(--font-inter), sans-serif; font-weight: 500; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--tut-text); }
 .tinv-label em { font-style: normal; font-weight: 300; color: var(--tut-faint); margin-left: 6px; font-size: 10px; }
 .tinv-note { font-family: Inter, system-ui, sans-serif; font-weight: 400; font-size: 11px; color: var(--tut-faint); }
 .tinv-item.active {
@@ -903,7 +902,7 @@
 }
 .tlf-team-name img { width: 22px; height: 22px; object-fit: contain; }
 .tlf-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 4px 0; }
-.tlf-player { font-family: var(--font-oswald), sans-serif; font-weight: 400; font-size: 13px; color: var(--tut-muted); }
+.tlf-player { font-family: var(--font-inter), sans-serif; font-weight: 400; font-size: 13px; color: var(--tut-muted); }
 
 /* ============================================================
    CHAT (CARTA PRO)
@@ -913,7 +912,7 @@
   align-self: flex-start; max-width: 85%;
   background: var(--tut-panel-2); border: 1px solid var(--tut-line);
   padding: 8px 14px; border-radius: 12px;
-  font-family: var(--font-oswald), sans-serif; font-weight: 300; font-size: 14px; color: var(--tut-text);
+  font-family: var(--font-inter), sans-serif; font-weight: 300; font-size: 14px; color: var(--tut-text);
   animation: tut-chat-in 0.4s ease both;
   text-align: left;
 }
@@ -936,7 +935,7 @@
   letter-spacing: 0.1em; color: var(--tut-text); text-transform: uppercase;
 }
 .tut-final-score .num {
-  font-family: var(--font-oswald), sans-serif; font-weight: 500; font-size: 56px; color: var(--tut-muted);
+  font-family: var(--font-inter), sans-serif; font-weight: 500; font-size: 56px; color: var(--tut-muted);
   font-variant-numeric: tabular-nums;
 }
 .tut-final-score .num.win { color: var(--tut-violet-pale); text-shadow: 0 0 28px rgba(124, 58, 237, 0.45); }

@@ -14,6 +14,7 @@ import {
   boolean,
   jsonb,
   pgEnum,
+  index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
@@ -28,6 +29,7 @@ export const accountRole = pgEnum("account_role", [
   "admin",        // staff del torneo
   "super_admin",  // admin con poderes extra
   "caster",       // streamer registrado
+  "spectator",    // espectador con wallet de puntos de apuesta
 ]);
 
 export const tournamentStatus = pgEnum("tournament_status", [
@@ -120,6 +122,13 @@ export const disputeStatus = pgEnum("dispute_status", [
   "reviewing",
   "resolved",
   "rejected",
+]);
+
+export const betStatus = pgEnum("bet_status", [
+  "pending",  // la llave no terminó: el stake está debitado del wallet
+  "won",      // acertó el ganador: payout acreditado
+  "lost",     // no acertó
+  "voided",   // llave cancelada: stake reintegrado
 ]);
 
 // ============================================================
@@ -523,6 +532,46 @@ export const dispute = pgTable("dispute", {
 });
 
 // ============================================================
+// APUESTAS DE ESPECTADORES (pari-mutuel con puntos)
+// ============================================================
+
+/**
+ * Wallet de puntos del espectador.
+ * Se crea con 1000 puntos vía trigger al adquirir el rol spectator.
+ * La escritura es exclusiva de los triggers (SECURITY DEFINER) y el
+ * service role: no hay policies de INSERT/UPDATE para usuarios.
+ */
+export const spectatorWallet = pgTable("spectator_wallet", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  accountId: uuid("account_id").notNull().references(() => account.id, { onDelete: "cascade" }),
+  balance: integer("balance").notNull().default(0),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  uniqueWalletAccount: uniqueIndex("spectator_wallet_unique_account").on(t.accountId),
+}));
+
+/**
+ * Apuesta: un espectador elige qué equipo gana la llave y cuánto arriesga.
+ * 1 apuesta por espectador por llave. Se puede apostar mientras la llave
+ * esté 'scheduled'; cancelar (delete) reintegra el stake vía trigger.
+ */
+export const bet = pgTable("bet", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  spectatorAccountId: uuid("spectator_account_id").notNull().references(() => account.id, { onDelete: "cascade" }),
+  matchId: uuid("match_id").notNull().references(() => match.id, { onDelete: "cascade" }),
+  pickedTeamId: uuid("picked_team_id").notNull().references(() => teamRegistration.id),
+  stake: integer("stake").notNull(),
+  status: betStatus("status").notNull().default("pending"),
+  payout: integer("payout").notNull().default(0),
+  placedAt: timestamp("placed_at", { withTimezone: true }).notNull().defaultNow(),
+  settledAt: timestamp("settled_at", { withTimezone: true }),
+}, (t) => ({
+  uniqueSpectatorMatch: uniqueIndex("bet_unique_spectator_match").on(t.spectatorAccountId, t.matchId),
+  matchIdx: index("bet_match_idx").on(t.matchId),
+  statusIdx: index("bet_status_idx").on(t.status),
+}));
+
+// ============================================================
 // CONFIG ADICIONAL (clave-valor por edición)
 // ============================================================
 
@@ -547,6 +596,8 @@ export const tournamentConfig = pgTable("tournament_config", {
 export const accountRelations = relations(account, ({ many, one }) => ({
   teamAccounts: many(teamAccount),
   casts: many(caster),
+  wallet: one(spectatorWallet),
+  bets: many(bet),
 }));
 
 export const teamAccountRelations = relations(teamAccount, ({ many, one }) => ({
@@ -591,6 +642,7 @@ export const matchRelations = relations(match, ({ many, one }) => ({
   draws: many(rouletteDraw),
   comodinUsages: many(comodinUsage),
   disputes: many(dispute),
+  bets: many(bet),
 }));
 
 export const matchGameRelations = relations(matchGame, ({ one, many }) => ({
@@ -629,4 +681,14 @@ export const casterRelations = relations(caster, ({ one, many }) => ({
 export const disputeRelations = relations(dispute, ({ one }) => ({
   match: one(match, { fields: [dispute.matchId], references: [match.id] }),
   raisedByTeam: one(teamRegistration, { fields: [dispute.raisedByTeamId], references: [teamRegistration.id] }),
+}));
+
+export const spectatorWalletRelations = relations(spectatorWallet, ({ one }) => ({
+  account: one(account, { fields: [spectatorWallet.accountId], references: [account.id] }),
+}));
+
+export const betRelations = relations(bet, ({ one }) => ({
+  spectator: one(account, { fields: [bet.spectatorAccountId], references: [account.id] }),
+  match: one(match, { fields: [bet.matchId], references: [match.id] }),
+  pickedTeam: one(teamRegistration, { fields: [bet.pickedTeamId], references: [teamRegistration.id] }),
 }));

@@ -4,6 +4,7 @@ import { Swords } from "lucide-react";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { loadMatch } from "./match-data";
 import MatchRealtimeWrapper from "./match-realtime-wrapper";
+import VertigoFooter from "@/components/shared/vertigo-footer";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,14 @@ export default async function PartidoPage({
     captainContext = null;
   }
 
+  // Contexto del espectador: saldo, apuesta propia y agregados del pozo (para el BetPanel)
+  let spectatorContext: import("@/components/apuestas/bet-panel").BetPanelContext | null = null;
+  try {
+    spectatorContext = await resolveSpectatorContext(supabase as any, id);
+  } catch {
+    spectatorContext = null;
+  }
+
   if (!initialMatch) {
     // Si no encontramos el match, mostramos un estado "no encontrado" con el diseño.
     return (
@@ -46,9 +55,6 @@ export default async function PartidoPage({
           </div>
         </header>
         <main className="vertigo-content">
-          <span className="vertigo-kicker">PARTIDO</span>
-          <h1 className="vertigo-title">Detalle del partido</h1>
-          <div className="vertigo-divider"><span></span><i></i><span></span></div>
           <div className="vertigo-card">
             <div className="vertigo-empty">
               <Swords
@@ -85,15 +91,11 @@ export default async function PartidoPage({
       </header>
 
       <main className="vertigo-content">
-        <span className="vertigo-kicker">PARTIDO</span>
-        <h1 className="vertigo-title">Detalle del partido</h1>
-        <div className="vertigo-divider"><span></span><i></i><span></span></div>
-        <p className="vertigo-desc">
-          Score, resultado del sorteo, civilizaciones, comodines usados y stream en vivo. Todo
-          se actualiza en tiempo real cuando el staff ejecuta acciones.
-        </p>
+        <MatchRealtimeWrapper matchId={id} initialMatch={initialMatch} captainContext={captainContext} spectatorContext={spectatorContext} />
 
-        <MatchRealtimeWrapper matchId={id} initialMatch={initialMatch} captainContext={captainContext} />
+        <div className="mt-6">
+          <VertigoFooter />
+        </div>
       </main>
     </div>
   );
@@ -179,4 +181,62 @@ async function resolveCaptainContext(supabase: any, matchId: string) {
     annulledPlayerIds,
     rivalAnnulledPlayerIds,
   };
+}
+
+// ============================================================
+// Resolver el contexto del espectador (server-side)
+// ============================================================
+// Devuelve lo que necesita el BetPanel: rol del viewer, saldo del wallet,
+// su apuesta en este match y los agregados del pozo (pool/stake por equipo).
+// Los agregados se calculan con service role porque las bets son privadas.
+
+async function resolveSpectatorContext(supabase: any, matchId: string) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { kind: "anonymous" } as const;
+
+  const { data: account } = await supabase
+    .from("account").select("id, role").eq("supabase_auth_id", user.id).maybeSingle();
+  if (!account) return { kind: "anonymous" } as const;
+  if (account.role !== "spectator") return { kind: "other-role" } as const;
+
+  const service = getSupabaseServiceRole();
+
+  // Saldo del wallet propio
+  const { data: wallet } = await service
+    .from("spectator_wallet").select("balance").eq("account_id", account.id).maybeSingle();
+
+  // Apuesta propia en este match
+  const { data: myBetRow } = await service
+    .from("bet").select("id, picked_team_id, stake, status, payout")
+    .eq("spectator_account_id", account.id).eq("match_id", matchId).maybeSingle();
+
+  // Agregados del pozo: todas las bets pending de este match
+  const { data: matchRow } = await service
+    .from("match").select("team_a_id, team_b_id, scheduled_at_start").eq("id", matchId).maybeSingle();
+  const { data: pendingBets } = await service
+    .from("bet").select("picked_team_id, stake").eq("match_id", matchId).eq("status", "pending");
+
+  const bets = (pendingBets ?? []) as any[];
+  const sumStake = (pred: (b: any) => boolean) =>
+    bets.filter(pred).reduce((acc, b) => acc + (b.stake ?? 0), 0);
+
+  return {
+    kind: "spectator",
+    accountId: account.id,
+    balance: wallet?.balance ?? 0,
+    myBet: myBetRow
+      ? {
+          id: myBetRow.id,
+          pickedTeamId: myBetRow.picked_team_id,
+          stake: myBetRow.stake,
+          status: myBetRow.status,
+          payout: myBetRow.payout ?? 0,
+        }
+      : null,
+    pool: bets.reduce((acc, b) => acc + (b.stake ?? 0), 0),
+    stakeA: sumStake((b) => b.picked_team_id === matchRow?.team_a_id),
+    stakeB: sumStake((b) => b.picked_team_id === matchRow?.team_b_id),
+    bettors: bets.length,
+    scheduledAtStart: matchRow?.scheduled_at_start ?? null,
+  } as const;
 }

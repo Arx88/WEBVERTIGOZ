@@ -94,6 +94,9 @@ export default async function ResultadosPage() {
           <span className="vertigo-section-tag">RESULTADOS</span>
         </div>
         <div className="vertigo-header-right">
+          <Link href="/apuestas" className="vertigo-btn vertigo-btn-ghost" style={{ padding: "8px 16px", fontSize: "11px" }}>
+            Apuestas
+          </Link>
           <Link href="/fixture" className="vertigo-btn vertigo-btn-ghost" style={{ padding: "8px 16px", fontSize: "11px" }}>
             Fixture
           </Link>

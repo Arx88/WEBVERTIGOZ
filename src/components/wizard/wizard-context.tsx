@@ -54,6 +54,8 @@ interface TournamentConfig {
   eloMax: number;
   civsBase: number;
   civsExtra: number;
+  /** URL firmada del handbook PDF (bucket privado — la genera el server). */
+  handbookUrl: string | null;
 }
 
 const DEFAULT_CONFIG: TournamentConfig = {
@@ -62,6 +64,7 @@ const DEFAULT_CONFIG: TournamentConfig = {
   eloMax: 3520,
   civsBase: 9,
   civsExtra: 3,
+  handbookUrl: null,
 };
 
 interface WizardContextValue {
@@ -106,6 +109,7 @@ export function WizardProvider({
               eloMax: c.eloMax,
               civsBase: c.civsBase,
               civsExtra: c.civsExtra,
+              handbookUrl: c.handbookUrl ?? null,
             });
           }
         }

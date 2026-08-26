@@ -656,7 +656,8 @@ tournament_config (clave-valor JSON por edición)
 ### Fase 3 — V2 Engagement (4-6 semanas)
 - Stats globales (win rate por civ/mapa, modo más sorteado)
 - Copa de consolación (mini-bracket para eliminados R1)
-- Pick'em de fans
+- Pick'em de fans → **implementado** como apuestas de espectadores con puntos: registro libre con 1000 pts de bienvenida, apuesta por ganador de cada llave con monto libre hasta que la llave abre, liquidación pari-mutuel (pozo repartido proporcional entre ganadores), cancelación/re-apuesta mientras esté `scheduled`, reintegro si la llave se cancela, ranking con premio para el mejor apostador (ver `migrations/0004_espectadores_apuestas.sql`, `/apuestas`, `/partido/[id]`)
+- Registro libre de casters + moderación admin (tier oficial/secundario/community, aprobar/desaprobar, eliminar)
 - Mobile PWA instalable
 - Multi-edición completa (varios torneos corriendo)
 - Auto-import de replays vía aoe2.net

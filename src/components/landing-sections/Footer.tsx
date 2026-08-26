@@ -13,6 +13,12 @@ export default function Footer() {
 
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-6">
           <Link
+            href="/apuestas"
+            className="font-cinzel text-[10px] tracking-[0.42em] uppercase text-[#ffb4dc]/80 border border-[#ff2e9e]/30 px-4 py-2 rounded-sm hover:bg-[#ff2e9e]/10 transition-colors"
+          >
+            Apuestas
+          </Link>
+          <Link
             href="/tutorial"
             className="font-cinzel text-[10px] tracking-[0.42em] uppercase text-[#ffb4dc]/80 border border-[#ff2e9e]/30 px-4 py-2 rounded-sm hover:bg-[#ff2e9e]/10 transition-colors"
           >

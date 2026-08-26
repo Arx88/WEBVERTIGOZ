@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSupabaseServer } from "@/lib/supabase/server";
+import { logoutAction } from "@/server/actions/auth";
 import { CaptainHeader } from "@/components/captain/captain-header";
 import {
   Crown, Users, Calendar, Swords, Shield, Check, X, ChevronRight,
@@ -788,7 +789,7 @@ function NotRegistered() {
                 Inscribir mi reino →
               </button>
             </Link>
-            <form action="/api/auth/logout" method="POST">
+            <form action={logoutAction}>
               <button type="submit" className="vertigo-btn vertigo-btn-ghost" style={{ padding: "12px 24px", fontSize: "11px" }}>
                 Cerrar sesión
               </button>

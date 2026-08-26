@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import HeroSection from "./HeroSection";
 import EnrollSection from "./EnrollSection";
+import RegisterSection from "./RegisterSection";
 import RouletteSection from "./RouletteSection";
 import CivSection from "./CivSection";
 import RulesSection from "./RulesSection";
@@ -33,6 +34,7 @@ export default function Landing() {
     <main ref={rootRef} className="relative w-full overflow-hidden bg-[#0a0011] text-white">
       <HeroSection />
       <EnrollSection />
+      <RegisterSection />
       <RouletteSection />
       <CivSection />
       <RulesSection />

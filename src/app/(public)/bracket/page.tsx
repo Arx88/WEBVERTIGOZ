@@ -5,6 +5,7 @@ import { generateBracket } from "@/lib/bracket/engine";
 import BracketTree, {
   type BracketMatchInfo,
 } from "@/components/bracket/bracket-tree";
+import VertigoFooter from "@/components/shared/vertigo-footer";
 
 export const dynamic = "force-dynamic";
 
@@ -163,6 +164,9 @@ export default async function BracketPage() {
           <span className="vertigo-section-tag">BRACKET</span>
         </div>
         <div className="vertigo-header-right">
+          <Link href="/apuestas" className="vertigo-btn vertigo-btn-ghost" style={{ padding: "8px 16px", fontSize: "11px" }}>
+            Apuestas
+          </Link>
           <Link href="/resultados" className="vertigo-btn vertigo-btn-ghost" style={{ padding: "8px 16px", fontSize: "11px" }}>
             Resultados
           </Link>
@@ -288,6 +292,11 @@ export default async function BracketPage() {
             championName={data.championName}
           />
         )}
+
+        {/* ═══ FOOTER CINEMATOGRÁFICO ═══ */}
+        <div style={{ marginTop: 28 }}>
+          <VertigoFooter />
+        </div>
       </main>
     </div>
   );

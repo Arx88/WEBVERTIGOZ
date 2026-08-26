@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Crown, Trophy } from "lucide-react";
+import { Crown, Trophy, Swords } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface BracketTeamInfo {
@@ -38,10 +38,10 @@ interface Props {
   championName?: string | null;
 }
 
-const CARD_W = 236;
-const CARD_H = 94;
+const CARD_W = 210;
+const CARD_H = 100;
 const V_GAP = 18;
-const GUTTER = 40;
+const GUTTER = 28;
 const CELL0 = CARD_H + V_GAP;
 
 const STATUS_META: Record<string, { label: string; cls: string; edge: string; live: boolean }> = {
@@ -59,6 +59,7 @@ const STATUS_META: Record<string, { label: string; cls: string; edge: string; li
 
 export default function BracketTree({ rounds, matches, hrefPrefix = "/partido", championName }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const treeRef = useRef<HTMLDivElement>(null);
   const columnRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [activeRound, setActiveRound] = useState(0);
 
@@ -69,12 +70,50 @@ export default function BracketTree({ rounds, matches, hrefPrefix = "/partido", 
   }, [matches]);
 
   const totalH = rounds[0] ? rounds[0].matches.length * CELL0 - V_GAP : 0;
+  const natW = (rounds.length + 1) * (CARD_W + GUTTER) + 24;
+  const [natH, setNatH] = useState(44 + 6 + totalH + V_GAP + 26);
+
+  // El árbol escala para entrar en el ancho disponible: en desktop no hay
+  // scroll horizontal. Debajo del 55% se clava el piso y el scroll vuelve.
+  const [scale, setScale] = useState(1);
+  useEffect(() => {
+    const el = scrollRef.current;
+    const tree = treeRef.current;
+    if (!el || !tree) return;
+    const fit = () => {
+      const raw = (el.clientWidth - 36) / natW;
+      setScale(raw >= 1 ? 1 : Math.max(raw, 0.55));
+    };
+    const measure = () => setNatH(tree.offsetHeight);
+    fit();
+    measure();
+    const ro = new ResizeObserver(() => {
+      fit();
+      measure();
+    });
+    ro.observe(el);
+    ro.observe(tree);
+    return () => ro.disconnect();
+  }, [natW]);
+
+  // Rueda vertical → paneo horizontal, solo cuando queda overflow (piso 55%)
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (el.scrollWidth <= el.clientWidth || e.deltaY === 0) return;
+      e.preventDefault();
+      el.scrollLeft += e.deltaY;
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
 
   function jumpToRound(idx: number) {
     setActiveRound(idx);
     const col = columnRefs.current[idx];
     if (col && scrollRef.current) {
-      scrollRef.current.scrollTo({ left: col.offsetLeft - 16, behavior: "smooth" });
+      scrollRef.current.scrollTo({ left: Math.max(0, col.offsetLeft * scale - 16), behavior: "smooth" });
     }
   }
 
@@ -110,7 +149,13 @@ export default function BracketTree({ rounds, matches, hrefPrefix = "/partido", 
       </div>
 
       <div ref={scrollRef} className="brk-scroll">
-        <div className="brk-tree" style={{ minWidth: (rounds.length + 1) * (CARD_W + GUTTER) }}>
+        {/* wrapper a tamaño escalado: su caja define el scroll real del contenedor */}
+        <div style={{ width: natW * scale, height: natH * scale }}>
+          <div
+            ref={treeRef}
+            className="brk-tree"
+            style={{ minWidth: natW - 24, transform: `scale(${scale})`, transformOrigin: "top left" }}
+          >
           {rounds.map((round) => (
             <div
               key={round.index}
@@ -121,7 +166,15 @@ export default function BracketTree({ rounds, matches, hrefPrefix = "/partido", 
               style={{ width: CARD_W + GUTTER }}
             >
               <div className="brk-colhead" style={{ height: 44 }}>
-                <span className={cn("brk-colhead-name", round.index === rounds.length - 1 && "brk-colhead-gold")}>
+                {round.index === rounds.length - 1 ? (
+                  <Trophy style={{ width: 11, height: 11, color: "var(--vertigo-gold)", marginLeft: 20, flex: "none" }} />
+                ) : (
+                  <Swords style={{ width: 11, height: 11, color: "var(--vertigo-purple-soft)", marginLeft: 20, flex: "none" }} />
+                )}
+                <span
+                  className={cn("brk-colhead-name", round.index === rounds.length - 1 && "brk-colhead-gold")}
+                  style={{ paddingLeft: 0 }}
+                >
                   {round.name}
                 </span>
                 <span className="brk-colhead-count">{round.matches.length}</span>
@@ -139,20 +192,27 @@ export default function BracketTree({ rounds, matches, hrefPrefix = "/partido", 
                       style={{ height: cellH, paddingLeft: GUTTER / 2 }}
                     >
                       {/* Conector entrante: codos desde las 2 llaves de la ronda anterior.
-                          Los brazos horizontales viven en el gap entre columnas (left negativo),
-                          la espina vertical en el borde de esta columna y el stub entra a la card. */}
-                      {round.index > 0 && (
-                        <>
-                          <i aria-hidden className="brk-conn" style={{ left: -GUTTER / 2, top: "25%", width: GUTTER / 2 }} />
-                          <i aria-hidden className="brk-conn" style={{ left: -GUTTER / 2, top: "75%", width: GUTTER / 2 }} />
-                          <i
-                            aria-hidden
-                            className="brk-conn brk-conn-v"
-                            style={{ left: 0, top: "25%", height: "50%" }}
-                          />
-                          <i aria-hidden className="brk-conn" style={{ left: 0, top: "50%", width: GUTTER / 2 }} />
-                        </>
-                      )}
+                          Se encienden en dorado cuando esa llave previa ya tiene ganador:
+                          el bracket se ilumina a medida que avanza el torneo. */}
+                      {round.index > 0 && (() => {
+                        const prevA = matchBySlot.get(`${round.index - 1}:${slot.slotIndex * 2}`);
+                        const prevB = matchBySlot.get(`${round.index - 1}:${slot.slotIndex * 2 + 1}`);
+                        const aLit = !!prevA?.winnerTeamId;
+                        const bLit = !!prevB?.winnerTeamId;
+                        const spineLit = aLit && bLit;
+                        return (
+                          <>
+                            <i aria-hidden className={cn("brk-conn", aLit && "brk-conn-lit")} style={{ left: -GUTTER / 2, top: "25%", width: GUTTER / 2 }} />
+                            <i aria-hidden className={cn("brk-conn", bLit && "brk-conn-lit")} style={{ left: -GUTTER / 2, top: "75%", width: GUTTER / 2 }} />
+                            <i
+                              aria-hidden
+                              className={cn("brk-conn", "brk-conn-v", spineLit && "brk-conn-lit")}
+                              style={{ left: 0, top: "25%", height: "50%" }}
+                            />
+                            <i aria-hidden className={cn("brk-conn", spineLit && "brk-conn-lit")} style={{ left: 0, top: "50%", width: GUTTER / 2 }} />
+                          </>
+                        );
+                      })()}
 
                       {/* Conector saliente: solo en la última ronda → hacia la columna del campeón */}
                       {isLastRound && (
@@ -195,6 +255,7 @@ export default function BracketTree({ rounds, matches, hrefPrefix = "/partido", 
             >
               <ChampionPedestal name={championName ?? null} />
             </div>
+          </div>
           </div>
         </div>
       </div>
@@ -254,6 +315,10 @@ function BracketCard({
       })}`
     : undefined;
 
+  const fechaCorta = m.scheduledAtStart
+    ? `${new Date(m.scheduledAtStart).toLocaleDateString("es-AR", { day: "2-digit", month: "short" })} · ${new Date(m.scheduledAtStart).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}`
+    : null;
+
   const card = (
     <div
       className={cn("brk-card", meta.live && "brk-live", (aWin || bWin) && "brk-finished")}
@@ -261,7 +326,10 @@ function BracketCard({
       title={title}
     >
       <div className="brk-card-head">
-        <span className="brk-card-slot">Llave {m.slotIndex + 1}</span>
+        <span className="brk-card-slot">
+          Llave {m.slotIndex + 1}
+          {fechaCorta && <span className="brk-card-fecha"> · {fechaCorta}</span>}
+        </span>
         <span className={cn("vertigo-badge", meta.cls, "brk-status")}>
           {meta.live && <span className="brk-pulse" />}
           {meta.label}

@@ -31,6 +31,8 @@ export type Database = {
       comodin_usage: GenericTable;
       caster: GenericTable;
       dispute: GenericTable;
+      spectator_wallet: GenericTable;
+      bet: GenericTable;
     };
     Views: Record<string, any>;
     Functions: Record<string, any>;

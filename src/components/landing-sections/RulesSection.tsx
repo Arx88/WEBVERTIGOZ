@@ -1,17 +1,37 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BookOpen, Loader2, Download } from "lucide-react";
 
 export default function RulesSection() {
   const [loading, setLoading] = useState(false);
+  const [handbookUrl, setHandbookUrl] = useState<string | null>(null);
+
+  // La URL firmada del handbook la genera el server (el bucket es privado).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/tournament/config");
+        if (!res.ok) return;
+        const c = await res.json();
+        if (!cancelled && c.found && c.handbookUrl) setHandbookUrl(c.handbookUrl);
+      } catch {
+        // Sin config, el botón cae al fallback (/admin/handbook)
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const handleDownload = async () => {
     try {
       setLoading(true);
-      // TODO: integrar con Supabase Storage cuando el handbook esté subido
-      // Por ahora, redirect a /admin/handbook donde el admin puede subirlo
-      window.location.href = "/admin/handbook";
+      if (handbookUrl) {
+        window.open(handbookUrl, "_blank", "noopener,noreferrer");
+      } else {
+        // Todavía no hay handbook subido: el upload vive en el panel admin.
+        window.location.href = "/admin/handbook";
+      }
     } finally {
       setLoading(false);
     }
@@ -26,8 +46,8 @@ export default function RulesSection() {
           className="w-full h-full object-cover object-center"
         />
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(10,0,20,0.85)_0%,rgba(10,0,20,0.25)_60%,transparent_100%)]" />
-        <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-[#0a0011] to-transparent" />
-        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-[#0a0011]" />
+        <div className="absolute inset-x-0 top-0 h-48 md:h-56 bg-gradient-to-b from-[#0a0011] via-[rgba(10,0,17,0.55)] to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-48 md:h-56 bg-gradient-to-b from-transparent via-[rgba(10,0,17,0.55)] to-[#0a0011]" />
       </div>
 
       <div className="relative z-10 mx-auto max-w-6xl min-h-[95vh] flex items-center px-6">
@@ -39,7 +59,7 @@ export default function RulesSection() {
 
           <div className="reveal mt-4 hairline w-64" />
 
-          <h3 className="reveal mt-6 font-cinzel text-[24px] md:text-[36px] leading-[1.18] uppercase tracking-[0.04em] text-neon">
+          <h3 className="reveal landing-title mt-6 font-cinzel text-[24px] md:text-[36px] leading-[1.18] uppercase tracking-[0.04em]">
             Un verdadero guerrero<br />
             siempre estudia el campo<br />
             de batalla y a sus rivales.

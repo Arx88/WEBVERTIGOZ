@@ -1,7 +1,9 @@
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { uploadEmblemAction } from "@/server/actions/auth";
+import EmblemCardActions from "./emblem-actions";
 import { Shield, Upload, ImageIcon, Check, X } from "lucide-react";
+import AdminHero from "@/components/shared/admin-hero";
 
 export const dynamic = "force-dynamic";
 
@@ -26,31 +28,17 @@ export default async function AdminEmblemasPage() {
 
   return (
     <div className="vertigo-fade-in">
-      <span className="vertigo-kicker">EMBLEMAS</span>
-      <h1 className="vertigo-title">Gestión de emblemas</h1>
-      <div className="vertigo-divider"><span></span><i></i><span></span></div>
-      <p className="vertigo-desc">
-        Subí los escudos que los equipos podrán elegir al inscribirse. Formato SVG o PNG transparente, 512×512px cuadrado. Mínimo 50 recomendados.
-      </p>
-
-      <div className="vertigo-stats">
-        <div className="vertigo-stat">
-          <div className="vertigo-stat-label">Total</div>
-          <div className="vertigo-stat-value">{total}</div>
-        </div>
-        <div className="vertigo-stat">
-          <div className="vertigo-stat-label">Activos</div>
-          <div className="vertigo-stat-value text-[var(--vertigo-success)]">{active}</div>
-        </div>
-        <div className="vertigo-stat">
-          <div className="vertigo-stat-label">Inactivos</div>
-          <div className="vertigo-stat-value text-[var(--vertigo-faint)]">{inactive}</div>
-        </div>
-        <div className="vertigo-stat">
-          <div className="vertigo-stat-label">Recomendado</div>
-          <div className="vertigo-stat-value text-base">≥ 50</div>
-        </div>
-      </div>
+      <AdminHero
+        kicker="EMBLEMAS"
+        title="Gestión de emblemas"
+        desc="Subí los escudos que los equipos podrán elegir al inscribirse. Formato SVG o PNG transparente, 512×512px cuadrado. Mínimo 50 recomendados."
+        stats={[
+          { value: total, label: "Total" },
+          { value: active, label: "Activos", color: "var(--vertigo-success)" },
+          { value: inactive, label: "Inactivos", color: "var(--vertigo-faint)" },
+          { value: "≥ 50", label: "Recomendado" },
+        ]}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.6fr] gap-6">
         {/* Uploader */}
@@ -151,6 +139,7 @@ export default async function AdminEmblemasPage() {
                       </span>
                     )}
                   </div>
+                  <EmblemCardActions emblemId={e.id} isActive={e.is_active} />
                 </div>
               ))}
             </div>

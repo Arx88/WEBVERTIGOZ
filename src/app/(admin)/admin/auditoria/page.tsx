@@ -1,6 +1,7 @@
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { ScrollText, Download, Shield, Hash, ChevronDown } from "lucide-react";
+import AdminHero from "@/components/shared/admin-hero";
 
 export const dynamic = "force-dynamic";
 
@@ -71,31 +72,17 @@ export default async function AdminAuditoriaPage({
 
   return (
     <div className="vertigo-fade-in">
-      <span className="vertigo-kicker">AUDITORÍA</span>
-      <h1 className="vertigo-title">Logs inmutables</h1>
-      <div className="vertigo-divider"><span></span><i></i><span></span></div>
-      <p className="vertigo-desc">
-        Verificación criptográfica de cada sorteo. Hash commit-reveal SHA-256. Log append-only con hash encadenado.
-      </p>
-
-      <div className="vertigo-stats">
-        <div className="vertigo-stat">
-          <div className="vertigo-stat-label">Eventos totales</div>
-          <div className="vertigo-stat-value">{total ?? 0}</div>
-        </div>
-        <div className="vertigo-stat">
-          <div className="vertigo-stat-label">Commits</div>
-          <div className="vertigo-stat-value text-[var(--vertigo-purple-pale)]">{stats.commits}</div>
-        </div>
-        <div className="vertigo-stat">
-          <div className="vertigo-stat-label">Reveals</div>
-          <div className="vertigo-stat-value text-[var(--vertigo-success)]">{stats.reveals}</div>
-        </div>
-        <div className="vertigo-stat">
-          <div className="vertigo-stat-label">Cancels</div>
-          <div className="vertigo-stat-value text-[var(--vertigo-danger)]">{stats.cancels}</div>
-        </div>
-      </div>
+      <AdminHero
+        kicker="AUDITORÍA"
+        title="Logs inmutables"
+        desc="Verificación criptográfica de cada sorteo. Hash commit-reveal SHA-256. Log append-only con hash encadenado."
+        stats={[
+          { value: total ?? 0, label: "Eventos totales" },
+          { value: stats.commits, label: "Commits", color: "var(--vertigo-purple-pale)" },
+          { value: stats.reveals, label: "Reveals", color: "var(--vertigo-success)" },
+          { value: stats.cancels, label: "Cancels", color: "var(--vertigo-danger)" },
+        ]}
+      />
 
       <section className="mb-8">
         <div className="vertigo-subtitle">Filtros</div>

@@ -1,9 +1,13 @@
 "use client";
 import { useWizard } from "@/components/wizard/wizard-context";
 
+// Fallback histórico (datos viejos con URL pública guardada en la edición).
+const FALLBACK_HANDBOOK_URL = "https://tomlvgzwleolsxksiygs.supabase.co/storage/v1/object/public/handbook/vertigo-handbook.pdf";
+
 export default function Step7Handbook() {
-  const { data, updateData } = useWizard();
+  const { data, updateData, config } = useWizard();
   const downloaded = data.handbookDownloadedAt !== null;
+  const handbookUrl = config.handbookUrl ?? FALLBACK_HANDBOOK_URL;
 
   function handleDownload() {
     // Solo marcar como descargado. El usuario puede descargar el PDF
@@ -27,7 +31,7 @@ export default function Step7Handbook() {
       </button>
       {downloaded && (
         <p style={{ marginTop: "12px", fontSize: "12px", color: "var(--vertigo-muted)" }}>
-          <a href="https://tomlvgzwleolsxksiygs.supabase.co/storage/v1/object/public/handbook/vertigo-handbook.pdf" target="_blank" rel="noopener noreferrer" style={{ color: "var(--vertigo-purple-soft)" }}>
+          <a href={handbookUrl} target="_blank" rel="noopener noreferrer" style={{ color: "var(--vertigo-purple-soft)" }}>
             Abrir handbook PDF →
           </a>
         </p>
