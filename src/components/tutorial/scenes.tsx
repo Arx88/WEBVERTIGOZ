@@ -184,7 +184,7 @@ export function SceneT15({ ctx }: { ctx: DemoSceneCtx }) {
         </div>
         <div className="tut-mock-sub" style={{ textAlign: "center" }}>
           {opened
-            ? "Todos los viewer reciben el estado nuevo por Realtime al instante."
+            ? "Todos los viewers reciben el estado nuevo por Realtime al instante."
             : "El sistema dispara la apertura 15 minutos antes. Nadie toca nada."}
         </div>
         <div className="tut-chip-group" style={{ justifyContent: "center" }}>

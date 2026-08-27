@@ -13,7 +13,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Pause, Play, RotateCcw, SkipForward, X } from "lucide-react";
+import { Footprints, Pause, Play, RotateCcw, SkipForward, X } from "lucide-react";
 import {
   INITIAL_DEMO_STATE, POV_COLOR, SCENES, TEAM_A, TEAM_B,
   type DemoSceneCtx, type DemoState,
@@ -36,11 +36,18 @@ export default function TutorialDirector({ onClose }: DirectorProps) {
   const [speed, setSpeed] = useState<(typeof SPEEDS)[number]>(1);
   const [demo, setDemo] = useState<DemoState>(INITIAL_DEMO_STATE);
   const [progress, setProgress] = useState(0); // 0..1 dentro de la escena actual
+  // PASO A PASO: al terminar cada escena pausa en vez de avanzar sola.
+  const [stepMode, setStepMode] = useState(false);
+  const stepModeRef = useRef(false);
 
   const elapsedRef = useRef(0); // ms acumulados de la escena (respeta pausa)
   const pendingNextRef = useRef(false); // onDone llegó en pausa → ejecutar al reanudar
 
   const scene = SCENES[sceneIndex];
+
+  useEffect(() => {
+    stepModeRef.current = stepMode;
+  }, [stepMode]);
 
   // reset del reloj interno al cambiar de escena
   useEffect(() => {
@@ -84,8 +91,17 @@ export default function TutorialDirector({ onClose }: DirectorProps) {
       last = now;
       const p = Math.min(1, elapsedRef.current / scene.ms);
       setProgress(p);
-      if (p >= 1) next();
-      else raf = requestAnimationFrame(tick);
+      if (p >= 1) {
+        if (stepModeRef.current) {
+          // PASO A PASO: pausa al fin de la escena; el usuario decide cuándo seguir
+          setProgress(1);
+          setPlaying(false);
+        } else {
+          next();
+        }
+      } else {
+        raf = requestAnimationFrame(tick);
+      }
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
@@ -98,6 +114,34 @@ export default function TutorialDirector({ onClose }: DirectorProps) {
       next();
     }
   }, [playing, next]);
+
+  const togglePlay = useCallback(() => {
+    // En PASO A PASO con la escena ya completa, PLAY = avanzar a la siguiente
+    if (!playing && stepMode && progress >= 1) {
+      next();
+      setPlaying(true);
+      return;
+    }
+    setPlaying((p) => !p);
+  }, [playing, stepMode, progress, next]);
+
+  // Atajos de teclado: ESPACIO pausa/play · ← → navegan escenas
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code === "Space") {
+        e.preventDefault();
+        togglePlay();
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        next();
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        goto(Math.max(0, sceneIndex - 1));
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [togglePlay, next, goto, sceneIndex]);
 
   const sceneCtx: DemoSceneCtx = {
     demo,
@@ -134,9 +178,30 @@ export default function TutorialDirector({ onClose }: DirectorProps) {
           <span className="tut-scene-title">{scene.title}</span>
         </div>
         <div className="tut-controls">
-          <button className="tut-btn" onClick={() => setPlaying((p) => !p)} title={playing ? "Pausar" : "Reproducir"}>
+          <button className="tut-btn" onClick={togglePlay} title={playing ? "Pausar (ESPACIO)" : "Reproducir (ESPACIO)"}>
             {playing ? <Pause style={{ width: 13, height: 13 }} /> : <Play style={{ width: 13, height: 13 }} />}
             <span className="lbl">{playing ? "PAUSA" : "PLAY"}</span>
+          </button>
+          {stepMode && !playing && progress >= 1 && (
+            <button
+              className="tut-btn next-cta"
+              onClick={() => {
+                next();
+                setPlaying(true);
+              }}
+              title="Escena completada — seguir (→)"
+            >
+              <SkipForward style={{ width: 13, height: 13 }} />
+              <span className="lbl">SIGUIENTE</span>
+            </button>
+          )}
+          <button
+            className={`tut-btn ghost ${stepMode ? "stepmode-on" : ""}`}
+            onClick={() => setStepMode((s) => !s)}
+            title="Pausa al final de cada escena para verla con calma"
+          >
+            <Footprints style={{ width: 13, height: 13 }} />
+            <span className="lbl">PASO A PASO</span>
           </button>
           <button className="tut-btn ghost" onClick={next} title="Escena siguiente">
             <SkipForward style={{ width: 13, height: 13 }} />
@@ -182,6 +247,7 @@ export default function TutorialDirector({ onClose }: DirectorProps) {
       <div className="tut-caption-bar" key={`cap-${scene.id}`}>
         <div className="tut-kicker">{scene.kicker}</div>
         <div className="tut-desc">{scene.desc}</div>
+        <div className="tut-kbd-hint">ESPACIO = pausa · ← → = escenas · activá PASO A PASO para mirar sin apuro</div>
       </div>
 
       {/* PROGRESS */}

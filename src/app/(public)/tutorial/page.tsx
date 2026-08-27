@@ -64,11 +64,14 @@ export default function TutorialPage() {
             margin: "6px auto 0",
           }}
         >
-          Este demo reproduce una llave completa en modo automático: verás el
-          punto de vista de <b style={{ color: "#a78bfa" }}>cada equipo</b>, del{" "}
+          Este demo reproduce una llave completa: verás el punto de vista de{" "}
+          <b style={{ color: "#a78bfa" }}>cada equipo</b>, del{" "}
           <b style={{ color: "#c4b5fd" }}>ADMIN</b>, y del{" "}
           <b style={{ color: "#fb7185" }}>stream en vivo</b> (ruleta real +
-          memotest + comodines). Podés pausar, saltar escenas y acelerar.
+          memotest + comodines). Miralo a tu ritmo: pausá, activá{" "}
+          <b style={{ color: "#c4b5fd" }}>PASO A PASO</b> para que cada escena
+          espere por vos, saltá escenas o acelerá. En el teclado:{" "}
+          <b>ESPACIO</b> pausa · <b>← →</b> cambia de escena.
         </p>
 
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 18, marginTop: 26 }}>
@@ -80,6 +83,7 @@ export default function TutorialPage() {
           <div className="tut-chip-group" style={{ justifyContent: "center", margin: 0 }}>
             <span className="tut-chip"><Sparkles style={{ width: 12, height: 12, display: "inline", marginRight: 6, verticalAlign: "-2px" }} />17 escenas</span>
             <span className="tut-chip">Ruleta y memotest REALES</span>
+            <span className="tut-chip">Modo paso a paso</span>
             <span className="tut-chip">Sin cuenta · 100% demo</span>
           </div>
         </div>

@@ -214,8 +214,11 @@ export default function AuthShell({
         .auth-header .p-divider { margin: 16px auto 16px; max-width: 300px; }
         .auth-header .p-desc { text-align: center; font-size: 13px; max-width: 360px; margin: 0 auto; color: #b5adc4; }
 
-        /* Fondo un poco más legible detrás de la tarjeta (scoped al shell) */
-        .auth-shell .wizard-bg-overlay { opacity: 0.8; }
+        /* Fondo legible detrás de la tarjeta pero con el video realmente visible:
+           el video va a opacidad completa y el velo baja a 0.45 — antes (0.8 + video
+           al 0.8) el fondo quedaba en ~35% de brillo y parecía negro sin animación. */
+        .wizard-page.auth-shell .wizard-bg-video { opacity: 1; }
+        .auth-shell .wizard-bg-overlay { opacity: 0.45; }
 
         .auth-footer {
           margin-top: 26px;
@@ -300,6 +303,15 @@ export default function AuthShell({
           .auth-shell .content { padding: 34px 22px 24px; }
         }
       `}</style>
+
+      {/* Fallback de autoplay: si el navegador bloqueó el autoplay (ahorro de
+          batería, política empresarial, etc.), reintentamos en la primera
+          interacción del usuario para que el fondo se anime igual. */}
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `(function(){var v=document.querySelector('video.wizard-bg-video');if(!v)return;var t=function(){if(v.paused){var p=v.play();if(p&&p.catch)p.catch(function(){})}};['pointerdown','keydown','touchstart','wheel'].forEach(function(e){window.addEventListener(e,t,{passive:true})});v.addEventListener('loadeddata',t)})();`,
+        }}
+      />
     </div>
   );
 }

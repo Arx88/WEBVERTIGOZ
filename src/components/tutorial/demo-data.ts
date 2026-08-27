@@ -151,7 +151,7 @@ export const SCENES: SceneMeta[] = [
     kicker: "PUNTO DE VISTA · ADMIN",
     title: "1. EL ADMIN AGENDA LA LLAVE",
     desc: "El staff crea la llave con fecha y hora de inicio. Nadie sabe el modo ni el mapa: solo la RULETA lo decide, 15 minutos antes de jugar.",
-    ms: 7000,
+    ms: 10000,
     kind: "timed",
   },
   {
@@ -159,8 +159,8 @@ export const SCENES: SceneMeta[] = [
     pov: "ADMIN",
     kicker: "T-15 MINUTOS",
     title: "2. LA LLAVE SE ABRE",
-    desc: "Llegó la hora: el match pasa a ABIERTO y se invita a los equipos vía Realtime. El reloj del torneo no perdona.",
-    ms: 8000,
+    desc: "Llegó la hora: el match pasa a ABIERTO y se invita a los equipos vía Realtime. Desde este momento, cada equipo confirma desde SU panel.",
+    ms: 12000,
     kind: "timed",
   },
   {
@@ -168,8 +168,8 @@ export const SCENES: SceneMeta[] = [
     pov: "EQUIPO A",
     kicker: "PUNTO DE VISTA · CAPITÁN EQUIPO A",
     title: "3. READY #1 — EQUIPO A",
-    desc: "El capitán de REINO DEL ALBA ve la llave en su dashboard y toca [LISTO]. Todos los viewer pueden seguirlo en tiempo real.",
-    ms: 6000,
+    desc: "El capitán de REINO DEL ALBA ve la llave en su dashboard y toca [LISTO]. Todos los viewers pueden seguirlo en tiempo real.",
+    ms: 9000,
     kind: "timed",
   },
   {
@@ -178,7 +178,7 @@ export const SCENES: SceneMeta[] = [
     kicker: "PUNTO DE VISTA · CAPITÁN EQUIPO B",
     title: "4. READY #1 — EQUIPO B",
     desc: "ORDEN DEL CUERVO confirma. Con ambos equipos LISTO, el server habilita el sorteo.",
-    ms: 6000,
+    ms: 9000,
     kind: "timed",
   },
   {
@@ -187,7 +187,7 @@ export const SCENES: SceneMeta[] = [
     kicker: "PUNTO DE VISTA · ADMIN",
     title: "5. EL ADMIN DISPARA EL SORTEO",
     desc: "El staff toca [INICIAR SORTEO]. El resultado ya está decidido por el server (commit-reveal SHA-256): lo que sigue es puro show.",
-    ms: 6500,
+    ms: 9500,
     kind: "timed",
   },
   {
@@ -195,7 +195,7 @@ export const SCENES: SceneMeta[] = [
     pov: "EN VIVO",
     kicker: "STREAM · TODA LA WEB VE ESTO",
     title: "6. GIRA LA RULETA",
-    desc: "5 fases: MODO → FORMATO → MAPA → LLAVE. Todos los viewers ven exactamente la misma animación, sincronizada por Realtime.",
+    desc: "5 fases: MODO → ANTIMETA → FORMATO → MAPA → LLAVE. Todos los viewers ven exactamente la misma animación, sincronizada por Realtime.",
     ms: 40000,
     kind: "event",
   },
@@ -214,7 +214,7 @@ export const SCENES: SceneMeta[] = [
     kicker: "POST-SORTEO · RESUMEN",
     title: "8. ASÍ QUEDÓ EL SORTEO",
     desc: "Split-screen con todo lo que salió de la ruleta y las civs de cada team. Esto mismo viaja a la página del partido.",
-    ms: 8000,
+    ms: 12000,
     kind: "timed",
   },
   {
@@ -222,8 +222,8 @@ export const SCENES: SceneMeta[] = [
     pov: "EQUIPO A",
     kicker: "PUNTO DE VISTA · CAPITÁN EQUIPO A",
     title: "9. LINEUP + ASIGNACIÓN DE CIVS",
-    desc: "No es 3v3 ni FUSIÓN: el capitán declara QUIÉN JUÉGA y ASIGNA una civilización sorteada a cada jugador que entra al mapa.",
-    ms: 8000,
+    desc: "No es 3v3 ni FUSIÓN: el capitán declara QUIÉN JUEGA y ASIGNA una civilización sorteada a cada jugador que entra al mapa.",
+    ms: 12000,
     kind: "timed",
   },
   {
@@ -232,7 +232,7 @@ export const SCENES: SceneMeta[] = [
     kicker: "PUNTO DE VISTA · CAPITÁN EQUIPO B",
     title: "10. LINEUP DEL RIVAL",
     desc: "Morgath hace lo mismo para la ORDEN DEL CUERVO: jugadores + civs asignadas. Ambos confirman con READY #2.",
-    ms: 8000,
+    ms: 12000,
     kind: "timed",
   },
   {
@@ -241,7 +241,7 @@ export const SCENES: SceneMeta[] = [
     kicker: "VENTANA DE COMODINES · 5 MIN · INVENTARIO POR EQUIPO",
     title: "11. LA VENTANA DE COMODINES",
     desc: "Cada equipo tiene SU inventario: Re-girar ×2, Anular ×1, Elegir rival ×1 (Anular y Elegir rival son excluyentes) e Invocar PRO. La ORDEN DEL CUERVO activa RE-GIRAR…",
-    ms: 12500,
+    ms: 17000,
     kind: "timed",
   },
   {
@@ -259,7 +259,7 @@ export const SCENES: SceneMeta[] = [
     kicker: "POST-COMODÍN · RESUMEN ACTUALIZADO",
     title: "13. ASÍ QUEDÓ EL SORTEO",
     desc: "El RE-GIRAR cambió SOLO el mapa: el MODO, el FORMATO y la LLAVE quedan intactos. Este resumen actualizado viaja de nuevo a la página del partido.",
-    ms: 8000,
+    ms: 12000,
     kind: "timed",
   },
   {
@@ -267,8 +267,8 @@ export const SCENES: SceneMeta[] = [
     pov: "PARTIDA",
     kicker: "AOE2 · EN JUEGO",
     title: "14. LA PARTIDA",
-    desc: "El árbitro arranca la partida con las civs ya asignadas. INVOCAR PRO se puede escribir con “CARTA PRO” en el chat del sitio durante todo el juego.",
-    ms: 9500,
+    desc: "El árbitro arranca la partida con las civs ya asignadas. INVOCAR PRO se puede activar con la “CARTA PRO” en el chat del sitio durante todo el juego.",
+    ms: 14000,
     kind: "timed",
   },
   {
@@ -277,7 +277,7 @@ export const SCENES: SceneMeta[] = [
     kicker: "PUNTO DE VISTA · ADMIN",
     title: "15. SE CARGA EL RESULTADO",
     desc: "Terminó la serie: el ADMIN registra el 2-0. La llave queda FINISHED y el ganador avanza en el bracket.",
-    ms: 7000,
+    ms: 10000,
     kind: "timed",
   },
   {

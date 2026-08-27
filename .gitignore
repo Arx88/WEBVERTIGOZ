@@ -61,4 +61,6 @@ drizzle/*.json
 *.swo
 
 dev-server.log
+dev-3003.log
+dev-3003.err.log
 serve.log
