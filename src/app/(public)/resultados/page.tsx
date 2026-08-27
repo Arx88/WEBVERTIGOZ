@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { Trophy } from "lucide-react";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import DuelCard from "@/components/shared/duel-card";
+import SiteNav from "@/components/nav/site-nav";
 import { fmt } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -89,23 +89,7 @@ export default async function ResultadosPage() {
 
   return (
     <div className="vertigo-page vertigo-shell vertigo-fade-in">
-      <header className="vertigo-header">
-        <div className="vertigo-header-left">
-          <Link href="/" className="vertigo-logo">VÉRTIGO</Link>
-          <span className="vertigo-section-tag">RESULTADOS</span>
-        </div>
-        <div className="vertigo-header-right">
-          <Link href="/apuestas" className="vertigo-btn vertigo-btn-ghost" style={{ padding: "8px 16px", fontSize: "11px" }}>
-            Apuestas
-          </Link>
-          <Link href="/fixture" className="vertigo-btn vertigo-btn-ghost" style={{ padding: "8px 16px", fontSize: "11px" }}>
-            Fixture
-          </Link>
-          <Link href="/standings" className="vertigo-btn vertigo-btn-ghost" style={{ padding: "8px 16px", fontSize: "11px" }}>
-            Tabla
-          </Link>
-        </div>
-      </header>
+      <SiteNav />
 
       <main className="vertigo-content">
         <span className="vertigo-kicker">RESULTADOS</span>

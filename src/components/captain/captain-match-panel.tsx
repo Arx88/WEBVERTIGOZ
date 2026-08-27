@@ -83,7 +83,6 @@ interface Props {
   playerMode: string | null;
   /** Civs sorteadas para MI equipo en la partida activa (pool para asignar). */
   myCivs: string[];
-  scheduledAtStart: string | null;
   /** comodin_window_expires_at */
   comodinExpiresAt: string | null;
 }
@@ -104,7 +103,6 @@ export function CaptainMatchPanel({
   readyLineupB,
   playerMode,
   myCivs,
-  scheduledAtStart,
   comodinExpiresAt,
 }: Props) {
   const isMyTeamA = myTeamRegId === teamA?.id;
@@ -115,15 +113,6 @@ export function CaptainMatchPanel({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-
-  // Countdown al inicio
-  const [now, setNow] = useState<number>(() => Date.now());
-  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
-  const start = scheduledAtStart ? new Date(scheduledAtStart).getTime() : null;
-  const timeToStart = start ? start - now : null;
-
-  // Cherry-pick: el READY #1 lo hace confirmReadyAction (existe).
-  // Acá solo lo mostramos/contextualizamos. El botón real ya está en /mis-partidos.
 
   const panelClasses = "vertigo-card";
   const isCaptainOfThisMatch = !!myTeamRegId;
@@ -188,7 +177,10 @@ export function CaptainMatchPanel({
     return <ComodinPrompt matchId={matchId} comodinExpiresAt={comodinExpiresAt} myTeamName={myTeam?.name ?? "Tu equipo"} rivalTeamName={!isMyTeamA ? teamA?.name ?? "Rival" : teamB?.name ?? "Rival"} rivalPlayers={rivalPlayers} rivalAnnulled={rivalAnnulledPlayerIds} playerMode={playerMode} />;
   }
 
-  // ===== Esperando sorteo / partido en curso — contexto para el capitán
+  // ===== Esperando sorteo / partido en curso — contexto para el capitán.
+  // El countdown y el estado ya viven en el bloque VERSUS (abajo); este panel
+  // es la ACCIÓN del capitán: READY #1 para habilitar la llave.
+  const waitingStart = status === "scheduled" || status === "open";
   return (
     <div className={panelClasses}>
       <div className="vertigo-card-header">
@@ -196,33 +188,34 @@ export function CaptainMatchPanel({
           <Sword style={{ width: 14, height: 14, display: "inline", marginRight: 8, color: "var(--vertigo-purple-soft)" }} />
           Tu partido — {myTeam?.name}
         </div>
-        <span className="vertigo-badge vertigo-badge-purple">{status}</span>
+        {waitingStart && myReady && rivalReady && (
+          <span className="vertigo-badge vertigo-badge-success">LLAVE HABILITADA</span>
+        )}
       </div>
 
-      {/* Countdown al inicio */}
-      {timeToStart !== null && timeToStart > 0 && (
-        <div className="flex items-center gap-3 mb-4 p-4 rounded-lg" style={{ background: "rgba(124,58,237,0.06)", border: "1px solid rgba(124,58,237,0.2)" }}>
-          <Timer style={{ width: 20, height: 20, color: "var(--vertigo-purple-soft)" }} />
-          <div>
-            <div className="text-sm font-semibold text-[var(--vertigo-text)]">
-              Comienza en {new Date(timeToStart).toISOString().slice(11, 19)}
+      {/* READY #1: confirmar asistencia para habilitar la llave */}
+      {waitingStart && (
+        <>
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="text-sm text-[var(--vertigo-muted)]">
+              {myReady
+                ? (rivalReady ? "✓ Ambos equipos listos. Aguardando al admin para el sorteo." : "✓ Estás listo. Esperando al rival.")
+                : "Confirmá tu asistencia para habilitar la llave."}
             </div>
-            <div className="text-[12px] text-[var(--vertigo-faint)]">
-              La ruleta gira 15 min antes del horario. Avisá a tu equipo.
-            </div>
+            {!myReady && (
+              <form action={confirmReadyAction.bind(null, matchId)}>
+                <button type="submit" className="vertigo-btn vertigo-btn-success" style={{ fontSize: 11, padding: "10px 20px" }}>
+                  <CheckCircle2 style={{ width: 14, height: 14 }} />
+                  ESTOY LISTO
+                </button>
+              </form>
+            )}
           </div>
-        </div>
-      )}
-
-      {/* READY #1 status */}
-      {status === "scheduled" && (
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="text-sm text-[var(--vertigo-muted)]">
-            {myReady
-              ? (rivalReady ? "✓ Ambos equipos listos. Aguardando al admin para el sorteo." : "✓ Estás listo. Esperando al rival.")
-              : "Confirmá tu asistencia para habilitar la llave."}
+          <div className="text-[12px] text-[var(--vertigo-faint)] mt-3 flex items-center gap-2">
+            <Timer style={{ width: 12, height: 12, flexShrink: 0 }} />
+            La ruleta gira 15 min antes del horario. Avisá a tu equipo.
           </div>
-        </div>
+        </>
       )}
       {status === "drawing" && (
         <div className="text-sm text-[var(--vertigo-purple-soft)]">◆ La ruleta está girando. El resultado aparece acá apenas termina.</div>

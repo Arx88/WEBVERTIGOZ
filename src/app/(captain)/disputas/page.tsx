@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSupabaseServer } from "@/lib/supabase/server";
-import { CaptainHeader } from "@/components/captain/captain-header";
+import SiteNav from "@/components/nav/site-nav";
 import { AlertTriangle, Shield, Clock, FileText, ArrowRight } from "lucide-react";
 import { createDisputeAction } from "@/server/actions/disputes";
 import { fmt } from "@/lib/format";
@@ -38,7 +38,7 @@ export default async function DisputasPage() {
   if (!team) {
     return (
       <div className="vertigo-page vertigo-shell">
-        <CaptainHeader active="disputas" />
+        <SiteNav />
         <main className="vertigo-content vertigo-scroll vertigo-fade-in">
           <span className="vertigo-kicker">CAPITÁN</span>
           <h1 className="vertigo-title">Disputas</h1>
@@ -114,7 +114,7 @@ export default async function DisputasPage() {
 
   return (
     <div className="vertigo-page vertigo-shell">
-      <CaptainHeader active="disputas" teamTag={team.tagline ?? undefined} />
+      <SiteNav />
 
       <main className="vertigo-content vertigo-scroll vertigo-fade-in">
         <span className="vertigo-kicker">CAPITÁN</span>

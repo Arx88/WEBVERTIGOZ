@@ -229,7 +229,6 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
           readyLineupB={!!match.readyLineupB}
           playerMode={match.activeGame?.playerMode ?? null}
           myCivs={captainContext.myTeamRegId === match.teamA.id ? (match.activeGame?.civsA ?? []) : (match.activeGame?.civsB ?? [])}
-          scheduledAtStart={match.scheduledAtStart}
           comodinExpiresAt={match.comodinWindowExpiresAt}
         />
       )}
@@ -248,32 +247,87 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
         />
       )}
 
-      {/* SCOREBOARD */}
+      {/* ENFRENTAMIENTO — bloque VERSUS, pieza central del partido */}
       <div
-        className="vertigo-card"
-        style={{ background: "linear-gradient(180deg, rgba(23,16,38,0.55) 0%, rgba(13,9,19,0.92) 100%)" }}
+        style={{
+          position: "relative",
+          overflow: "hidden",
+          borderRadius: 18,
+          border: "1px solid var(--vertigo-line)",
+          background: "#0d0913",
+          boxShadow: "var(--shadow-lg)",
+        }}
       >
-        {/* Ronda al centro, flanqueada por hairlines doradas */}
-        <div className="flex items-center justify-center gap-3 flex-wrap" style={{ padding: "20px 24px 0" }}>
-          <span style={{ width: 26, height: 1, background: "rgba(212,175,55,0.45)" }} />
-          <span
-            className="font-cinzel font-bold"
-            style={{ fontSize: 12, letterSpacing: 3, textTransform: "uppercase", color: "var(--vertigo-muted)" }}
-          >
-            {match.roundName ?? "Partido"}
-          </span>
-          <span style={{ width: 26, height: 1, background: "rgba(212,175,55,0.45)" }} />
-        </div>
-        <div className="flex items-center justify-center gap-2 flex-wrap" style={{ marginTop: 10, padding: "0 24px" }}>
-          <span className={`vertigo-badge ${statusMeta.cls}`}>{statusMeta.label}</span>
-          {match.format && <span className="vertigo-badge vertigo-badge-purple">{match.format}</span>}
-          {match.jornadaLabel && <span className="vertigo-badge vertigo-badge-purple">{match.jornadaLabel}</span>}
-        </div>
+        {/* Fondo de video + velo oscuro para legibilidad */}
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          src="/landing/proxima-partida-bg.mp4"
+          aria-hidden="true"
+          tabIndex={-1}
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            objectPosition: "center",
+            pointerEvents: "none",
+          }}
+        />
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            inset: 0,
+            background:
+              "linear-gradient(180deg, rgba(7,3,16,0.66) 0%, rgba(7,3,16,0.78) 55%, rgba(7,3,16,0.90) 100%)",
+            pointerEvents: "none",
+          }}
+        />
+        {/* Línea dorada superior — espejo del hero */}
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 2,
+            background: "linear-gradient(90deg, transparent, rgba(212,175,55,0.5), transparent)",
+            pointerEvents: "none",
+          }}
+        />
 
-        {/* Enfrentamiento: escudos grandes cara a cara con resplandor central */}
+        <div style={{ position: "relative", zIndex: 2 }}>
+          {/* Ronda al centro, flanqueada por hairlines doradas */}
+          <div className="flex items-center justify-center gap-3 flex-wrap" style={{ padding: "26px 28px 0" }}>
+            <span style={{ width: 30, height: 1, background: "rgba(212,175,55,0.5)" }} />
+            <span
+              className="font-cinzel font-bold"
+              style={{
+                fontSize: 13,
+                letterSpacing: 3.5,
+                textTransform: "uppercase",
+                color: "var(--vertigo-text)",
+                textShadow: "0 2px 14px rgba(0,0,0,0.6)",
+              }}
+            >
+              {match.roundName ?? "Partido"}
+            </span>
+            <span style={{ width: 30, height: 1, background: "rgba(212,175,55,0.5)" }} />
+          </div>
+          <div className="flex items-center justify-center gap-2 flex-wrap" style={{ marginTop: 12, padding: "0 28px" }}>
+            <span className={`vertigo-badge ${statusMeta.cls}`}>{statusMeta.label}</span>
+            {match.format && <span className="vertigo-badge vertigo-badge-purple">{match.format}</span>}
+            {match.jornadaLabel && <span className="vertigo-badge vertigo-badge-purple">{match.jornadaLabel}</span>}
+          </div>
+
+        {/* VERSUS: escudos cara a cara, cada equipo centrado en su mitad */}
         <div
           className="relative grid items-center"
-          style={{ gridTemplateColumns: "1fr auto 1fr", padding: "30px 24px 26px", columnGap: 14 }}
+          style={{ gridTemplateColumns: "1fr auto 1fr", justifyItems: "center", padding: "34px 20px 30px", columnGap: 12 }}
         >
           <div
             aria-hidden
@@ -282,32 +336,34 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
               left: "50%",
               top: "50%",
               transform: "translate(-50%, -50%)",
-              width: 260,
-              height: 260,
+              width: 300,
+              height: 300,
               borderRadius: "50%",
-              background: "radial-gradient(circle, rgba(124,58,237,0.22) 0%, transparent 65%)",
+              background: "radial-gradient(circle, rgba(124,58,237,0.20) 0%, transparent 65%)",
             }}
           />
-          <TeamSide
+          <TeamBlock
             name={match.teamA?.name ?? "Por definir"}
             seed={match.teamA?.seed ?? null}
             emblemUrl={match.teamA?.emblemUrl ?? null}
-            score={showScores ? match.scoreA : null}
             isWinner={winnerSide === "A"}
-            align="right"
             teamId={match.teamA?.id}
           />
 
-          <div className="relative text-center">
+          <div className="relative flex flex-col items-center justify-center text-center" style={{ minWidth: 90 }}>
             {showScores ? (
               <>
-                <div className="text-[9px] tracking-[3px] uppercase text-[var(--vertigo-faint)] mb-1.5">Score</div>
+                <div className="text-[9px] tracking-[3px] uppercase text-[var(--vertigo-faint)] mb-2">Score</div>
                 <div
                   className="font-cinzel font-bold leading-none text-[var(--vertigo-purple-pale)]"
-                  style={{ fontSize: 40, textShadow: "0 0 26px rgba(124,58,237,0.35)" }}
+                  style={{
+                    fontSize: "clamp(36px, 5vw, 48px)",
+                    fontVariantNumeric: "tabular-nums",
+                    textShadow: "0 0 26px rgba(124,58,237,0.35)",
+                  }}
                 >
                   {match.scoreA}
-                  <span className="text-[var(--vertigo-faint)] mx-2">—</span>
+                  <span style={{ color: "rgba(212,175,55,0.8)", margin: "0 10px", fontSize: "0.72em", verticalAlign: "0.06em" }}>:</span>
                   {match.scoreB}
                 </div>
               </>
@@ -338,21 +394,19 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
             )}
           </div>
 
-          <TeamSide
+          <TeamBlock
             name={match.teamB?.name ?? "Por definir"}
             seed={match.teamB?.seed ?? null}
             emblemUrl={match.teamB?.emblemUrl ?? null}
-            score={showScores ? match.scoreB : null}
             isWinner={winnerSide === "B"}
-            align="left"
             teamId={match.teamB?.id}
           />
         </div>
 
-        {/* Meta en una línea bajo hairline — nada de cajitas */}
+        {/* Meta en una línea bajo hairline — banda inferior sobre el video */}
         <div
           className="flex items-center justify-center gap-x-6 gap-y-2 flex-wrap"
-          style={{ padding: "14px 24px 18px", borderTop: "1px solid var(--vertigo-line-soft)" }}
+          style={{ padding: "16px 28px", borderTop: "1px solid var(--vertigo-line-soft)", background: "rgba(7,3,16,0.35)" }}
         >
           {match.scheduledAtStart && (
             <span className="inline-flex items-center gap-1.5 text-[11px]" style={{ color: "var(--vertigo-muted)" }}>
@@ -378,7 +432,7 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
 
         {/* Countdown */}
         {countdown !== null && countdown > 0 && match.status === "scheduled" && (
-          <div className="vertigo-stat mt-5" style={{ textAlign: "center" }}>
+          <div className="vertigo-stat" style={{ textAlign: "center", margin: "20px 28px 4px" }}>
             <div className="vertigo-stat-label">Comienza en</div>
             <div className="vertigo-stat-value">
               <Clock
@@ -392,7 +446,15 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
 
         {/* Stream link */}
         {match.streamEmbedEnabled && match.streamCaster && (
-          <div className="vertigo-action-bar mt-5 pt-4 border-t border-[var(--vertigo-line-soft)]">
+          <div
+            className="vertigo-action-bar"
+            style={{
+              margin: "16px 28px 24px",
+              paddingTop: 16,
+              borderTop: "1px solid var(--vertigo-line-soft)",
+              justifyContent: "center",
+            }}
+          >
             {match.streamCaster.twitchChannel && (
               <a
                 href={`https://twitch.tv/${match.streamCaster.twitchChannel}`}
@@ -417,6 +479,7 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
             )}
           </div>
         )}
+        </div>
       </div>
 
       {/* GAMES BO3 — plegados por defecto para espectadores: son specs del sorteo,
@@ -492,7 +555,7 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
       )}
 
       {/* VOLVER */}
-      <div className="vertigo-action-bar">
+      <div className="vertigo-action-bar" style={{ justifyContent: "center", marginTop: 4 }}>
         {spectatorContext?.kind === "spectator" && (
           <Link href="/apuestas" className="vertigo-btn vertigo-btn-primary">
             ← Mis apuestas
@@ -506,72 +569,61 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
   );
 }
 
-function TeamSide({
+function TeamBlock({
   name,
   seed,
   emblemUrl,
-  score,
   isWinner,
-  align,
   teamId,
 }: {
   name: string;
   seed: number | null;
   emblemUrl: string | null;
-  score: number | null;
   isWinner: boolean;
-  align: "left" | "right";
   teamId?: string;
 }) {
   const inner = (
     <>
-      {/* Escudo grande con doble aro: dorado si ganó, violeta si no */}
+      {/* Escudo con doble aro: dorado si ganó, violeta si no */}
       <div
         className="relative flex items-center justify-center flex-none rounded-full overflow-hidden"
         style={{
-          width: "clamp(68px, 17vw, 96px)",
-          height: "clamp(68px, 17vw, 96px)",
+          width: "clamp(78px, 18vw, 108px)",
+          height: "clamp(78px, 18vw, 108px)",
           border: isWinner ? "2px solid rgba(212,175,55,0.75)" : "2px solid rgba(124,58,237,0.5)",
           background: "var(--vertigo-input-bg, #0e0a14)",
           boxShadow: isWinner
-            ? "0 0 0 5px rgba(212,175,55,0.12), 0 0 32px rgba(212,175,55,0.28)"
-            : "0 0 0 5px rgba(124,58,237,0.08), 0 0 24px rgba(124,58,237,0.16)",
+            ? "0 0 0 5px rgba(212,175,55,0.12), 0 0 34px rgba(212,175,55,0.30)"
+            : "0 0 0 5px rgba(124,58,237,0.08), 0 0 26px rgba(124,58,237,0.18)",
         }}
       >
         {emblemUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={emblemUrl} alt={`${name}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
         ) : (
-          <Trophy style={{ width: 34, height: 34, color: "var(--vertigo-purple-soft)" }} strokeWidth={1.1} />
+          <Trophy style={{ width: 36, height: 36, color: "var(--vertigo-purple-soft)" }} strokeWidth={1.1} />
         )}
       </div>
-      <div className={`mt-3 min-w-0 ${align === "right" ? "text-right" : "text-left"}`}>
-        {seed != null && (
-          <div
-            className="text-[9px] font-bold uppercase mb-1"
-            style={{ letterSpacing: 2, color: "var(--vertigo-faint)" }}
-          >
-            Seed #{seed}
-          </div>
-        )}
+      {seed != null && (
         <div
-          className={`font-cinzel font-bold truncate ${isWinner ? "text-[var(--vertigo-gold)]" : "text-[var(--vertigo-text)]"}`}
-          style={{ fontSize: "clamp(17px, 2vw, 23px)", lineHeight: 1.15, textShadow: "0 2px 18px rgba(0,0,0,0.5)" }}
+          className="text-[9px] font-bold uppercase"
+          style={{ letterSpacing: 2, color: "var(--vertigo-faint)", marginTop: 12 }}
         >
-          {name}
+          Seed #{seed}
         </div>
-        {score != null && (
-          <div
-            className="font-cinzel font-bold mt-1.5 leading-none"
-            style={{
-              fontSize: 34,
-              color: isWinner ? "var(--vertigo-gold)" : "var(--vertigo-purple-pale)",
-              textShadow: "0 0 22px rgba(124,58,237,0.3)",
-            }}
-          >
-            {score}
-          </div>
-        )}
+      )}
+      <div
+        className={`font-cinzel font-bold ${isWinner ? "text-[var(--vertigo-gold)]" : "text-[var(--vertigo-text)]"}`}
+        style={{
+          fontSize: "clamp(16px, 2vw, 22px)",
+          lineHeight: 1.15,
+          marginTop: seed != null ? 6 : 12,
+          maxWidth: 230,
+          overflowWrap: "break-word",
+          textShadow: "0 2px 18px rgba(0,0,0,0.5)",
+        }}
+      >
+        {name}
       </div>
     </>
   );
@@ -580,18 +632,14 @@ function TeamSide({
     return (
       <Link
         href={`/equipos/${teamId}`}
-        className={`flex flex-col ${align === "right" ? "items-end" : "items-start"} min-w-0`}
+        className="flex flex-col items-center text-center min-w-0"
         style={{ textDecoration: "none" }}
       >
         {inner}
       </Link>
     );
   }
-  return (
-    <div className={`flex flex-col ${align === "right" ? "items-end" : "items-start"} min-w-0`}>
-      {inner}
-    </div>
-  );
+  return <div className="flex flex-col items-center text-center min-w-0">{inner}</div>;
 }
 
 function GameCard({
@@ -687,9 +735,9 @@ function GameCard({
 
       {/* Civs */}
       {(civsA.length > 0 || civsB.length > 0) && (
-        <div className="grid gap-4 mb-4" style={{ gridTemplateColumns: "1fr 1fr" }}>
+        <div className="grid gap-4 mb-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
           <div>
-            <div className="vertigo-info-card-label" style={{ marginBottom: 8 }}>
+            <div className="vertigo-info-card-label" style={{ marginBottom: 8, color: "var(--vertigo-purple-soft)" }}>
               {teamAName}
             </div>
             <div className="flex flex-wrap gap-2">
@@ -697,7 +745,9 @@ function GameCard({
                 <span className="text-[12px] text-[var(--vertigo-faint)]">Sin sortear</span>
               ) : (
                 civsA.map((c) => (
-                  <span key={c} className={`vertigo-badge ${isAWinner ? "vertigo-badge-success" : "vertigo-badge-purple"}`}>
+                  <span key={c} className={`inline-flex items-center gap-1.5 vertigo-badge ${isAWinner ? "vertigo-badge-success" : "vertigo-badge-purple"}`} style={{ paddingLeft: 6 }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={`/civs/${c}.webp`} alt="" style={{ width: 16, height: 16, borderRadius: 3, objectFit: "cover" }} />
                     {civName(c)}
                   </span>
                 ))
@@ -705,7 +755,7 @@ function GameCard({
             </div>
           </div>
           <div>
-            <div className="vertigo-info-card-label" style={{ marginBottom: 8 }}>
+            <div className="vertigo-info-card-label" style={{ marginBottom: 8, color: "#fda4af" }}>
               {teamBName}
             </div>
             <div className="flex flex-wrap gap-2">
@@ -713,7 +763,9 @@ function GameCard({
                 <span className="text-[12px] text-[var(--vertigo-faint)]">Sin sortear</span>
               ) : (
                 civsB.map((c) => (
-                  <span key={c} className={`vertigo-badge ${isBWinner ? "vertigo-badge-success" : "vertigo-badge-purple"}`}>
+                  <span key={c} className="inline-flex items-center gap-1.5 vertigo-badge vertigo-badge-purple" style={{ paddingLeft: 6 }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={`/civs/${c}.webp`} alt="" style={{ width: 16, height: 16, borderRadius: 3, objectFit: "cover" }} />
                     {civName(c)}
                   </span>
                 ))

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Calendar, Clock, Radio, ChevronRight, Swords, Trophy } from "lucide-react";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import VertigoFooter from "@/components/shared/vertigo-footer";
+import SiteNav from "@/components/nav/site-nav";
 import { fmt } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -151,20 +152,7 @@ export default async function FixturePage() {
 
   return (
     <div className="vertigo-page vertigo-shell vertigo-fade-in">
-      <header className="vertigo-header">
-        <div className="vertigo-header-left">
-          <Link href="/" className="vertigo-logo">VÉRTIGO</Link>
-          <span className="vertigo-section-tag">FIXTURE</span>
-        </div>
-        <div className="vertigo-header-right">
-          <Link href="/bracket" className="vertigo-btn vertigo-btn-ghost" style={{ padding: "8px 16px", fontSize: "11px" }}>
-            Bracket
-          </Link>
-          <Link href="/resultados" className="vertigo-btn vertigo-btn-ghost" style={{ padding: "8px 16px", fontSize: "11px" }}>
-            Resultados
-          </Link>
-        </div>
-      </header>
+      <SiteNav />
 
       <main className="vertigo-content" style={{ maxWidth: "none", padding: "40px 32px" }}>
         {/* ═══ HERO ═══ */}
@@ -178,14 +166,19 @@ export default async function FixturePage() {
             boxShadow: "var(--shadow-lg)",
           }}
         >
-          <div
+          {/* Fondo: video de marca en loop (el mismo del hero de Mi Reino) */}
+          <video
+            autoPlay
+            muted
+            loop
+            playsInline
+            src="/landing/mi-reino-hero.mp4"
+            poster="/landing/fondo-castillo.webp"
             style={{
               position: "absolute", inset: 0,
-              backgroundImage: "url('/landing/fondo-castillo.webp')",
-              backgroundSize: "cover",
-              backgroundPosition: "center 30%",
-              opacity: 0.3,
-              transform: "scale(1.04)",
+              width: "100%", height: "100%",
+              objectFit: "cover",
+              objectPosition: "center 30%",
             }}
           />
           <div

@@ -1,18 +1,22 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSupabaseServer } from "@/lib/supabase/server";
-import { CaptainHeader } from "@/components/captain/captain-header";
+import SiteNav from "@/components/nav/site-nav";
+import { TeamBannerBg } from "@/components/team/team-banner-bg";
+import { ComodinesGrid } from "@/components/team/comodin-cards";
+import VertigoFooter from "@/components/shared/vertigo-footer";
 import { confirmReadyAction } from "@/server/actions/ready";
-import { Dices, Ban, Target, UserPlus, Calendar, History, ArrowRight, Clock, CheckCircle, AlertCircle, Zap, Sparkles } from "lucide-react";
+import { Calendar, History, ArrowRight, ArrowUpRight, Clock, CheckCircle, AlertCircle, Zap, Sparkles } from "lucide-react";
 import { fmt } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
-const COMODINES_DEFAULT = [
-  { type: "reroll", label: "Re-girar", desc: "Re-sortear una fase del resultado.", icon: Dices, defaultQty: 2 },
-  { type: "anular", label: "Anular", desc: "Anular un jugador rival del lineup.", icon: Ban, defaultQty: 1 },
-  { type: "elegir_rival", label: "Elegir rival", desc: "Elegir qué jugador rival enfrenta al tuyo.", icon: Target, defaultQty: 1 },
-  { type: "invocar_pro", label: "Invocar PRO", desc: "Sustituir por un jugador PRO (solo finalistas).", icon: UserPlus, defaultQty: 1 },
+// Tira compacta de comodines (iconos de marca) dentro de cada tarjeta de partido
+const COMODIN_STRIP = [
+  { type: "reroll", label: "Re-girar", icon: "/comodines/reroll.webp" },
+  { type: "anular", label: "Anular", icon: "/comodines/anular.webp" },
+  { type: "elegir_rival", label: "Elegir rival", icon: "/comodines/elegir-rival.webp" },
+  { type: "invocar_pro", label: "Invocar PRO", icon: "/comodines/invocar-pro.webp" },
 ];
 
 export default async function MisPartidosPage() {
@@ -32,7 +36,7 @@ export default async function MisPartidosPage() {
 
   const { data: team } = (await supabase
     .from("team_account")
-    .select("id, name, tagline")
+    .select("id, name, tagline, emblem_id, emblem:emblem_id (image_url)")
     .eq("owner_id", account.id)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -41,7 +45,7 @@ export default async function MisPartidosPage() {
   if (!team) {
     return (
       <div className="vertigo-page vertigo-shell">
-        <CaptainHeader active="partidos" />
+        <SiteNav />
         <main className="vertigo-content vertigo-scroll vertigo-fade-in">
           <div className="vertigo-page-title">
             <span className="vertigo-kicker">CAPITÁN</span>
@@ -56,6 +60,9 @@ export default async function MisPartidosPage() {
               <Link href="/registro"><button className="vertigo-btn vertigo-btn-primary">Inscribir mi reino →</button></Link>
             </div>
           </div>
+          <div className="mt-6">
+            <VertigoFooter />
+          </div>
         </main>
       </div>
     );
@@ -63,7 +70,7 @@ export default async function MisPartidosPage() {
 
   const { data: regs } = (await supabase
     .from("team_registration")
-    .select("id, status, tournament_edition_id")
+    .select("id, status, seed, tournament_edition_id")
     .eq("team_account_id", team.id)
     .order("submitted_at", { ascending: false })
     .limit(1)
@@ -105,6 +112,26 @@ export default async function MisPartidosPage() {
     pastMatches = pm ?? [];
   }
 
+  // Récord histórico real (no limitado a los últimos 10)
+  let wins = 0;
+  let losses = 0;
+  if (latestReg?.id) {
+    const orFilter = `team_a_id.eq.${latestReg.id},team_b_id.eq.${latestReg.id}`;
+    const { count: totalFinished } = (await supabase
+      .from("match")
+      .select("id", { count: "exact", head: true })
+      .or(orFilter)
+      .eq("status", "finished")) as { count: number | null };
+    const { count: totalWins } = (await supabase
+      .from("match")
+      .select("id", { count: "exact", head: true })
+      .or(orFilter)
+      .eq("status", "finished")
+      .eq("winner_team_id", latestReg.id)) as { count: number | null };
+    wins = totalWins ?? 0;
+    losses = (totalFinished ?? 0) - wins;
+  }
+
   const rivalIds = new Set<string>();
   for (const m of [...upcomingMatches, ...pastMatches]) {
     if (m.team_a_id && m.team_a_id !== latestReg?.id) rivalIds.add(m.team_a_id);
@@ -132,6 +159,8 @@ export default async function MisPartidosPage() {
     }
   };
 
+  const totalComodines = COMODIN_STRIP.reduce((acc, c) => acc + comodinQty(c.type), 0);
+
   const matchStatusInfo = (status: string): { cls: string; label: string; dot: string } => {
     switch (status) {
       case "in_progress": return { cls: "vertigo-badge-warning", label: "En curso", dot: "#fbbf24" };
@@ -144,63 +173,145 @@ export default async function MisPartidosPage() {
     }
   };
 
+  // Emblema real del equipo (de la DB), con fallback a los escudos genéricos
+  const emblemUrl = team.emblem?.image_url ?? `/reinos/reino-${(team.id.charCodeAt(0) % 13) + 1}.webp`;
+
+  const statusBadge = (() => {
+    if (!latestReg) return { cls: "vertigo-badge-warning", label: "SIN INSCRIPCIÓN" };
+    if (latestReg.status === "approved") return { cls: "vertigo-badge-success", label: "APROBADO" };
+    if (latestReg.status === "rejected") return { cls: "vertigo-badge-danger", label: "RECHAZADO" };
+    return { cls: "vertigo-badge-warning", label: "PENDIENTE" };
+  })();
+
+  const nextMatch = upcomingMatches[0];
+  const nextRivalId = nextMatch ? (nextMatch.team_a_id === latestReg?.id ? nextMatch.team_b_id : nextMatch.team_a_id) : null;
+  const nextRivalName = nextRivalId ? (rivalNames[nextRivalId] ?? "Rival") : (nextMatch ? "Por definir" : null);
+
   return (
     <div className="vertigo-page vertigo-shell">
-      <CaptainHeader active="partidos" teamTag={team.tagline ?? undefined} />
+      <SiteNav />
 
       <main className="vertigo-content vertigo-scroll vertigo-fade-in">
-        <div className="vertigo-page-title">
-          <span className="vertigo-kicker">CAPITÁN</span>
-          <h1 className="vertigo-title">Mis partidos</h1>
-          <div className="vertigo-divider"><span></span><i></i><span></span></div>
-          <p className="vertigo-desc">
-            Comodines disponibles, próximos enfrentamientos e historial del reino <strong style={{ color: "var(--vertigo-purple-pale)" }}>{team.name}</strong>.
-          </p>
+
+        {/* ===== HERO — video de marca + identidad + strip de datos ===== */}
+        <div
+          className="vertigo-card"
+          style={{
+            padding: 0, overflow: "hidden", position: "relative",
+            marginBottom: "28px", border: "1px solid var(--vertigo-line)",
+          }}
+        >
+          <TeamBannerBg
+            emblemUrl={emblemUrl}
+            seed={team.id}
+            backgroundImage="/landing/castillo-vertigo.webp"
+            backgroundVideo="/landing/mi-reino-hero.mp4"
+          />
+          <div style={{
+            position: "absolute", top: 0, left: 0, right: 0, height: "2px",
+            background: "linear-gradient(90deg, transparent, rgba(212,175,55,0.5), transparent)",
+          }} />
+
+          {/* Identidad */}
+          <div className="vertigo-hero-identity" style={{ position: "relative", zIndex: 2, padding: "48px 46px 38px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "24px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "26px", minWidth: 0 }}>
+              <div style={{
+                flex: "none", width: "114px", height: "114px", borderRadius: "24px",
+                overflow: "hidden", border: "2px solid rgba(212,175,55,0.55)",
+                background: "var(--vertigo-input-bg)",
+                boxShadow: "0 0 44px rgba(124,58,237,0.45), 0 8px 24px rgba(0,0,0,0.55)",
+              }}>
+                <img src={emblemUrl} alt={`Escudo de ${team.name}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "3.5px", textTransform: "uppercase", color: "var(--vertigo-purple-soft)", marginBottom: "8px" }}>
+                  Capitán · Mis partidos
+                </div>
+                <h1 style={{
+                  fontFamily: "Cinzel, serif", fontSize: "clamp(34px, 4.5vw, 56px)",
+                  fontWeight: 700, color: "var(--vertigo-text)", lineHeight: 1.05,
+                  textShadow: "0 2px 20px rgba(0,0,0,0.7)",
+                }}>
+                  {team.name}
+                </h1>
+                {team.tagline && (
+                  <p style={{ fontSize: "14px", fontStyle: "italic", color: "rgba(230,215,245,0.8)", marginTop: "8px", textShadow: "0 1px 8px rgba(0,0,0,0.6)" }}>
+                    &ldquo;{team.tagline}&rdquo;
+                  </p>
+                )}
+              </div>
+            </div>
+            {/* Estado + acceso al reino */}
+            <div className="vertigo-hero-actions" style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "12px", flex: "none", flexWrap: "wrap" }}>
+              <span className={`vertigo-badge ${statusBadge.cls}`} style={{ fontSize: "12px", padding: "8px 22px", fontWeight: 700, letterSpacing: "2px", flex: "none", whiteSpace: "nowrap" }}>
+                {statusBadge.label}
+              </span>
+              <Link
+                href="/mi-equipo"
+                className="vertigo-btn vertigo-btn-ghost"
+                style={{ display: "inline-flex", alignItems: "center", gap: "7px", padding: "10px 20px", fontSize: "12px", background: "rgba(7,3,16,0.45)", flex: "none", whiteSpace: "nowrap" }}
+              >
+                Ir a mi reino
+                <ArrowUpRight style={{ width: 13, height: 13 }} />
+              </Link>
+            </div>
+          </div>
+
+          {/* Strip de datos de partidos, apoyado sobre el borde inferior */}
+          <div className="vertigo-hero-strip" style={{
+            position: "relative", zIndex: 2,
+            display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+            borderTop: "1px solid var(--vertigo-line)",
+            background: "rgba(7,3,16,0.66)",
+            backdropFilter: "blur(8px)",
+          }}>
+            {[
+              {
+                label: "Próximo encuentro",
+                value: nextRivalName ?? "—",
+                sub: nextMatch?.scheduled_at_start ? fmt.dayMonTimeNum(nextMatch.scheduled_at_start) : (nextMatch ? "A confirmar" : "Sin programar"),
+              },
+              { label: "Récord", value: `${wins} – ${losses}`, sub: "V/D histórico" },
+              { label: "Comodines", value: `${totalComodines}`, sub: "disponibles" },
+              { label: "Próximos partidos", value: `${upcomingMatches.length}`, sub: "en calendario" },
+            ].map((s, i) => (
+              <div key={s.label} style={{
+                padding: "16px 20px",
+                borderLeft: i > 0 ? "1px solid var(--vertigo-line-soft)" : "none",
+                minWidth: 0,
+              }}>
+                <div style={{ fontSize: "9px", fontWeight: 700, letterSpacing: "2px", textTransform: "uppercase", color: "var(--vertigo-faint)", marginBottom: "5px", whiteSpace: "nowrap" }}>
+                  {s.label}
+                </div>
+                <div style={{
+                  fontFamily: "Cinzel, serif", fontSize: "clamp(13px, 1.3vw, 17px)", fontWeight: 700,
+                  color: "var(--vertigo-text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                }}>
+                  {s.value}
+                  {s.sub && <span style={{ fontFamily: "Inter, sans-serif", fontSize: "11px", fontWeight: 500, color: "var(--vertigo-faint)", marginLeft: "6px" }}>{s.sub}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* MIS COMODINES */}
         <div className="vertigo-section">
           <div className="vertigo-subtitle">
-            <Dices style={{ width: 14, height: 14 }} />
+            <Sparkles style={{ width: 14, height: 14 }} />
             Mis comodines
+            {totalComodines > 0 && (
+              <span className="vertigo-badge vertigo-badge-purple" style={{ marginLeft: "auto" }}>{totalComodines} disp.</span>
+            )}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "14px" }}>
-            {COMODINES_DEFAULT.map((c) => {
-              const qty = comodinQty(c.type);
-              const Icon = c.icon;
-              const available = qty > 0;
-              return (
-                <div
-                  key={c.type}
-                  className="vertigo-info-card"
-                  style={{
-                    opacity: available ? 1 : 0.5,
-                    position: "relative",
-                    overflow: "hidden",
-                  }}
-                >
-                  {!available && (
-                    <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.3)", borderRadius: "inherit", zIndex: 1 }} />
-                  )}
-                  <div className="vertigo-info-card-label" style={{ marginBottom: "10px" }}>
-                    <Icon style={{ width: 14, height: 14, color: available ? "var(--vertigo-purple-soft)" : "var(--vertigo-faint)" }} />
-                    {c.label}
-                  </div>
-                  <div className="vertigo-info-card-value" style={{ display: "flex", alignItems: "baseline", gap: "8px", marginBottom: "8px" }}>
-                    <span style={{
-                      fontFamily: "Cinzel, serif",
-                      fontSize: "32px",
-                      fontWeight: 700,
-                      lineHeight: 1,
-                      color: available ? "var(--vertigo-purple-pale)" : "var(--vertigo-faint)",
-                    }}>{qty}</span>
-                    <span style={{ fontSize: "11px", color: "var(--vertigo-faint)" }}>/ {c.defaultQty}</span>
-                  </div>
-                  <div style={{ fontSize: "12px", color: "var(--vertigo-muted)", lineHeight: 1.5 }}>{c.desc}</div>
-                </div>
-              );
-            })}
-          </div>
+          <ComodinesGrid
+            comodin={{
+              rerollAvailable: comodinQty("reroll"),
+              anularAvailable: comodinQty("anular"),
+              elegirRivalAvailable: comodinQty("elegir_rival"),
+              invocarProAvailable: comodinQty("invocar_pro"),
+            }}
+          />
         </div>
 
         {/* PRÓXIMOS PARTIDOS */}
@@ -238,138 +349,200 @@ export default async function MisPartidosPage() {
                 const isComodinWindow = m.status === "comodin_window";
                 return (
                   <div key={m.id} className="vertigo-card premium">
-                    {/* Header del partido */}
-                    <div className="vertigo-card-header" style={{ marginBottom: "20px", paddingBottom: "18px" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                        <span className={`vertigo-status ${statusInfo.cls}`}>
-                          <span className="vertigo-status-dot" style={{ background: statusInfo.dot }} />
-                          {statusInfo.label}
-                        </span>
-                        <span style={{ fontSize: "10px", color: "var(--vertigo-faint)", letterSpacing: "2px", textTransform: "uppercase" }}>
-                          {m.jornada_label ?? "Jornada"}
-                        </span>
-                      </div>
-                      {m.format && (
-                        <span className="vertigo-badge vertigo-badge-purple" style={{ fontSize: "11px", padding: "5px 12px" }}>{m.format}</span>
-                      )}
-                    </div>
+                    {/* Fondo de video + velo oscuro */}
+                    <video
+                      autoPlay muted loop playsInline
+                      src="/landing/proxima-partida-bg.mp4"
+                      aria-hidden="true"
+                      tabIndex={-1}
+                      style={{
+                        position: "absolute", inset: 0, width: "100%", height: "100%",
+                        objectFit: "cover", objectPosition: "center", pointerEvents: "none",
+                      }}
+                    />
+                    <div aria-hidden style={{
+                      position: "absolute", inset: 0,
+                      background: "linear-gradient(180deg, rgba(7,3,16,0.72) 0%, rgba(7,3,16,0.80) 55%, rgba(7,3,16,0.90) 100%)",
+                      pointerEvents: "none",
+                    }} />
 
-                    {/* Grid de info */}
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "12px", marginBottom: "20px" }}>
-                      <div className="vertigo-info-card" style={{ padding: "16px" }}>
-                        <div className="vertigo-info-card-label" style={{ marginBottom: "4px" }}>Rival</div>
-                        <div className="vertigo-info-card-value" style={{ fontSize: "15px" }}>
-                          {m.team_a_id && m.team_b_id ? (
-                            <Link href={`/equipos/${rivalId}`} style={{ color: "inherit", textDecoration: "none" }} title="Ver perfil del rival">
-                              {rivalName}
-                            </Link>
-                          ) : (
-                            rivalName
-                          )}
+                    <div style={{ position: "relative", zIndex: 1 }}>
+                      {/* Header del partido */}
+                      <div className="vertigo-card-header" style={{ marginBottom: "20px", paddingBottom: "18px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                          <span className={`vertigo-status ${statusInfo.cls}`}>
+                            <span className="vertigo-status-dot" style={{ background: statusInfo.dot }} />
+                            {statusInfo.label}
+                          </span>
+                          <span style={{ fontSize: "10px", color: "var(--vertigo-faint)", letterSpacing: "2px", textTransform: "uppercase" }}>
+                            {m.jornada_label ?? "Jornada"}
+                          </span>
                         </div>
-                      </div>
-                      <div className="vertigo-info-card" style={{ padding: "16px" }}>
-                        <div className="vertigo-info-card-label" style={{ marginBottom: "4px" }}>Horario</div>
-                        <div className="vertigo-info-card-value" style={{ fontSize: "13px" }}>
-                          {m.scheduled_at_start
-                            ? fmt.dayMonTimeNum(m.scheduled_at_start)
-                            : "A confirmar"}
-                        </div>
-                      </div>
-                      <div className="vertigo-info-card" style={{ padding: "16px" }}>
-                        <div className="vertigo-info-card-label" style={{ marginBottom: "4px" }}>Formato</div>
-                        <div className="vertigo-info-card-value" style={{ fontSize: "13px" }}>{m.format ?? "Por sorteo"}</div>
-                      </div>
-                    </div>
-
-                    {/* Alertas de estado */}
-                    {isScheduled && (
-                      <div style={{
-                        padding: "14px 18px",
-                        background: myReady ? "rgba(34,197,94,0.08)" : "rgba(251,191,36,0.06)",
-                        border: `1px solid ${myReady ? "rgba(34,197,94,0.3)" : "rgba(251,191,36,0.25)"}`,
-                        borderRadius: "10px",
-                        marginBottom: "16px",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: "12px",
-                        flexWrap: "wrap",
-                      }}>
-                        <div style={{ fontSize: "13px", display: "flex", alignItems: "center", gap: "8px" }}>
-                          {myReady ? (
-                            <span style={{ color: "var(--vertigo-success)" }}>✓ Estás listo{rivalReady ? " — Rival también" : " — Esperando rival"}</span>
-                          ) : rivalReady ? (
-                            <span style={{ color: "#fbbf24" }}>⚠ El rival está listo — Confirmá tu participación</span>
-                          ) : (
-                            <span style={{ color: "#fbbf24" }}>Confirmá tu participación para habilitar el sorteo</span>
-                          )}
-                        </div>
-                        {!myReady && (
-                          <form action={confirmReadyAction.bind(null, m.id)} style={{ display: "inline" }}>
-                            <button type="submit" className="vertigo-btn vertigo-btn-success" style={{ fontSize: "11px", padding: "10px 20px" }}>
-                              <CheckCircle style={{ width: 14, height: 14 }} />
-                              ESTOY LISTO
-                            </button>
-                          </form>
+                        {m.format && (
+                          <span className="vertigo-badge vertigo-badge-purple" style={{ fontSize: "11px", padding: "5px 12px" }}>{m.format}</span>
                         )}
                       </div>
-                    )}
 
-                    {isOpen && (
-                      <div style={{
-                        padding: "14px 18px",
-                        background: "rgba(34,197,94,0.08)",
-                        border: "1px solid rgba(34,197,94,0.25)",
-                        borderRadius: "10px",
-                        marginBottom: "16px",
-                        fontSize: "13px",
-                        color: "var(--vertigo-success)",
-                        fontWeight: 600,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "8px",
-                      }}>
-                        <Zap style={{ width: 16, height: 16 }} />
-                        LLAVE HABILITADA — El admin puede sortear ahora
+                      {/* Grid de info */}
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "12px", marginBottom: "16px" }}>
+                        <div className="vertigo-info-card" style={{ padding: "16px" }}>
+                          <div className="vertigo-info-card-label" style={{ marginBottom: "4px" }}>Rival</div>
+                          <div className="vertigo-info-card-value" style={{ fontSize: "15px" }}>
+                            {m.team_a_id && m.team_b_id ? (
+                              <Link href={`/equipos/${rivalId}`} style={{ color: "inherit", textDecoration: "none" }} title="Ver perfil del rival">
+                                {rivalName}
+                              </Link>
+                            ) : (
+                              rivalName
+                            )}
+                          </div>
+                        </div>
+                        <div className="vertigo-info-card" style={{ padding: "16px" }}>
+                          <div className="vertigo-info-card-label" style={{ marginBottom: "4px" }}>Horario</div>
+                          <div className="vertigo-info-card-value" style={{ fontSize: "13px" }}>
+                            {m.scheduled_at_start
+                              ? fmt.dayMonTimeNum(m.scheduled_at_start)
+                              : "A confirmar"}
+                          </div>
+                        </div>
+                        <div className="vertigo-info-card" style={{ padding: "16px" }}>
+                          <div className="vertigo-info-card-label" style={{ marginBottom: "4px" }}>Formato</div>
+                          <div className="vertigo-info-card-value" style={{ fontSize: "13px" }}>{m.format ?? "Por sorteo"}</div>
+                        </div>
                       </div>
-                    )}
 
-                    {isComodinWindow && (
+                      {/* Tira de comodines del reino para este partido */}
                       <div style={{
-                        padding: "14px 18px",
-                        background: "rgba(251,191,36,0.08)",
-                        border: "1px solid rgba(251,191,36,0.25)",
-                        borderRadius: "10px",
-                        marginBottom: "16px",
-                        fontSize: "13px",
-                        color: "#fbbf24",
-                        fontWeight: 600,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "8px",
+                        display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap",
+                        padding: "12px 16px", marginBottom: "16px",
+                        background: "rgba(7,3,16,0.55)",
+                        border: `1px solid ${isComodinWindow ? "rgba(212,175,55,0.45)" : "var(--vertigo-line-soft)"}`,
+                        borderRadius: "12px",
+                        boxShadow: isComodinWindow ? "0 0 22px rgba(212,175,55,0.15)" : "none",
                       }}>
-                        <AlertCircle style={{ width: 16, height: 16 }} />
-                        VENTANA DE COMODINES — Usá tus comodines ahora antes de que cierre
+                        <span style={{ fontSize: "9px", fontWeight: 700, letterSpacing: "2px", textTransform: "uppercase", color: "var(--vertigo-faint)" }}>
+                          Mis comodines
+                        </span>
+                        <div style={{ display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" }}>
+                          {COMODIN_STRIP.map((c) => {
+                            const qty = comodinQty(c.type);
+                            const available = qty > 0;
+                            return (
+                              <div key={c.type} title={`${c.label}: ${qty} disponibles`} style={{ display: "flex", alignItems: "center", gap: "7px", opacity: available ? 1 : 0.55 }}>
+                                <div style={{
+                                  width: "34px", height: "34px", flex: "none", borderRadius: "9px", overflow: "hidden",
+                                  border: `1.5px solid ${available ? (isComodinWindow ? "rgba(212,175,55,0.6)" : "rgba(124,58,237,0.42)") : "var(--vertigo-line)"}`,
+                                  boxShadow: available && isComodinWindow ? "0 0 14px rgba(212,175,55,0.35)" : "none",
+                                  filter: available ? "none" : "grayscale(1) brightness(0.7)",
+                                }}>
+                                  <img src={c.icon} alt={c.label} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                </div>
+                                <span style={{
+                                  fontFamily: "Cinzel, serif", fontSize: "14px", fontWeight: 700,
+                                  color: available ? "var(--vertigo-purple-pale)" : "var(--vertigo-faint)",
+                                }}>
+                                  ×{qty}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {isComodinWindow && (
+                          <span style={{ marginLeft: "auto", fontSize: "10px", fontWeight: 700, letterSpacing: "1.5px", textTransform: "uppercase", color: "var(--vertigo-gold)" }}>
+                            Ventana abierta
+                          </span>
+                        )}
                       </div>
-                    )}
 
-                    {/* Comodines: se usan desde el panel del capitán en la página del partido */}
-                    {isComodinWindow && (
-                      <div className="vertigo-action-bar" style={{ marginBottom: "16px" }}>
-                        <Link href={`/partido/${m.id}`} className="vertigo-btn vertigo-btn-primary" style={{ padding: "11px 22px" }}>
-                          <Sparkles style={{ width: 13, height: 13 }} />
-                          Usar comodines ahora
-                          <ArrowRight style={{ width: 13, height: 13 }} />
+                      {/* Alertas de estado */}
+                      {isScheduled && (
+                        <div style={{
+                          padding: "14px 18px",
+                          background: myReady ? "rgba(34,197,94,0.08)" : "rgba(251,191,36,0.06)",
+                          border: `1px solid ${myReady ? "rgba(34,197,94,0.3)" : "rgba(251,191,36,0.25)"}`,
+                          borderRadius: "10px",
+                          marginBottom: "16px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: "12px",
+                          flexWrap: "wrap",
+                        }}>
+                          <div style={{ fontSize: "13px", display: "flex", alignItems: "center", gap: "8px" }}>
+                            {myReady ? (
+                              <span style={{ color: "var(--vertigo-success)" }}>✓ Estás listo{rivalReady ? " — Rival también" : " — Esperando rival"}</span>
+                            ) : rivalReady ? (
+                              <span style={{ color: "#fbbf24" }}>⚠ El rival está listo — Confirmá tu participación</span>
+                            ) : (
+                              <span style={{ color: "#fbbf24" }}>Confirmá tu participación para habilitar el sorteo</span>
+                            )}
+                          </div>
+                          {!myReady && (
+                            <form action={confirmReadyAction.bind(null, m.id)} style={{ display: "inline" }}>
+                              <button type="submit" className="vertigo-btn vertigo-btn-success" style={{ fontSize: "11px", padding: "10px 20px" }}>
+                                <CheckCircle style={{ width: 14, height: 14 }} />
+                                ESTOY LISTO
+                              </button>
+                            </form>
+                          )}
+                        </div>
+                      )}
+
+                      {isOpen && (
+                        <div style={{
+                          padding: "14px 18px",
+                          background: "rgba(34,197,94,0.08)",
+                          border: "1px solid rgba(34,197,94,0.25)",
+                          borderRadius: "10px",
+                          marginBottom: "16px",
+                          fontSize: "13px",
+                          color: "var(--vertigo-success)",
+                          fontWeight: 600,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
+                        }}>
+                          <Zap style={{ width: 16, height: 16 }} />
+                          LLAVE HABILITADA — El admin puede sortear ahora
+                        </div>
+                      )}
+
+                      {isComodinWindow && (
+                        <div style={{
+                          padding: "14px 18px",
+                          background: "rgba(251,191,36,0.08)",
+                          border: "1px solid rgba(251,191,36,0.25)",
+                          borderRadius: "10px",
+                          marginBottom: "16px",
+                          fontSize: "13px",
+                          color: "#fbbf24",
+                          fontWeight: 600,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
+                        }}>
+                          <AlertCircle style={{ width: 16, height: 16 }} />
+                          VENTANA DE COMODINES — Usá tus comodines ahora antes de que cierre
+                        </div>
+                      )}
+
+                      {/* Comodines: se usan desde el panel del capitán en la página del partido */}
+                      {isComodinWindow && (
+                        <div className="vertigo-action-bar" style={{ marginBottom: "16px" }}>
+                          <Link href={`/partido/${m.id}`} className="vertigo-btn vertigo-btn-primary" style={{ padding: "11px 22px" }}>
+                            <Sparkles style={{ width: 13, height: 13 }} />
+                            Usar comodines ahora
+                            <ArrowRight style={{ width: 13, height: 13 }} />
+                          </Link>
+                        </div>
+                      )}
+
+                      {/* CTA */}
+                      <div className="vertigo-action-bar" style={{ marginTop: "0", paddingTop: "16px", borderTop: "1px solid var(--vertigo-line-soft)" }}>
+                        <Link href={`/partido/${m.id}`} className="vertigo-btn vertigo-btn-primary" style={{ marginLeft: "auto", padding: "12px 28px" }}>
+                          Ver partido <ArrowRight style={{ width: 15, height: 15 }} />
                         </Link>
                       </div>
-                    )}
-
-                    {/* CTA */}
-                    <div className="vertigo-action-bar" style={{ marginTop: "0", paddingTop: "16px", borderTop: "1px solid var(--vertigo-line-soft)" }}>
-                      <Link href={`/partido/${m.id}`} className="vertigo-btn vertigo-btn-primary" style={{ marginLeft: "auto", padding: "12px 28px" }}>
-                        Ver partido <ArrowRight style={{ width: 15, height: 15 }} />
-                      </Link>
                     </div>
                   </div>
                 );
@@ -429,6 +602,9 @@ export default async function MisPartidosPage() {
               })}
             </div>
           )}
+        </div>
+        <div className="mt-6">
+          <VertigoFooter />
         </div>
       </main>
     </div>

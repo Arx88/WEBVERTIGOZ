@@ -1,18 +1,11 @@
-import AuthBadge from "@/components/auth/auth-badge";
-
 /**
- * Layout del grupo (public): monta la píldora de sesión fija
- * arriba a la derecha en todas las páginas públicas.
+ * Layout del grupo (public): las páginas internas montan su propio
+ * SiteNav con el chip de sesión integrado; el landing monta AuthBadge fijo.
  */
 export default function PublicLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <>
-      <AuthBadge />
-      {children}
-    </>
-  );
+  return <>{children}</>;
 }

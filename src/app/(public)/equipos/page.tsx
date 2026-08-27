@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Shield, Users } from "lucide-react";
 import { getSupabaseServer } from "@/lib/supabase/server";
+import SiteNav from "@/components/nav/site-nav";
 
 export const dynamic = "force-dynamic";
 
@@ -66,17 +67,7 @@ export default async function EquiposPage() {
 
   return (
     <div className="vertigo-page vertigo-shell vertigo-fade-in">
-      <header className="vertigo-header">
-        <div className="vertigo-header-left">
-          <Link href="/" className="vertigo-logo">VÉRTIGO</Link>
-          <span className="vertigo-section-tag">EQUIPOS</span>
-        </div>
-        <div className="vertigo-header-right">
-          <span className="vertigo-badge vertigo-badge-purple">
-            {equipos.length} inscriptos
-          </span>
-        </div>
-      </header>
+      <SiteNav />
 
       <main className="vertigo-content" style={{ maxWidth: "1200px", padding: "40px 32px" }}>
         {/* ═══ HERO CINEMATOGRÁFICO ═══ */}
@@ -125,6 +116,11 @@ export default async function EquiposPage() {
               Cada equipo inscribió a sus 3 jugadores, eligió su emblema y su pool de civilizaciones.
               Acá están todos, con su identidad.
             </p>
+            <div style={{ marginTop: 16 }}>
+              <span className="vertigo-badge vertigo-badge-purple">
+                {equipos.length} inscriptos
+              </span>
+            </div>
           </div>
         </div>
 

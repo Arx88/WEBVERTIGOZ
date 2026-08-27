@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Trophy, Medal, TrendingUp } from "lucide-react";
 import { getSupabaseServer } from "@/lib/supabase/server";
+import SiteNav from "@/components/nav/site-nav";
 
 export const dynamic = "force-dynamic";
 
@@ -105,20 +106,7 @@ export default async function StandingsPage() {
 
   return (
     <div className="vertigo-page vertigo-shell vertigo-fade-in">
-      <header className="vertigo-header">
-        <div className="vertigo-header-left">
-          <Link href="/" className="vertigo-logo">VÉRTIGO</Link>
-          <span className="vertigo-section-tag">TABLA</span>
-        </div>
-        <div className="vertigo-header-right">
-          <Link href="/resultados" className="vertigo-btn vertigo-btn-ghost" style={{ padding: "8px 16px", fontSize: "11px" }}>
-            Resultados
-          </Link>
-          <Link href="/bracket" className="vertigo-btn vertigo-btn-ghost" style={{ padding: "8px 16px", fontSize: "11px" }}>
-            Bracket
-          </Link>
-        </div>
-      </header>
+      <SiteNav />
 
       <main className="vertigo-content">
         <span className="vertigo-kicker">STANDINGS</span>

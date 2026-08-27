@@ -2,13 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Shield, Users, Swords, History, Sparkles, Crown, Star, Trophy } from "lucide-react";
 import { getSupabaseServer } from "@/lib/supabase/server";
-import { civName } from "@/lib/constants/civs";
+import { CivCarousel } from "@/components/team/civ-carousel";
 import { TeamBannerBg } from "@/components/team/team-banner-bg";
 import { ComodinesGrid } from "@/components/team/comodin-cards";
 import TeamRealtimeWrapper, {
   type NextMatchData,
 } from "./team-realtime-wrapper";
 import { fmt } from "@/lib/format";
+import SiteNav from "@/components/nav/site-nav";
 
 export const dynamic = "force-dynamic";
 
@@ -366,14 +367,7 @@ export default async function EquipoDetallePage({
 
   return (
     <div className="vertigo-page vertigo-shell vertigo-fade-in">
-      <header className="vertigo-header">
-        <div className="vertigo-header-left">
-          <Link href="/" className="vertigo-logo">VÉRTIGO</Link>
-          <span className="vertigo-section-tag">REINO</span>
-        </div>
-        {/* Sin botón a la derecha: ahí vive el chip de usuario (layout público) */}
-        <div className="vertigo-header-right" />
-      </header>
+      <SiteNav />
 
       <main className="vertigo-content">
         {/* HEADER DEL REINO — banner cinematográfico con emblema real */}
@@ -397,6 +391,7 @@ export default async function EquipoDetallePage({
               emblemUrl={emblemUrl}
               seed={data.teamAccount.id}
               backgroundImage="/brand/hero-trofeo.png"
+              backgroundVideo="/landing/mi-reino-hero.mp4"
             />
             {/* Contenido superpuesto */}
             <div
@@ -528,36 +523,34 @@ export default async function EquipoDetallePage({
           </>
         )}
 
-        {/* POOL DE CIVS */}
+        {/* POOL DE CIVS — carousel de escudos */}
         {data.registration.baseCivIds.length > 0 && (
           <>
             <div className="vertigo-subtitle">
               <Swords style={{ width: 12, height: 12, color: "var(--vertigo-purple-soft)" }} />
               Pool de civilizaciones
+              {data.registration.extraCivIds.length > 0 && (
+                <span
+                  style={{
+                    marginLeft: "auto",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    fontSize: 9,
+                    letterSpacing: "1.8px",
+                    color: "var(--vertigo-gold)",
+                  }}
+                >
+                  <Trophy style={{ width: 11, height: 11 }} />
+                  Dorado = extra · solo finalistas
+                </span>
+              )}
             </div>
             <div className="vertigo-card mb-8">
-              <div className="flex flex-wrap gap-2 mb-5">
-                {data.registration.baseCivIds.map((civId) => (
-                  <span key={civId} className="vertigo-badge vertigo-badge-purple">
-                    {civName(civId)}
-                  </span>
-                ))}
-              </div>
-              {data.registration.extraCivIds.length > 0 && (
-                <>
-                  <div className="vertigo-info-card-label" style={{ marginBottom: 10 }}>
-                    <Trophy style={{ width: 11, height: 11 }} />
-                    Civs extra (solo finalistas)
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {data.registration.extraCivIds.map((civId) => (
-                      <span key={civId} className="vertigo-badge vertigo-badge-warning">
-                        {civName(civId)}
-                      </span>
-                    ))}
-                  </div>
-                </>
-              )}
+              <CivCarousel
+                baseCivs={data.registration.baseCivIds}
+                extraCivs={data.registration.extraCivIds}
+              />
             </div>
           </>
         )}

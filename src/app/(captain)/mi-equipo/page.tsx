@@ -3,7 +3,7 @@ import Link from "next/link";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { logoutAction } from "@/server/actions/auth";
 import { refreshTeamIntelAction } from "@/server/actions/intel";
-import { CaptainHeader } from "@/components/captain/captain-header";
+import SiteNav from "@/components/nav/site-nav";
 import { TeamBannerBg } from "@/components/team/team-banner-bg";
 import { MatchCountdown } from "@/components/team/countdown";
 import { IntelPanel } from "@/components/team/intel-panel";
@@ -278,12 +278,7 @@ export default async function MiEquipoPage() {
 
   return (
     <div className="vertigo-page vertigo-shell">
-      <CaptainHeader
-        active="reino"
-        teamTag={team.tagline ?? undefined}
-        teamName={team.name}
-        emblemUrl={emblemUrl}
-      />
+      <SiteNav />
 
       <main className="vertigo-content vertigo-scroll vertigo-fade-in">
 
@@ -928,6 +923,7 @@ export default async function MiEquipoPage() {
 function NotRegistered() {
   return (
     <div className="vertigo-page vertigo-shell">
+      <SiteNav />
       <main className="vertigo-content vertigo-scroll vertigo-fade-in">
         <div className="vertigo-page-title">
           <span className="vertigo-kicker">MI REINO</span>

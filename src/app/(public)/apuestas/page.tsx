@@ -7,6 +7,7 @@ import { loadApuestasData, type MyBet } from "./apuestas-data";
 import WelcomePointsModal from "./welcome-points-modal";
 import LlaveCard from "./llave-card";
 import VertigoFooter from "@/components/shared/vertigo-footer";
+import SiteNav from "@/components/nav/site-nav";
 import { ART_REY } from "@/lib/art";
 import { fmt } from "@/lib/format";
 
@@ -65,20 +66,7 @@ export default async function ApuestasPage() {
     <div className="vertigo-page vertigo-shell vertigo-fade-in">
       <WelcomePointsModal points={WELCOME_POINTS} />
 
-      <header className="vertigo-header">
-        <div className="vertigo-header-left">
-          <Link href="/" className="vertigo-logo">VÉRTIGO</Link>
-          <span className="vertigo-section-tag">APUESTAS</span>
-        </div>
-        <div className="vertigo-header-right">
-          <Link href="/bracket" className="vertigo-btn vertigo-btn-ghost" style={{ padding: "8px 16px", fontSize: "11px" }}>
-            Bracket
-          </Link>
-          <Link href="/resultados" className="vertigo-btn vertigo-btn-ghost" style={{ padding: "8px 16px", fontSize: "11px" }}>
-            Resultados
-          </Link>
-        </div>
-      </header>
+      <SiteNav />
 
       <main className="vertigo-content">
         {/* ═══ HERO CINEMATOGRÁFICO — la mina de oro del espectador ═══ */}

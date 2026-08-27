@@ -3,6 +3,7 @@ import { Mic, Twitch, Youtube, Crown, Users, Swords, Radio, ChevronRight } from 
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { ART_PREDICADOR } from "@/lib/art";
 import VertigoFooter from "@/components/shared/vertigo-footer";
+import SiteNav from "@/components/nav/site-nav";
 import HeroStat from "@/components/shared/hero-stat";
 import { fmt } from "@/lib/format";
 
@@ -107,20 +108,7 @@ export default async function CastersPage() {
 
   return (
     <div className="vertigo-page vertigo-shell vertigo-fade-in">
-      <header className="vertigo-header">
-        <div className="vertigo-header-left">
-          <Link href="/" className="vertigo-logo">VÉRTIGO</Link>
-          <span className="vertigo-section-tag">CASTERS</span>
-        </div>
-        <div className="vertigo-header-right">
-          <Link href="/bracket" className="vertigo-btn vertigo-btn-ghost" style={{ padding: "8px 16px", fontSize: "11px" }}>
-            Bracket
-          </Link>
-          <Link href="/registro-caster" className="vertigo-btn vertigo-btn-primary" style={{ padding: "8px 16px", fontSize: "11px" }}>
-            Quiero castear
-          </Link>
-        </div>
-      </header>
+      <SiteNav />
 
       <main className="vertigo-content" style={{ maxWidth: "none", padding: "40px 32px" }}>
         {/* ═══ HERO — el predicador ante el pueblo ═══ */}

@@ -76,9 +76,13 @@ export async function getProfiles(profileIds: number[]): Promise<Aoe2ProfileSumm
 }
 
 /**
- * Calcula el maxRating RM 1v1 a partir de un perfil ya descargado.
- * Fuente principal: ratings history (extend=stats,ratings).
- * Fallback: leaderboards.
+ * Calcula maxRating y rating actual RM 1v1 a partir de un perfil ya descargado.
+ * Combina las dos fuentes disponibles:
+ *  - ratings history (extend=stats,ratings): historial de partidas ranked.
+ *    OJO: Companion lo devuelve en orden DESCENDENTE (más reciente primero),
+ *    así que se ordena explícitamente por fecha antes de leer el actual.
+ *  - leaderboards: rating live del ladder + maxRating histórico de toda la
+ *    cuenta (puede estar vacío si el perfil no figura en el ladder).
  */
 export function getMaxRatingFromProfile(profile: Aoe2Profile): {
   maxRating: number | null;
@@ -86,40 +90,37 @@ export function getMaxRatingFromProfile(profile: Aoe2Profile): {
   rank: number | null;
   verificationStatus: "verified" | "hidden" | "failed";
 } {
+  const verificationStatus = profile.verified ? "verified" : "hidden";
+
   const ratingsHistory = profile.ratings as
     | Array<{ leaderboardId: string; ratings: Array<{ rating: number; date: string }> }>
     | undefined;
-
-  const rm1v1Ratings = ratingsHistory?.find((r) => r.leaderboardId === "rm_1v1");
-
-  if (rm1v1Ratings && rm1v1Ratings.ratings && rm1v1Ratings.ratings.length > 0) {
-    const allRatings = rm1v1Ratings.ratings.map((r) => r.rating);
-    return {
-      maxRating: Math.max(...allRatings),
-      currentRating: allRatings[allRatings.length - 1],
-      rank: null,
-      verificationStatus: profile.verified ? "verified" : "hidden",
-    };
-  }
-
+  const rm1v1History = ratingsHistory?.find((r) => r.leaderboardId === "rm_1v1");
   const rm1v1Leaderboard = profile.leaderboards?.find(
     (l) => l.leaderboardId === "rm_1v1"
   );
 
-  if (rm1v1Leaderboard && rm1v1Leaderboard.maxRating != null) {
-    return {
-      maxRating: rm1v1Leaderboard.maxRating,
-      currentRating: rm1v1Leaderboard.rating ?? null,
-      rank: rm1v1Leaderboard.rank ?? null,
-      verificationStatus: profile.verified ? "verified" : "hidden",
-    };
-  }
+  // Ordenar por fecha ascendente: el "actual" es el último, sin depender
+  // del orden en que la API devuelva el array.
+  const sorted = [...(rm1v1History?.ratings ?? [])].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+  const histMax = sorted.length > 0 ? Math.max(...sorted.map((r) => r.rating)) : null;
+  const histCurrent = sorted.length > 0 ? sorted[sorted.length - 1].rating : null;
+
+  const lbMax = rm1v1Leaderboard?.maxRating ?? null;
+  const lbCurrent = rm1v1Leaderboard?.rating ?? null;
+
+  const maxCandidates = [histMax, lbMax].filter((v): v is number => v != null);
+  // Rating actual: el del ladder es live; el del historial llega hasta la
+  // última partida registrada.
+  const current = lbCurrent ?? histCurrent;
 
   return {
-    maxRating: null,
-    currentRating: null,
-    rank: null,
-    verificationStatus: profile.verified ? "verified" : "hidden",
+    maxRating: maxCandidates.length > 0 ? Math.max(...maxCandidates) : null,
+    currentRating: current,
+    rank: rm1v1Leaderboard?.rank ?? null,
+    verificationStatus,
   };
 }
 

@@ -258,6 +258,37 @@ export default function TeamRealtimeWrapper({ teamRegistrationId, initialNextMat
 
   return (
     <div className="vertigo-card">
+      {/* Fondo animado de la próxima partida */}
+      <video
+        autoPlay
+        muted
+        loop
+        playsInline
+        src="/landing/proxima-partida-bg.mp4"
+        aria-hidden="true"
+        tabIndex={-1}
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          objectPosition: "center",
+          pointerEvents: "none",
+        }}
+      />
+      {/* Velo oscuro para mantener la legibilidad del contenido */}
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          background:
+            "linear-gradient(180deg, rgba(7,3,16,0.70) 0%, rgba(7,3,16,0.78) 55%, rgba(7,3,16,0.88) 100%)",
+          pointerEvents: "none",
+        }}
+      />
+      <div style={{ position: "relative", zIndex: 1 }}>
       <div className="vertigo-card-header">
         <div className="vertigo-card-title">
           <Calendar
@@ -364,6 +395,7 @@ export default function TeamRealtimeWrapper({ teamRegistrationId, initialNextMat
           Ver partido
           <ArrowRight style={{ width: 14, height: 14 }} />
         </Link>
+      </div>
       </div>
     </div>
   );

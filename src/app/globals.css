@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @import "../styles/ruleta.css";
-@import "../styles/vertigo-design-system.css";
+@import "../styles/vertigo-design-system.css"; /* design system: nav unificado, logo imagen 60px, iconos, barra progreso */
 @import "../styles/bracket.css";
 @import "../styles/tutorial.css";
 

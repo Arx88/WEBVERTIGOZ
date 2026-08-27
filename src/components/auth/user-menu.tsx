@@ -76,7 +76,7 @@ export default function UserMenu({ displayName, role }: { displayName: string; r
         <span className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-b from-[#ff2e9e] to-[#7c3aed] font-cinzel text-[12px] font-bold tracking-wide text-white">
           {initials}
         </span>
-        <span className="max-w-[140px] truncate text-[13px] font-medium text-[#f2eef7]">
+        <span className="hidden max-w-[140px] truncate text-[13px] font-medium text-[#f2eef7] sm:block">
           {displayName}
         </span>
         <ChevronDown

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Crown, Star, ExternalLink, History, Trophy, MapPin, Swords, Users } from "lucide-react";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { fmt } from "@/lib/format";
+import SiteNav from "@/components/nav/site-nav";
 
 export const dynamic = "force-dynamic";
 
@@ -176,19 +177,7 @@ export default async function JugadorPage({
 
   return (
     <div className="vertigo-page vertigo-shell vertigo-fade-in">
-      <header className="vertigo-header">
-        <div className="vertigo-header-left">
-          <Link href="/" className="vertigo-logo">VÉRTIGO</Link>
-          <span className="vertigo-section-tag">JUGADOR</span>
-        </div>
-        <div className="vertigo-header-right">
-          {data.team && (
-            <Link href={`/equipos/${data.team.id}`} className="vertigo-btn vertigo-btn-ghost" style={{ padding: "8px 16px", fontSize: "11px" }}>
-              ← {data.team.name}
-            </Link>
-          )}
-        </div>
-      </header>
+      <SiteNav />
 
       <main className="vertigo-content">
         {/* HEADER */}
@@ -231,6 +220,15 @@ export default async function JugadorPage({
               {data.platform && <span className="vertigo-badge vertigo-badge-purple">{data.platform}</span>}
             </div>
           </div>
+          {data.team && (
+            <Link
+              href={`/equipos/${data.team.id}`}
+              className="vertigo-btn vertigo-btn-ghost"
+              style={{ padding: "8px 16px", fontSize: "11px", marginLeft: "auto" }}
+            >
+              ← {data.team.name}
+            </Link>
+          )}
         </div>
 
         {/* STATS */}

@@ -6,6 +6,7 @@ import BracketTree, {
   type BracketMatchInfo,
 } from "@/components/bracket/bracket-tree";
 import VertigoFooter from "@/components/shared/vertigo-footer";
+import SiteNav from "@/components/nav/site-nav";
 
 export const dynamic = "force-dynamic";
 
@@ -158,20 +159,7 @@ export default async function BracketPage() {
 
   return (
     <div className="vertigo-page vertigo-shell vertigo-fade-in">
-      <header className="vertigo-header">
-        <div className="vertigo-header-left">
-          <Link href="/" className="vertigo-logo">VÉRTIGO</Link>
-          <span className="vertigo-section-tag">BRACKET</span>
-        </div>
-        <div className="vertigo-header-right">
-          <Link href="/apuestas" className="vertigo-btn vertigo-btn-ghost" style={{ padding: "8px 16px", fontSize: "11px" }}>
-            Apuestas
-          </Link>
-          <Link href="/resultados" className="vertigo-btn vertigo-btn-ghost" style={{ padding: "8px 16px", fontSize: "11px" }}>
-            Resultados
-          </Link>
-        </div>
-      </header>
+      <SiteNav />
 
       <main className="vertigo-content" style={{ maxWidth: "none", padding: "40px 32px" }}>
         {/* ═══ HERO ═══ */}
@@ -185,15 +173,19 @@ export default async function BracketPage() {
             boxShadow: "var(--shadow-lg)",
           }}
         >
-          {/* Fondo: castillo + overlay violeta */}
-          <div
+          {/* Fondo: video de marca en loop (el mismo del hero de Mi Reino) */}
+          <video
+            autoPlay
+            muted
+            loop
+            playsInline
+            src="/landing/mi-reino-hero.mp4"
+            poster="/landing/fondo-castillo.webp"
             style={{
               position: "absolute", inset: 0,
-              backgroundImage: "url('/landing/fondo-castillo.webp')",
-              backgroundSize: "cover",
-              backgroundPosition: "center 30%",
-              opacity: 0.32,
-              transform: "scale(1.04)",
+              width: "100%", height: "100%",
+              objectFit: "cover",
+              objectPosition: "center 30%",
             }}
           />
           <div

@@ -5,6 +5,7 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 import { loadMatch } from "./match-data";
 import MatchRealtimeWrapper from "./match-realtime-wrapper";
 import VertigoFooter from "@/components/shared/vertigo-footer";
+import SiteNav from "@/components/nav/site-nav";
 
 export const dynamic = "force-dynamic";
 
@@ -43,17 +44,7 @@ export default async function PartidoPage({
     // Si no encontramos el match, mostramos un estado "no encontrado" con el diseño.
     return (
       <div className="vertigo-page vertigo-shell vertigo-fade-in">
-        <header className="vertigo-header">
-          <div className="vertigo-header-left">
-            <Link href="/" className="vertigo-logo">VÉRTIGO</Link>
-            <span className="vertigo-section-tag">PARTIDO</span>
-          </div>
-          <div className="vertigo-header-right">
-            <Link href="/resultados" className="vertigo-btn vertigo-btn-ghost" style={{ padding: "8px 16px", fontSize: "11px" }}>
-              ← Resultados
-            </Link>
-          </div>
-        </header>
+        <SiteNav />
         <main className="vertigo-content">
           <div className="vertigo-card">
             <div className="vertigo-empty">
@@ -68,6 +59,11 @@ export default async function PartidoPage({
               </p>
             </div>
           </div>
+          <div style={{ textAlign: "center", marginTop: 20 }}>
+            <Link href="/resultados" className="vertigo-btn vertigo-btn-ghost" style={{ padding: "8px 16px", fontSize: "11px" }}>
+              ← Volver a resultados
+            </Link>
+          </div>
         </main>
       </div>
     );
@@ -75,20 +71,7 @@ export default async function PartidoPage({
 
   return (
     <div className="vertigo-page vertigo-shell vertigo-fade-in">
-      <header className="vertigo-header">
-        <div className="vertigo-header-left">
-          <Link href="/" className="vertigo-logo">VÉRTIGO</Link>
-          <span className="vertigo-section-tag">PARTIDO</span>
-        </div>
-        <div className="vertigo-header-right">
-          <Link href="/bracket" className="vertigo-btn vertigo-btn-ghost" style={{ padding: "8px 16px", fontSize: "11px" }}>
-            Bracket
-          </Link>
-          <Link href="/resultados" className="vertigo-btn vertigo-btn-ghost" style={{ padding: "8px 16px", fontSize: "11px" }}>
-            Resultados
-          </Link>
-        </div>
-      </header>
+      <SiteNav />
 
       <main className="vertigo-content">
         <MatchRealtimeWrapper matchId={id} initialMatch={initialMatch} captainContext={captainContext} spectatorContext={spectatorContext} />

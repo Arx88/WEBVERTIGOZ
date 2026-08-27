@@ -121,13 +121,12 @@ html:has(.vertigo-page) {
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--vertigo-line-soft);
-  /* Reserva a la derecha la zona completa del chip de usuario fijo:
-     ni la nav ni los botones pueden quedar tapados, en ningún ancho */
-  padding: 0 224px 0 32px;
-  height: 64px;
+  padding: 0 24px;
+  height: 80px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16px;
   box-shadow: 0 1px 0 rgba(124, 58, 237, 0.06);
 }
 
@@ -138,34 +137,25 @@ html:has(.vertigo-page) {
   min-width: 0;
 }
 
-/* Logo con más presencia */
+/* Logo — imagen de marca con glow violeta */
 .vertigo-logo {
-  font-family: Cinzel, serif;
-  font-weight: 700;
-  font-size: 22px;
-  color: var(--vertigo-purple-soft);
-  letter-spacing: 0.04em;
-  text-shadow: 0 0 16px rgba(124, 58, 237, 0.5);
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
   text-decoration: none;
-  transition: all 0.3s var(--vertigo-ease);
 }
 
-.vertigo-logo:hover {
-  color: var(--vertigo-purple-pale);
-  text-shadow: 0 0 24px rgba(124, 58, 237, 0.7);
+.vertigo-logo-img {
+  height: 60px;
+  width: auto;
+  display: block;
+  filter: drop-shadow(0 0 12px rgba(124, 58, 237, 0.35));
+  transition: filter 0.3s var(--vertigo-ease), transform 0.3s var(--vertigo-ease);
 }
 
-/* Tag de sección mejorado */
-.vertigo-section-tag {
-  font-size: 9px;
-  font-weight: 700;
-  color: var(--vertigo-faint);
-  letter-spacing: 0.35em;
-  text-transform: uppercase;
-  padding: 4px 10px;
-  background: rgba(124, 58, 237, 0.08);
-  border: 1px solid rgba(124, 58, 237, 0.15);
-  border-radius: 4px;
+.vertigo-logo:hover .vertigo-logo-img {
+  filter: drop-shadow(0 0 18px rgba(124, 58, 237, 0.6));
+  transform: scale(1.04);
 }
 
 .vertigo-header-right {
@@ -190,6 +180,9 @@ html:has(.vertigo-page) {
 }
 
 .vertigo-nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 1.8px;
@@ -201,6 +194,62 @@ html:has(.vertigo-page) {
   transition: all 0.25s var(--vertigo-ease);
   position: relative;
   white-space: nowrap;
+}
+
+/* Iconos del nav — pop al hover, brillo pulsante cuando el link está activo */
+.vertigo-nav-icon {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+
+.vertigo-nav a:hover .vertigo-nav-icon {
+  animation: vertigo-icon-pop 0.5s var(--vertigo-ease);
+}
+
+.vertigo-nav a.active .vertigo-nav-icon {
+  animation: vertigo-icon-glow 2.6s ease-in-out infinite;
+}
+
+@keyframes vertigo-icon-pop {
+  0% { transform: scale(1) rotate(0deg); }
+  35% { transform: scale(1.4) rotate(-8deg); }
+  70% { transform: scale(0.92) rotate(3deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+@keyframes vertigo-icon-glow {
+  0%, 100% { filter: drop-shadow(0 0 0 rgba(167, 139, 250, 0)); transform: translateY(0); }
+  50% { filter: drop-shadow(0 0 5px rgba(167, 139, 250, 0.85)); transform: translateY(-1px); }
+}
+
+/* Separador vertical entre grupos del nav (personal | torneo) */
+.vertigo-nav-sep {
+  width: 1px;
+  height: 18px;
+  flex-shrink: 0;
+  margin: 0 6px;
+  background: linear-gradient(180deg, transparent, rgba(212, 175, 55, 0.45), transparent);
+}
+
+/* Barrita de progreso fucsia — se llena estilo loading al navegar */
+.vertigo-nav-progress {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 2px;
+  pointer-events: none;
+  z-index: 51;
+}
+
+.vertigo-nav-progress-bar {
+  height: 100%;
+  width: 0%;
+  opacity: 0;
+  background: linear-gradient(90deg, #ff2e9e, #e879f9);
+  box-shadow: 0 0 8px rgba(255, 46, 158, 0.8), 0 0 18px rgba(255, 46, 158, 0.35);
+  border-radius: 0 2px 2px 0;
 }
 
 .vertigo-nav a::after {
@@ -1344,91 +1393,47 @@ html:has(.vertigo-page) {
   }
 }
 
-/* Rango tablet (769–899px): con el chip fijo de usuario arriba a la derecha,
-   la nav de una sola fila queda corta y el último link quedaba tapado.
-   Se aplica el mismo layout de dos filas del móvil solo para el header. */
-@media (max-width: 899px) and (min-width: 769px) {
+/* ≤899px: nav en dos filas — fila 1 = logo + chip de sesión (a la derecha,
+   centrado en vertical), fila 2 = la nav completa con scroll horizontal.
+   Grid + display:contents para que el chip viva en la fila del logo
+   aunque la nav esté anidada dentro de .vertigo-header-left. */
+@media (max-width: 899px) {
   .vertigo-header {
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    column-gap: 16px;
+    row-gap: 0;
     height: auto;
-    padding: 0 16px 6px;
-    row-gap: 2px;
-  }
-
-  .vertigo-nav {
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-  .vertigo-nav::-webkit-scrollbar {
-    display: none;
+    padding: 4px 16px 8px;
   }
 
   .vertigo-header-left {
-    flex: 1 1 auto;
-    min-width: 0;
-    min-height: 48px;
-    flex-wrap: wrap;
+    display: contents;
+  }
+  .vertigo-header-left .vertigo-logo {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: center;
   }
   .vertigo-header-left .vertigo-nav {
-    order: 99;
-    flex: 1 0 100%;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    margin-top: 2px;
   }
 
   .vertigo-header-right {
-    padding-right: 0;
-    flex: 1 0 100%;
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    align-self: center;
   }
 
-  .vertigo-header .vertigo-section-tag {
-    display: none;
-  }
-
-  .vertigo-header-team,
-  .vertigo-header-sep {
-    display: none !important;
+  .vertigo-logo-img {
+    height: 46px;
   }
 }
 
 @media (max-width: 768px) {
-  .vertigo-header {
-    flex-wrap: wrap;
-    height: auto;
-    padding: 0 16px 6px;
-    row-gap: 2px;
-  }
-
-  .vertigo-nav {
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-  .vertigo-nav::-webkit-scrollbar {
-    display: none;
-  }
-
-  /* Móvil: fila 1 = logo (el chip fijo de usuario convive a la derecha),
-     fila 2 = la nav baja completa y scrollea horizontal. */
-  .vertigo-header-left {
-    flex: 1 1 auto;
-    min-width: 0;
-    min-height: 48px;
-    flex-wrap: wrap;
-  }
-  .vertigo-header-left .vertigo-nav {
-    order: 99;
-    flex: 1 0 100%;
-  }
-
-  /* En móvil cada cosa en su fila: nada queda debajo del chip fijo */
-  .vertigo-header-right {
-    padding-right: 0;
-    flex: 1 0 100%;
-  }
-
-  /* El tag de sección del header es decorativo: en móvil estorba bajo el chip */
-  .vertigo-header .vertigo-section-tag {
-    display: none;
-  }
-
   /* Hero del reino: acciones en fila alineadas a la izquierda y strip a 2 columnas */
   .vertigo-hero-identity {
     padding: 30px 22px 26px !important;
@@ -1456,12 +1461,6 @@ html:has(.vertigo-page) {
     border-top: 1px solid var(--vertigo-line-soft);
     padding: 14px 0 0 !important;
     text-align: left !important;
-  }
-
-  /* En móvil el header no da para logo + identidad + nav + chip: queda logo + nav */
-  .vertigo-header-team,
-  .vertigo-header-sep {
-    display: none !important;
   }
 
   .vertigo-admin-shell {

@@ -17,12 +17,16 @@ export default function VertigoFooter() {
         boxShadow: "0 -24px 60px rgba(0,0,0,0.35)",
       }}
     >
-      {/* Arte: la bandera y el campamento */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={ART_BANDERA}
-        alt=""
+      {/* Arte: la bandera y el campamento, en video loop (poster = imagen estática) */}
+      <video
+        autoPlay
+        muted
+        loop
+        playsInline
+        src="/landing/bandera-loop.mp4"
+        poster={ART_BANDERA}
         aria-hidden
+        tabIndex={-1}
         style={{
           position: "absolute",
           inset: 0,
@@ -31,6 +35,7 @@ export default function VertigoFooter() {
           objectFit: "cover",
           objectPosition: "center 42%",
           opacity: 0.52,
+          pointerEvents: "none",
         }}
       />
       {/* Fundido vertical: la página se disuelve en la imagen y vuelve a disolverse */}
