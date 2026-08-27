@@ -12,7 +12,7 @@
  */
 
 import Image from "next/image";
-import { artForMode, artForMap, ART_FALLBACK, ART_MINA_ORO } from "@/lib/art";
+import { artForMode, artForMap, ART_FALLBACK } from "@/lib/art";
 import { Trophy, Dices, Layers, Map as MapIcon, Zap } from "lucide-react";
 
 export interface MatchHeroProps {
@@ -77,11 +77,14 @@ export default function MatchHero({
             }}
           />
         ) : (
-          // Sin sorteo: la mina de oro — el arte de "Modo por sortear"
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={ART_MINA_ORO}
-            alt=""
+          // Sin sorteo: la mina de oro animada — el arte de "Modo por sortear"
+          <video
+            src="/brand/mina-de-oro.mp4"
+            autoPlay
+            muted
+            loop
+            playsInline
+            aria-hidden
             style={{
               width: "100%",
               height: "100%",
