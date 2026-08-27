@@ -47,6 +47,10 @@ export default async function SiteNav() {
     { href: "/fixture", label: "Fixture", icon: "calendar" },
   ];
 
+  // Streams de casters: visible para TODOS (participantes, apostadores,
+  // casters, anónimos) — es la vidriera pública del torneo.
+  const casters: NavItem = { href: "/casters", label: "Casters", icon: "radio" };
+
   let items: NavItem[];
   if (user && role === "owner") {
     items = [
@@ -56,6 +60,7 @@ export default async function SiteNav() {
       { ...torneo[0], sepBefore: true },
       torneo[1],
       torneo[2],
+      { ...casters, sepBefore: true },
     ];
   } else if (user && role === "spectator") {
     items = [
@@ -63,6 +68,7 @@ export default async function SiteNav() {
       { href: "/apuestas", label: "Apuestas", icon: "coins" },
       torneo[2],
       torneo[1],
+      { ...casters, sepBefore: true },
     ];
   } else if (!user) {
     items = [
@@ -70,9 +76,10 @@ export default async function SiteNav() {
       torneo[1],
       torneo[2],
       { href: "/apuestas", label: "Apuestas", icon: "coins" },
+      { ...casters, sepBefore: true },
     ];
   } else {
-    items = [...torneo];
+    items = [...torneo, { ...casters, sepBefore: true }];
     if (role === "admin" || role === "super_admin") {
       items.push({ href: "/admin", label: "Admin", icon: "settings", sepBefore: true });
     }

@@ -9,6 +9,7 @@ import {
 import { Mic, Twitch, Youtube, Check, ExternalLink, Trash2, EyeOff, Eye, Clock } from "lucide-react";
 import { ART_PREDICADOR } from "@/lib/art";
 import HeroStat from "@/components/shared/hero-stat";
+import VertigoSelect from "@/components/admin/vertigo-select";
 import { fmt } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -144,11 +145,15 @@ export default async function AdminCastersPage() {
 
               <div className="vertigo-field">
                 <label>Tier</label>
-                <select name="tier" defaultValue="community">
-                  <option value="official">Oficial — stream principal</option>
-                  <option value="secondary">Secundario — co-stream</option>
-                  <option value="community">Comunidad — stream libre</option>
-                </select>
+                <VertigoSelect
+                  name="tier"
+                  defaultValue="community"
+                  options={[
+                    { value: "official", label: "Oficial — stream principal" },
+                    { value: "secondary", label: "Secundario — co-stream" },
+                    { value: "community", label: "Comunidad — stream libre" },
+                  ]}
+                />
               </div>
 
               <div className="vertigo-field">
@@ -323,16 +328,18 @@ function CasterAdminCard({ c, llaves }: { c: any; llaves: number }) {
       <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-[var(--vertigo-line)]">
         <form action={setCasterTierAction} className="flex items-center gap-2">
           <input type="hidden" name="caster_id" value={c.id} />
-          <select
+          <VertigoSelect
             name="tier"
             defaultValue={c.tier}
-            className="!w-auto text-[12px]"
+            compact
             title="Tier del caster"
-          >
-            <option value="official">Oficial</option>
-            <option value="secondary">Secundario</option>
-            <option value="community">Comunidad</option>
-          </select>
+            className="w-auto"
+            options={[
+              { value: "official", label: "Oficial" },
+              { value: "secondary", label: "Secundario" },
+              { value: "community", label: "Comunidad" },
+            ]}
+          />
           <button type="submit" className="vertigo-btn vertigo-btn-ghost !py-1.5 !px-3 text-[12px]">
             <Check style={{ width: 12, height: 12 }} />
             Aplicar tier

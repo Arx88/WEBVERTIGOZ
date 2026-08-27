@@ -120,6 +120,32 @@ export async function createEditionAction(
 
     const service = getSupabaseServiceRole() as any;
 
+    // Invariante: un solo torneo "vivo" (borrador / inscripciones / en curso).
+    // Crear otro exige cerrar el actual (finalizarlo) o que su fecha de fin ya
+    // haya pasado — si no, habría dos ediciones compitiendo por inscripciones,
+    // bracket y fixture público.
+    const STATUS_LABEL: Record<string, string> = {
+      draft: "borrador",
+      registration: "inscripciones abiertas",
+      active: "en curso",
+    };
+    const { data: viva } = await service
+      .from("tournament_edition")
+      .select("id, name, status, ends_at")
+      .neq("status", "finished")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (viva) {
+      const ended = viva.ends_at && new Date(viva.ends_at).getTime() < Date.now();
+      if (!ended) {
+        return {
+          ok: false,
+          error: `Ya hay un torneo vivo: «${viva.name}» (${STATUS_LABEL[viva.status] ?? viva.status}). Finalizalo desde Ciclo de vida antes de crear otro.`,
+        };
+      }
+    }
+
     const { data: clash } = await service
       .from("tournament_edition")
       .select("id")
@@ -255,6 +281,26 @@ export async function setEditionStatusAction(
     const allowed = ALLOWED_TRANSITIONS[edition.status] ?? [];
     if (!allowed.includes(next)) {
       return { ok: false, error: `Transición inválida: ${edition.status} → ${next}.` };
+    }
+
+    // Invariante: una sola edición con inscripciones abiertas. Todo el sistema
+    // (wizard, cupo del landing, anti-doble) resuelve "la edición abierta"
+    // tomando la más nueva — abrir dos deja a la vieja como zombi: figura
+    // abierta pero inalcanzable. Se bloquea explícitamente.
+    if (next === "registration") {
+      const { data: otraAbierta } = await service
+        .from("tournament_edition")
+        .select("id, name")
+        .eq("status", "registration")
+        .neq("id", editionId)
+        .limit(1)
+        .maybeSingle();
+      if (otraAbierta) {
+        return {
+          ok: false,
+          error: `Ya hay una edición con inscripciones abiertas: «${otraAbierta.name}». Cerrala (iniciar torneo o volver a borrador) antes de abrir esta.`,
+        };
+      }
     }
 
     // Cerrar el torneo con partidos pendientes exige confirmación explícita.

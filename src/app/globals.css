@@ -883,6 +883,26 @@ input::placeholder, textarea::placeholder {
 }
 
 /* ════════════════════════════════════════════════════════════
+   CUPO DE EQUIPOS — landing (línea en "Elegí tu camino")
+   ════════════════════════════════════════════════════════════ */
+
+@keyframes slotsLinePulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+.slots-urgent {
+  animation: slotsLinePulse 1.5s ease-in-out infinite;
+}
+
+@keyframes slotsFade {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.slots-line-in {
+  animation: slotsFade 0.7s ease both;
+}
+
+/* ════════════════════════════════════════════════════════════
    FIXTURE — próxima jornada épica + video de hover en "Sin jornada"
    ════════════════════════════════════════════════════════════ */
 
@@ -1048,3 +1068,21 @@ input::placeholder, textarea::placeholder {
   from { opacity: 0; transform: translateY(14px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* ── Rails horizontales estilo Netflix (página de casters) ── */
+.vertigo-rail {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding: 4px 2px 12px;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(212, 175, 55, 0.25) transparent;
+}
+.vertigo-rail::-webkit-scrollbar { height: 6px; }
+.vertigo-rail::-webkit-scrollbar-track { background: transparent; }
+.vertigo-rail::-webkit-scrollbar-thumb {
+  background: rgba(212, 175, 55, 0.22);
+  border-radius: 3px;
+}
+.vertigo-rail::-webkit-scrollbar-thumb:hover { background: rgba(212, 175, 55, 0.4); }

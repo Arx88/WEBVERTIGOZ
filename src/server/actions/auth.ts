@@ -459,11 +459,19 @@ export async function toggleCasterApprovalAction(formData: FormData) {
 }
 
 export async function deleteCasterAction(formData: FormData) {
-  const { supabase } = await requireAdminAccount();
+  await requireAdminAccount();
   const casterId = String(formData.get("caster_id") ?? "");
   if (!casterId) throw new Error("Falta ID del caster");
 
-  const { error } = await supabase.from("caster").delete().eq("id", casterId);
+  // Service role: la tabla caster NO tiene política RLS de DELETE (solo
+  // insert propia / select pública / update admin), así que el cliente de
+  // usuario siempre fallaba acá.
+  const service = getSupabaseServiceRole() as any;
+
+  // Desasignar llaves primero (defensivo: match.stream_caster_id → caster)
+  await service.from("match").update({ stream_caster_id: null }).eq("stream_caster_id", casterId);
+
+  const { error } = await service.from("caster").delete().eq("id", casterId);
   if (error) throw new Error(`Error: ${error.message}`);
 
   revalidatePath("/admin/casters");

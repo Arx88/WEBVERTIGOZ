@@ -26,6 +26,9 @@ export default function EnrollSection() {
             src="/landing/trailer.mp4"
             poster="/landing/trailer-poster.jpg"
             controls
+            controlsList="nodownload noplaybackrate noremoteplayback"
+            disablePictureInPicture
+            onContextMenu={(e) => e.preventDefault()}
             preload="metadata"
             playsInline
           />

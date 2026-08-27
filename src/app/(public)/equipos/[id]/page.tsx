@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Shield, Users, Swords, History, Sparkles, Crown, Star, Trophy } from "lucide-react";
+import { Shield, Users, Swords, History, Sparkles, Crown, Star, Trophy, Map as MapIcon, ExternalLink, LineChart } from "lucide-react";
 import { getSupabaseServer } from "@/lib/supabase/server";
+import { getCachedTeamStats } from "@/lib/aoe2/stats-cache";
 import { CivCarousel } from "@/components/team/civ-carousel";
 import { TeamBannerBg } from "@/components/team/team-banner-bg";
 import { ComodinesGrid } from "@/components/team/comodin-cards";
@@ -13,6 +14,13 @@ import SiteNav from "@/components/nav/site-nav";
 
 export const dynamic = "force-dynamic";
 
+interface BestStat {
+  name: string;
+  slug: string | null; // slug de civ para la imagen (null en mapas)
+  wr: number; // 0–100
+  games: number;
+}
+
 interface PlayerRow {
   id: string;
   displayName: string;
@@ -23,6 +31,8 @@ interface PlayerRow {
   aoe2ProfileId: number;
   maxRatingRm1v1: number | null;
   ratingRm1v1Current: number | null;
+  bestCiv: BestStat | null;
+  bestMap: BestStat | null;
 }
 
 interface ComodinRow {
@@ -74,6 +84,15 @@ interface PageData {
   nextMatch: NextMatchData | null;
 }
 
+/** Mejor winrate con más de 5 partidas (empate: más partidas). */
+function bestOf(stats: { games: number; wins: number }[], pick: (s: any) => BestStat): BestStat | null {
+  const qualified = (stats ?? [])
+    .filter((s) => s.games > 5)
+    .map((s) => ({ ...pick(s), wr: Math.round((s.wins / s.games) * 100) }));
+  if (qualified.length === 0) return null;
+  return qualified.sort((a, b) => b.wr - a.wr || b.games - a.games)[0];
+}
+
 async function loadTeam(id: string): Promise<PageData | null> {
   try {
     const supabase = await getSupabaseServer();
@@ -108,7 +127,26 @@ async function loadTeam(id: string): Promise<PageData | null> {
       aoe2ProfileId: p.aoe2_profile_id,
       maxRatingRm1v1: p.max_rating_rm_1v1 ?? null,
       ratingRm1v1Current: p.rating_rm_1v1_current ?? null,
+      bestCiv: null,
+      bestMap: null,
     }));
+
+    // Intel ranked por jugador: winrate por civ y mapa del cache de Companion
+    // (rm_team). Con ensureFresh, perfiles nuevos/vencidos se traen al vuelo.
+    try {
+      const cachedStats = await getCachedTeamStats(
+        players.map((p) => ({ playerRegistrationId: p.id, aoe2ProfileId: p.aoe2ProfileId })),
+        { ensureFresh: true }
+      );
+      for (const p of players) {
+        const payload = cachedStats.get(p.aoe2ProfileId)?.payload;
+        if (!payload) continue;
+        p.bestCiv = bestOf(payload.civs ?? [], (s) => ({ name: s.civName ?? s.civ, slug: s.civ, wr: 0, games: s.games }));
+        p.bestMap = bestOf(payload.maps ?? [], (s) => ({ name: s.mapName ?? s.map, slug: null, wr: 0, games: s.games }));
+      }
+    } catch {
+      // Sin stats: las tarjetas muestran el estado "sin datos" y listo.
+    }
 
     // Comodín inventory
     const { data: comodinRaw } = (await supabase
@@ -623,6 +661,32 @@ export default async function EquipoDetallePage({
                   </div>
                 </div>
               </div>
+
+              {/* Intel ranked: mejor civ y mejor mapa (más de 5 partidas) */}
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                {p.bestCiv ? (
+                  <StatCard label="Mejor civ" stat={p.bestCiv} image={`/civs/${p.bestCiv.slug}.webp`} />
+                ) : (
+                  <StatEmpty label="Mejor civ" />
+                )}
+                {p.bestMap ? (
+                  <StatCard label="Mejor mapa" stat={p.bestMap} icon={<MapIcon style={{ width: 16, height: 16, color: "var(--vertigo-purple-soft)" }} />} />
+                ) : (
+                  <StatEmpty label="Mejor mapa" />
+                )}
+              </div>
+
+              {/* Perfil ranked del jugador (ladder público) */}
+              <a
+                href={`https://aoe2companion.com/profile/${p.aoe2ProfileId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 flex items-center justify-center gap-1.5 rounded-lg border border-[var(--vertigo-line-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-2 text-[11px] font-semibold text-[#b5adc4] transition-all hover:border-[rgba(212,175,55,0.5)] hover:text-[#D4AF37]"
+              >
+                <LineChart style={{ width: 12, height: 12 }} />
+                Perfil ranked de {p.displayName}
+                <ExternalLink style={{ width: 10, height: 10, opacity: 0.7 }} />
+              </a>
             </div>
           ))}
         </div>
@@ -708,6 +772,72 @@ export default async function EquipoDetallePage({
           </div>
         )}
       </main>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Intel ranked por jugador — mejor civ / mejor mapa (más de 5 partidas)
+// ─────────────────────────────────────────────────────────────
+
+const WR_COLOR = (wr: number) => (wr >= 55 ? "#D4AF37" : wr >= 45 ? "#b5adc4" : "var(--vertigo-faint)");
+
+function StatCard({ label, stat, image, icon }: { label: string; stat: BestStat; image?: string; icon?: React.ReactNode }) {
+  return (
+    <div className="vertigo-info-card" style={{ padding: "9px 12px" }}>
+      <div className="flex items-center justify-between" style={{ marginBottom: 7 }}>
+        <span className="vertigo-info-card-label" style={{ marginBottom: 0 }}>{label}</span>
+        <span className="font-cinzel text-[16px] font-bold leading-none" style={{ color: WR_COLOR(stat.wr) }}>
+          {stat.wr}%
+        </span>
+      </div>
+      <div className="flex items-center gap-2">
+        {image ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={image}
+            alt={stat.name}
+            width={32}
+            height={32}
+            loading="lazy"
+            style={{ borderRadius: 7, border: "1px solid var(--vertigo-line-soft)", flex: "none", objectFit: "cover" }}
+          />
+        ) : (
+          <span
+            className="flex flex-none items-center justify-center rounded-[7px] border border-[var(--vertigo-line-soft)] bg-[rgba(124,58,237,0.08)]"
+            style={{ width: 32, height: 32 }}
+          >
+            {icon}
+          </span>
+        )}
+        <div className="min-w-0 flex-1">
+          <div
+            className="line-clamp-2 text-[12.5px] font-semibold leading-tight text-[var(--vertigo-text)]"
+            title={stat.name}
+          >
+            {stat.name}
+          </div>
+          <div className="text-[10px] text-[var(--vertigo-faint)]">{stat.games} partidas</div>
+        </div>
+      </div>
+      <div className="mt-2 h-[3px] overflow-hidden rounded-full bg-[rgba(255,255,255,0.06)]">
+        <div
+          className="h-full rounded-full"
+          style={{ width: `${Math.max(4, stat.wr)}%`, background: "linear-gradient(90deg, #7c3aed, #D4AF37)" }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function StatEmpty({ label }: { label: string }) {
+  return (
+    <div
+      className="flex flex-col items-center justify-center rounded-[10px] border border-dashed border-[var(--vertigo-line-soft)] px-3 text-center"
+      style={{ minHeight: 76 }}
+    >
+      <span className="text-[10px] font-bold uppercase tracking-[2px] text-[var(--vertigo-faint)]">{label}</span>
+      <span className="mt-1 text-[10px] text-[var(--vertigo-faint)]">sin +5 partidas ranked</span>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { scheduleMatchFormAction } from "@/server/actions/tournament";
 import { Calendar, Clock, AlertCircle, ChevronRight, Save } from "lucide-react";
 import AdminHero from "@/components/shared/admin-hero";
+import VertigoDateTime from "@/components/admin/vertigo-date-time";
 import { fmt } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -150,13 +151,11 @@ export default async function AdminJornadasPage() {
                           <input type="hidden" name="match_id" value={m.id} />
                           <div className="flex flex-col gap-1">
                             <label className="text-[9px] uppercase tracking-widest text-[var(--vertigo-faint)]">Inicio</label>
-                            <input type="datetime-local" name="scheduled_at_start" defaultValue={startLocal} required
-                              className="bg-[var(--vertigo-input-bg)] border border-[var(--vertigo-input-border)] rounded-md px-3 py-2 text-[13px] text-[var(--vertigo-text)]" />
+                            <VertigoDateTime name="scheduled_at_start" defaultValue={startLocal} required />
                           </div>
                           <div className="flex flex-col gap-1">
                             <label className="text-[9px] uppercase tracking-widest text-[var(--vertigo-faint)]">Fin estimado</label>
-                            <input type="datetime-local" name="scheduled_at_end" defaultValue={endLocal} required
-                              className="bg-[var(--vertigo-input-bg)] border border-[var(--vertigo-input-border)] rounded-md px-3 py-2 text-[13px] text-[var(--vertigo-text)]" />
+                            <VertigoDateTime name="scheduled_at_end" defaultValue={endLocal} required />
                           </div>
                           <div className="flex flex-col gap-1">
                             <label className="text-[9px] uppercase tracking-widest text-[var(--vertigo-faint)]">Jornada</label>

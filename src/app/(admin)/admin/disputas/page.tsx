@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { resolveDisputeAction } from "@/server/actions/auth";
 import { AlertTriangle, Shield, Clock, Image as ImageIcon, ExternalLink } from "lucide-react";
 import AdminHero from "@/components/shared/admin-hero";
+import VertigoSelect from "@/components/admin/vertigo-select";
 import { fmt } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -164,10 +165,14 @@ export default async function AdminDisputasPage() {
                         </div>
                         <div className="vertigo-field">
                           <label>Veredicto</label>
-                          <select name="verdict" defaultValue="resolved">
-                            <option value="resolved">Resolver a favor (aplicar resultado)</option>
-                            <option value="rejected">Rechazar (mantener resultado original)</option>
-                          </select>
+                          <VertigoSelect
+                            name="verdict"
+                            defaultValue="resolved"
+                            options={[
+                              { value: "resolved", label: "Resolver a favor (aplicar resultado)" },
+                              { value: "rejected", label: "Rechazar (mantener resultado original)" },
+                            ]}
+                          />
                         </div>
                         <div className="vertigo-action-bar">
                           <button type="submit" className="vertigo-btn vertigo-btn-success">

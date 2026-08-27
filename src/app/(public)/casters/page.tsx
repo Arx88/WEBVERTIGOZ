@@ -1,59 +1,36 @@
 import Link from "next/link";
-import { Mic, Twitch, Youtube, Crown, Users, Swords, Radio, ChevronRight } from "lucide-react";
+import { Mic, ChevronRight, Eye } from "lucide-react";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { ART_PREDICADOR } from "@/lib/art";
 import VertigoFooter from "@/components/shared/vertigo-footer";
 import SiteNav from "@/components/nav/site-nav";
 import HeroStat from "@/components/shared/hero-stat";
-import { fmt } from "@/lib/format";
+import LiveRails, {
+  type RailCaster,
+  type RailGroup,
+  type LiveStatusLite,
+} from "@/components/casters/live-rails";
+import { getLiveStatuses, channelSlug, type ChannelRef } from "@/lib/streams";
 
 export const dynamic = "force-dynamic";
 
-interface CasterRow {
-  id: string;
-  displayName: string;
-  tier: string;
-  twitchChannel: string | null;
-  youtubeChannel: string | null;
-  kickChannel: string | null;
-  approvedAt: string | null;
-  matchCount: number;
-}
-
-interface TierMeta {
-  label: string;
-  badge: string;
-  rail: string;
-  ring: string;
-  group: string;
-}
-
-/** Identidad visual por tier: riel, aro del sello y nombre del grupo editorial. */
-const TIER_META: Record<string, TierMeta> = {
-  official: {
-    label: "Oficial",
-    badge: "vertigo-badge-warning",
-    rail: "rgba(212,175,55,0.8)",
-    ring: "rgba(212,175,55,0.65)",
-    group: "Transmisión principal",
-  },
-  secondary: {
-    label: "Secundario",
-    badge: "vertigo-badge-purple",
-    rail: "rgba(124,58,237,0.75)",
-    ring: "rgba(124,58,237,0.55)",
-    group: "Co-streams",
-  },
-  community: {
-    label: "Community",
-    badge: "vertigo-badge-success",
-    rail: "rgba(34,197,94,0.6)",
-    ring: "rgba(34,197,94,0.45)",
-    group: "Comunidad",
-  },
+const TIER_META: Record<string, { label: string; badge: string; color: string; group: string }> = {
+  official: { label: "Oficial", badge: "vertigo-badge-warning", color: "rgba(212,175,55,0.8)", group: "Transmisión principal" },
+  secondary: { label: "Secundario", badge: "vertigo-badge-purple", color: "rgba(124,58,237,0.75)", group: "Co-streams" },
+  community: { label: "Community", badge: "vertigo-badge-success", color: "rgba(34,197,94,0.6)", group: "Comunidad" },
 };
 
-async function loadCasters(): Promise<CasterRow[]> {
+interface CasterRaw {
+  id: string;
+  display_name: string;
+  tier: string;
+  twitch_channel: string | null;
+  youtube_channel: string | null;
+  kick_channel: string | null;
+  approved_at: string | null;
+}
+
+async function loadCasters(): Promise<RailCaster[]> {
   try {
     const supabase = await getSupabaseServer();
 
@@ -62,34 +39,37 @@ async function loadCasters(): Promise<CasterRow[]> {
       .select("id, display_name, tier, twitch_channel, youtube_channel, kick_channel, approved_at")
       .not("approved_at", "is", null)
       .order("tier", { ascending: true })
-      .order("display_name", { ascending: true })) as { data: any };
+      .order("display_name", { ascending: true })) as { data: CasterRaw[] | null };
 
     if (!castersRaw || castersRaw.length === 0) return [];
 
-    // Match count per caster
-    const casterIds = castersRaw.map((c: any) => c.id);
+    // Cantidad de llaves transmitidas por caster
+    const casterIds = castersRaw.map((c) => c.id);
     const { data: matches } = (await supabase
       .from("match")
       .select("stream_caster_id")
-      .in("stream_caster_id", casterIds)) as { data: any };
+      .in("stream_caster_id", casterIds)) as { data: { stream_caster_id: string | null }[] | null };
 
     const countByCaster: Record<string, number> = {};
     for (const m of matches ?? []) {
-      if (m.stream_caster_id) {
-        countByCaster[m.stream_caster_id] = (countByCaster[m.stream_caster_id] ?? 0) + 1;
-      }
+      if (m.stream_caster_id) countByCaster[m.stream_caster_id] = (countByCaster[m.stream_caster_id] ?? 0) + 1;
     }
 
-    return castersRaw.map((c: any) => ({
-      id: c.id,
-      displayName: c.display_name ?? "—",
-      tier: c.tier ?? "community",
-      twitchChannel: c.twitch_channel ?? null,
-      youtubeChannel: c.youtube_channel ?? null,
-      kickChannel: c.kick_channel ?? null,
-      approvedAt: c.approved_at ?? null,
-      matchCount: countByCaster[c.id] ?? 0,
-    }));
+    return castersRaw.map((c) => {
+      const meta = TIER_META[c.tier] ?? TIER_META.community;
+      return {
+        id: c.id,
+        displayName: c.display_name ?? "—",
+        tier: c.tier ?? "community",
+        tierLabel: meta.label,
+        tierColor: meta.color,
+        tierBadge: meta.badge,
+        twitch: channelSlug(c.twitch_channel) || null,
+        youtube: channelSlug(c.youtube_channel) || null,
+        kick: channelSlug(c.kick_channel) || null,
+        matchCount: countByCaster[c.id] ?? 0,
+      };
+    });
   } catch {
     return [];
   }
@@ -97,13 +77,47 @@ async function loadCasters(): Promise<CasterRow[]> {
 
 export default async function CastersPage() {
   const casters = await loadCasters();
-  const officials = casters.filter((c) => c.tier === "official").length;
-  const secondaries = casters.filter((c) => c.tier === "secondary").length;
-  const communities = casters.filter((c) => c.tier === "community").length;
 
-  // Grupos editoriales por tier — solo los que tienen gente
-  const groups = (["official", "secondary", "community"] as const)
-    .map((tier) => ({ tier, meta: TIER_META[tier], items: casters.filter((c) => c.tier === tier) }))
+  // Estado en vivo inicial (server): Twitch via GQL/Helix, Kick via API pública.
+  const refs: ChannelRef[] = casters.flatMap((c) => {
+    const out: ChannelRef[] = [];
+    if (c.twitch) out.push({ key: `twitch:${c.twitch.toLowerCase()}`, platform: "twitch", channel: c.twitch.toLowerCase() });
+    if (c.kick) out.push({ key: `kick:${c.kick.toLowerCase()}`, platform: "kick", channel: c.kick.toLowerCase() });
+    return out;
+  });
+  const statuses = await getLiveStatuses(refs);
+
+  const liveCount = casters.filter((c) => {
+    const t = c.twitch ? statuses[`twitch:${c.twitch.toLowerCase()}`] : null;
+    const k = c.kick ? statuses[`kick:${c.kick.toLowerCase()}`] : null;
+    return t?.live || k?.live;
+  }).length;
+
+  // Featured: el caster al aire con más espectadores (para el hero).
+  const featured = casters
+    .map((c) => {
+      const st: LiveStatusLite[] = [];
+      if (c.twitch) { const s = statuses[`twitch:${c.twitch.toLowerCase()}`]; if (s?.live) st.push(s); }
+      if (c.kick) { const s = statuses[`kick:${c.kick.toLowerCase()}`]; if (s?.live) st.push(s); }
+      if (st.length === 0) return null;
+      const top = st.sort((a, b) => (b.viewers ?? 0) - (a.viewers ?? 0))[0];
+      const twitchLive = c.twitch ? statuses[`twitch:${c.twitch.toLowerCase()}`]?.live : false;
+      const url = twitchLive ? `https://twitch.tv/${c.twitch}` : `https://kick.com/${c.kick}`;
+      return { c, top, url };
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null)
+    .sort((a, b) => (b.top.viewers ?? 0) - (a.top.viewers ?? 0))[0] ?? null;
+
+  const officials = casters.filter((c) => c.tier === "official").length;
+
+  // Rails por tier — solo los que tienen gente
+  const groups: RailGroup[] = (["official", "secondary", "community"] as const)
+    .map((tier) => ({
+      tier,
+      label: TIER_META[tier].group,
+      color: TIER_META[tier].color,
+      items: casters.filter((c) => c.tier === tier),
+    }))
     .filter((g) => g.items.length > 0);
 
   return (
@@ -168,12 +182,63 @@ export default async function CastersPage() {
               comodín y cada asedio en vivo — el pueblo sentado en la ladera, mirando el fuego.
             </p>
 
-            {/* Roster integrado al hero — vidrio sobre la imagen */}
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 28, alignItems: "center" }}>
-              <HeroStat value={casters.length} label="En el aire" color="var(--vertigo-purple-pale)" />
+            {/* Featured EN VIVO — vidrio sobre el hero */}
+            {featured && (
+              <div
+                className="flex flex-wrap items-center gap-x-5 gap-y-3"
+                style={{
+                  marginTop: 26,
+                  padding: "14px 18px",
+                  borderRadius: 14,
+                  border: "1px solid rgba(239,68,68,0.45)",
+                  background: "rgba(10,0,17,0.55)",
+                  backdropFilter: "blur(10px)",
+                  boxShadow: "0 0 30px rgba(239,68,68,0.15)",
+                  maxWidth: 720,
+                }}
+              >
+                <span
+                  className="inline-flex items-center gap-1.5 rounded-md bg-[#ef4444] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[1px] text-white"
+                  style={{ boxShadow: "0 2px 12px rgba(239,68,68,0.5)" }}
+                >
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-70" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" />
+                  </span>
+                  EN VIVO
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="font-cinzel text-[17px] font-bold text-[var(--vertigo-text)]">
+                    {featured.c.displayName}
+                  </div>
+                  {featured.top.title && (
+                    <div className="truncate text-[12px] text-[var(--vertigo-muted)]">{featured.top.title}</div>
+                  )}
+                </div>
+                {featured.top.viewers != null && featured.top.viewers > 0 && (
+                  <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[var(--vertigo-text)]">
+                    <Eye style={{ width: 13, height: 13, color: "#ef4444" }} />
+                    {featured.top.viewers.toLocaleString("es")}
+                  </span>
+                )}
+                <a
+                  href={featured.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="vertigo-btn vertigo-btn-primary"
+                  style={{ padding: "9px 18px", fontSize: 11 }}
+                >
+                  Mirar ahora
+                  <ChevronRight style={{ width: 12, height: 12 }} />
+                </a>
+              </div>
+            )}
+
+            {/* Roster integrado al hero */}
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 26, alignItems: "center" }}>
+              <HeroStat value={liveCount} label={liveCount === 1 ? "Al aire" : "Al aire ahora"} color={liveCount > 0 ? "#ef4444" : "var(--vertigo-faint)"} />
+              <HeroStat value={casters.length} label="Casters" color="var(--vertigo-purple-pale)" />
               <HeroStat value={officials} label="Oficiales" color="var(--vertigo-gold)" />
-              <HeroStat value={secondaries} label="Secundarios" color="var(--vertigo-purple-soft)" />
-              <HeroStat value={communities} label="Comunidad" color="var(--vertigo-success)" />
               <Link
                 href="/registro-caster"
                 className="vertigo-btn vertigo-btn-primary"
@@ -197,162 +262,16 @@ export default async function CastersPage() {
               <div className="vertigo-empty-title">Sin casters aprobados</div>
               <p className="vertigo-empty-desc">
                 Cuando el staff apruebe el primer caster, va a aparecer acá con su canal de
-                Twitch/YouTube/Kick.
+                Twitch/YouTube/Kick — y un cartel EN VIVO cuando esté transmitiendo.
               </p>
             </div>
           </div>
         ) : (
-          <div className="mb-10 flex flex-col gap-10">
-            {groups.map(({ tier, meta, items }) => (
-              <section key={tier}>
-                {/* Header editorial del grupo */}
-                <div className="flex items-center gap-3 mb-4">
-                  <span style={{ color: meta.rail, display: "inline-flex", flex: "none" }}>
-                    {tier === "official" ? (
-                      <Crown style={{ width: 14, height: 14 }} />
-                    ) : (
-                      <Radio style={{ width: 14, height: 14 }} />
-                    )}
-                  </span>
-                  <h2
-                    className="font-cinzel font-bold"
-                    style={{ fontSize: 16, letterSpacing: 1.5, textTransform: "uppercase", color: "var(--vertigo-text)" }}
-                  >
-                    {meta.group}
-                  </h2>
-                  <div
-                    className="flex-1 h-px"
-                    style={{ background: `linear-gradient(90deg, ${meta.rail}, transparent)` }}
-                  />
-                  <span className="text-[10px] tracking-[1px]" style={{ color: "var(--vertigo-faint)" }}>
-                    {items.length} caster{items.length !== 1 ? "s" : ""}
-                  </span>
-                </div>
-
-                <div
-                  className="grid gap-3"
-                  style={{ gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))" }}
-                >
-                  {items.map((c) => (
-                    <CasterCard key={c.id} c={c} meta={meta} />
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
+          <LiveRails groups={groups} initialStatuses={statuses} />
         )}
 
         <VertigoFooter />
       </main>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────
-// Tarjeta de caster — sello con aro por tier + canales
-// ─────────────────────────────────────────────────────────────
-
-function CasterCard({ c, meta }: { c: CasterRow; meta: TierMeta }) {
-  const plataformas = [c.twitchChannel, c.youtubeChannel, c.kickChannel].filter(Boolean).length;
-
-  return (
-    <div className="vertigo-card fx-card relative" style={{ padding: 0, overflow: "hidden" }}>
-      <span className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: meta.rail }} aria-hidden />
-
-      <div style={{ padding: "18px 20px 16px 23px" }}>
-        <div className="flex items-center gap-3 min-w-0">
-          {/* Sello con la inicial — aro dorado para oficiales */}
-          <span
-            className="flex items-center justify-center flex-none rounded-full font-cinzel font-bold"
-            style={{
-              width: 46,
-              height: 46,
-              fontSize: 18,
-              color: meta.ring,
-              border: `1.5px solid ${meta.ring}`,
-              background: "rgba(124,58,237,0.08)",
-              boxShadow: c.tier === "official" ? `0 0 14px ${meta.ring}44` : "none",
-            }}
-          >
-            {c.displayName.charAt(0).toUpperCase() || "?"}
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="font-cinzel font-semibold text-[17px] text-[var(--vertigo-text)] truncate leading-tight">
-              {c.displayName}
-            </div>
-            {c.approvedAt && (
-              <div className="text-[10.5px] text-[var(--vertigo-faint)] mt-0.5">
-                Al aire desde{" "}
-                {fmt.dayMonYear(c.approvedAt)}
-              </div>
-            )}
-          </div>
-          <span className={`vertigo-badge ${meta.badge}`} style={{ flex: "none" }}>
-            {meta.label}
-          </span>
-        </div>
-
-        {/* Meta en una línea — sin cajitas */}
-        <div
-          className="flex items-center gap-x-5 gap-y-1 flex-wrap text-[11px] mt-3.5 mb-4"
-          style={{ color: "var(--vertigo-faint)" }}
-        >
-          <span className="inline-flex items-center gap-1.5">
-            <Swords style={{ width: 11, height: 11, flex: "none" }} />
-            {c.matchCount === 0
-              ? "Estrena llave pronto"
-              : c.matchCount === 1
-              ? "1 llave transmitida"
-              : `${c.matchCount} llaves transmitidas`}
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <Users style={{ width: 11, height: 11, flex: "none" }} />
-            {plataformas === 1 ? "1 plataforma" : `${plataformas} plataformas`}
-          </span>
-        </div>
-
-        {/* Canales */}
-        <div className="flex flex-wrap gap-2">
-          {c.twitchChannel && (
-            <a
-              href={`https://twitch.tv/${c.twitchChannel}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="vertigo-btn vertigo-btn-primary"
-              style={{ padding: "8px 16px", fontSize: "11px" }}
-            >
-              <Twitch style={{ width: 13, height: 13 }} />
-              Twitch
-            </a>
-          )}
-          {c.youtubeChannel && (
-            <a
-              href={`https://youtube.com/@${c.youtubeChannel}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="vertigo-btn vertigo-btn-ghost"
-              style={{ padding: "8px 16px", fontSize: "11px" }}
-            >
-              <Youtube style={{ width: 13, height: 13 }} />
-              YouTube
-            </a>
-          )}
-          {c.kickChannel && (
-            <a
-              href={`https://kick.com/${c.kickChannel}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="vertigo-btn vertigo-btn-ghost"
-              style={{ padding: "8px 16px", fontSize: "11px" }}
-            >
-              Kick
-            </a>
-          )}
-          {plataformas === 0 && (
-            <span className="text-[12px] text-[var(--vertigo-faint)] italic">Sin canal configurado</span>
-          )}
-        </div>
-      </div>
     </div>
   );
 }

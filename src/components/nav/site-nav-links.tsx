@@ -12,6 +12,7 @@ import {
   CalendarDays,
   Coins,
   Settings,
+  Radio,
   type LucideIcon,
 } from "lucide-react";
 
@@ -32,6 +33,7 @@ const ICONS: Record<string, LucideIcon> = {
   calendar: CalendarDays,
   coins: Coins,
   settings: Settings,
+  radio: Radio,
 };
 
 /**

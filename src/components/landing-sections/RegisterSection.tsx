@@ -2,6 +2,7 @@
 
 import { Coins, Mic, Swords } from "lucide-react";
 import { useRef } from "react";
+import SlotsLine from "./SlotsLine";
 
 type Path = {
   href: string;
@@ -131,6 +132,8 @@ export default function RegisterSection() {
           <Swords className="w-4 h-4 text-[#ff2e9e]" />
         </div>
         <div className="reveal mx-auto mt-4 hairline w-64" />
+
+        <SlotsLine />
 
         <div className="mt-14 grid gap-6 md:grid-cols-3">
           {PATHS.map((p) => (

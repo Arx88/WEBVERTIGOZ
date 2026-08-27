@@ -529,6 +529,22 @@ html:has(.vertigo-page) {
   transition: all 0.25s var(--vertigo-ease);
 }
 
+/* Select de field: flecha custom dorada (no la nativa doble) */
+.vertigo-field select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 40px;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1L6 6L11 1' stroke='%23D4AF37' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+}
+
+.vertigo-field select option {
+  background: #130f1b;
+  color: var(--vertigo-text);
+}
+
 .vertigo-field input::placeholder {
   color: #5f5870;
 }
@@ -545,6 +561,85 @@ html:has(.vertigo-page) {
 
 .vertigo-field:focus-within label {
   color: var(--vertigo-purple-pale);
+}
+
+/* ============================================================
+   INPUTS DEL PANEL — .vertigo-input / .vertigo-select / .vertigo-textarea
+   (los <input className="vertigo-input"> del panel no tenían estilo:
+   se veían como controles nativos blancos sobre el tema oscuro)
+   ============================================================ */
+
+/* Widgets nativos (calendario, spinners, popups de select) en oscuro */
+.vertigo-admin-shell {
+  color-scheme: dark;
+  accent-color: var(--vertigo-purple);
+}
+
+.vertigo-input,
+.vertigo-select,
+.vertigo-textarea {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 14px;
+  font: 500 14px Inter, system-ui, sans-serif;
+  color: var(--vertigo-text);
+  caret-color: var(--vertigo-purple-soft);
+  background: var(--vertigo-input-bg);
+  border: 1px solid var(--vertigo-input-border);
+  border-radius: 10px;
+  outline: none;
+  transition: border-color 0.25s var(--vertigo-ease), box-shadow 0.25s var(--vertigo-ease), background 0.25s var(--vertigo-ease);
+}
+
+.vertigo-input:hover,
+.vertigo-select:hover,
+.vertigo-textarea:hover {
+  border-color: #3a3049;
+}
+
+.vertigo-input:focus,
+.vertigo-select:focus,
+.vertigo-textarea:focus {
+  border-color: var(--vertigo-purple);
+  background: #161122;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.14), 0 6px 24px rgba(124, 58, 237, 0.12);
+}
+
+.vertigo-input:disabled,
+.vertigo-select:disabled,
+.vertigo-textarea:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  border-style: dashed;
+}
+
+.vertigo-input::placeholder,
+.vertigo-textarea::placeholder {
+  color: #5f5870;
+}
+
+/* Select: flecha custom dorada en vez de la nativa */
+.vertigo-select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 40px;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1L6 6L11 1' stroke='%23D4AF37' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+}
+
+.vertigo-select option {
+  background: #130f1b;
+  color: var(--vertigo-text);
+}
+
+/* Textarea: multilínea */
+.vertigo-textarea {
+  min-height: 96px;
+  padding: 12px 14px;
+  line-height: 1.55;
+  resize: vertical;
 }
 
 /* ============================================================

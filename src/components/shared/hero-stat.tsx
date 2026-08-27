@@ -32,15 +32,18 @@ export default function HeroStat({
       }}
     >
       <div
-        className="font-cinzel font-bold leading-none tabular-nums"
+        className="font-cinzel font-bold leading-tight tabular-nums"
         style={{
-          fontSize: compact ? 17 : 26,
+          fontSize: compact ? 16 : 26,
           color,
           textShadow: "0 2px 18px rgba(0,0,0,0.65)",
           maxWidth: 260,
-          whiteSpace: "nowrap",
+          minHeight: compact ? undefined : 32,
+          display: "-webkit-box",
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: "vertical",
           overflow: "hidden",
-          textOverflow: "ellipsis",
+          wordBreak: "break-word",
         }}
       >
         {text}
