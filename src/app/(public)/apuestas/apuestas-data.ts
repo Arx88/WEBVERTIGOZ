@@ -5,6 +5,8 @@
  * las policies de `bet` solo permiten leer apuestas propias.
  */
 
+import { BET_MAX_PAYOUT_MULT } from "@/lib/constants";
+
 export interface LlaveTeam {
   id: string;
   name: string;
@@ -251,7 +253,10 @@ export async function loadApuestasData(admin: any, accountId: string): Promise<A
         b.picked_team_id === agg.teamA.id ? agg.stakeA : b.picked_team_id === agg.teamB.id ? agg.stakeB : 0;
       if (agg.pool > 0 && side > 0) {
         cuota = agg.pool / side;
-        cobroSiGana = Math.floor((b.stake ?? 0) * cuota);
+        cobroSiGana = Math.min(
+          Math.floor((b.stake ?? 0) * cuota),
+          (b.stake ?? 0) * BET_MAX_PAYOUT_MULT
+        );
       }
     }
     return {

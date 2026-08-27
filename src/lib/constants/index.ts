@@ -160,6 +160,16 @@ export const BRACKET_ROUNDS = 5; // 32 → 16 → 8 → 4 → 2 → 1
 // Apuestas de espectadores (pari-mutuel con puntos)
 export const WELCOME_POINTS = 1000;
 
+/**
+ * Apuestas: tope de multiplicador de pago de una boleta (pari-mutuel).
+ * Sin tope, un pozo hiper-inclinado (ej. 2000 pts de un lado y 1 del otro)
+ * puede generar dividendos absurdos (×2001 sobre una boleta de 1 punto).
+ * El tope mantiene los pagos dentro de un rango creíble; el excedente del
+ * pozo no se reparte. Debe espejar BET_MAX_PAYOUT_MULT en el trigger
+ * settle_match_bets (migrations/0009).
+ */
+export const BET_MAX_PAYOUT_MULT = 10;
+
 export const BET_STATUS = {
   PENDING: "pending",
   WON: "won",

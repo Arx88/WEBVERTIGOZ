@@ -30,6 +30,7 @@ import { toast } from "sonner";
 import { Coins, Ticket, Trophy, Lock, Undo2, XCircle, AlertTriangle, Flame, Users } from "lucide-react";
 import { placeBetAction, cancelBetAction } from "@/server/actions/apuestas";
 import CountdownBadge from "@/app/(public)/apuestas/countdown-badge";
+import { BET_MAX_PAYOUT_MULT } from "@/lib/constants";
 
 export interface SpectatorBetContext {
   accountId: string;
@@ -225,6 +226,7 @@ export default function BetPanel({ context, matchId, status, teamA, teamB }: Pro
       <div className="mt-4 pt-3 border-t border-[var(--vertigo-line-soft)] text-[10px] text-[var(--vertigo-faint)] leading-relaxed">
         Pari-mutuel: el pozo se reparte entre los que aciertan, proporcional al monto apostado.
         {bettable && " Podés cancelar tu boleta mientras la llave no abra (se devuelve el 75% del monto)."}
+        {" "}Tope de pago: ×10 por boleta.
       </div>
     </div>
   );
@@ -386,7 +388,10 @@ function BetForm({
   const pickedTeam = pickedId === teamA.id ? teamA : pickedId === teamB.id ? teamB : null;
   const pickedSide = pickedId === teamA.id ? context.stakeA : pickedId === teamB.id ? context.stakeB : 0;
   const proyectada = pickedId && validStake ? cuotaProyectada(context.pool, pickedSide, stake) : null;
-  const payoutEstimado = proyectada !== null && validStake ? Math.floor(stake * proyectada) : null;
+  const payoutEstimado =
+    proyectada !== null && validStake
+      ? Math.min(Math.floor(stake * proyectada), stake * BET_MAX_PAYOUT_MULT)
+      : null;
 
   const quicks = useMemo(() => {
     const b = Math.min(context.balance, maxStake);
@@ -623,7 +628,10 @@ function MyPendingBet({
   const picked = bet.pickedTeamId === teamA.id ? teamA : teamB;
   const sideStake = bet.pickedTeamId === teamA.id ? context.stakeA : context.stakeB;
   const cuotaActual = context.pool > 0 && sideStake > 0 ? context.pool / sideStake : null;
-  const cobroSiGana = cuotaActual !== null ? Math.floor(bet.stake * cuotaActual) : null;
+  const cobroSiGana =
+    cuotaActual !== null
+      ? Math.min(Math.floor(bet.stake * cuotaActual), bet.stake * BET_MAX_PAYOUT_MULT)
+      : null;
 
   async function cancel() {
     if (loading) return;
