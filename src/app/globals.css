@@ -881,3 +881,170 @@ input::placeholder, textarea::placeholder {
     scroll-behavior: auto !important;
   }
 }
+
+/* ════════════════════════════════════════════════════════════
+   FIXTURE — próxima jornada épica + video de hover en "Sin jornada"
+   ════════════════════════════════════════════════════════════ */
+
+/* ── Contenedor de la próxima jornada ── */
+.fxt-epic {
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid rgba(212, 175, 55, 0.22);
+  background: linear-gradient(180deg, rgba(26, 19, 40, 0.5), rgba(12, 8, 18, 0.72));
+  box-shadow:
+    0 0 70px rgba(212, 175, 55, 0.06),
+    inset 0 0 90px rgba(124, 58, 237, 0.07);
+  padding: 24px 24px 20px;
+}
+
+/* Resplandor dorado/violeta que respira */
+.fxt-epic-glow {
+  position: absolute;
+  inset: -20%;
+  background:
+    radial-gradient(60% 55% at 22% 12%, rgba(212, 175, 55, 0.13), transparent 60%),
+    radial-gradient(55% 60% at 82% 90%, rgba(124, 58, 237, 0.16), transparent 62%);
+  animation: fxtGlowPulse 5.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Rayos cinematográficos girando muy lento */
+.fxt-epic-rays {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1600px;
+  height: 1600px;
+  margin: -800px 0 0 -800px;
+  background: repeating-conic-gradient(
+    from 0deg,
+    rgba(212, 175, 55, 0.05) 0deg 7deg,
+    transparent 7deg 22deg
+  );
+  animation: fxtRays 80s linear infinite;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Motas doradas flotando */
+.fxt-dots {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.fxt-dots i {
+  position: absolute;
+  bottom: -8px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(244, 220, 138, 0.85);
+  box-shadow: 0 0 8px rgba(212, 175, 55, 0.8);
+  opacity: 0;
+  animation: fxtDotFloat linear infinite;
+}
+
+/* Kicker con shimmer dorado */
+.fxt-kicker {
+  display: inline-block;
+  font-family: var(--font-cinzel), serif;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 4px;
+  background: linear-gradient(90deg, #8a6a1f, #f4dc8a, #8a6a1f);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: fxtShimmer 3.2s linear infinite;
+}
+
+/* Hairline con destello que barre la sección */
+.fxt-epic-line {
+  position: relative;
+  height: 1px;
+  margin: 16px 0 18px;
+  background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.5), transparent);
+}
+.fxt-epic-line::after {
+  content: "";
+  position: absolute;
+  top: -1px;
+  width: 140px;
+  height: 3px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, transparent, rgba(244, 220, 138, 0.9), transparent);
+  filter: blur(0.5px);
+  animation: fxtSweep 4.5s ease-in-out infinite;
+}
+
+/* ── Tarjetas dentro de la próxima jornada ── */
+.fxt-card-epic:hover {
+  box-shadow:
+    0 16px 44px rgba(0, 0, 0, 0.55),
+    0 0 36px rgba(212, 175, 55, 0.16);
+}
+.fxt-rise {
+  animation: fxtRise 0.55s cubic-bezier(0.22, 0.8, 0.3, 1) both;
+}
+
+/* ── Video de fondo al hover (llaves "Sin jornada") ── */
+.fxt-video-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transform: scale(1.03);
+  transition: opacity 0.55s ease, transform 12s ease-out;
+  pointer-events: none;
+  z-index: 0;
+}
+.fxt-video-bg.on {
+  opacity: 1;
+  transform: scale(1.12);
+}
+.fxt-video-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(7, 3, 16, 0.45), rgba(7, 3, 16, 0.82));
+  opacity: 0;
+  transition: opacity 0.55s ease;
+  pointer-events: none;
+  z-index: 1;
+}
+.fxt-video-shade.on {
+  opacity: 1;
+}
+
+@keyframes fxtGlowPulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+@keyframes fxtRays {
+  to { transform: rotate(360deg); }
+}
+@keyframes fxtDotFloat {
+  0% { transform: translateY(0); opacity: 0; }
+  12% { opacity: 0.85; }
+  85% { opacity: 0.5; }
+  100% { transform: translateY(-110px); opacity: 0; }
+}
+@keyframes fxtShimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes fxtSweep {
+  0% { left: -150px; opacity: 0; }
+  12% { opacity: 1; }
+  50% { left: calc(100% - 10px); opacity: 1; }
+  62% { opacity: 0; }
+  100% { left: -150px; opacity: 0; }
+}
+@keyframes fxtRise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}

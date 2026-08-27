@@ -1,55 +1,18 @@
 import Link from "next/link";
-import { Calendar, Clock, Radio, ChevronRight, Swords, Trophy } from "lucide-react";
+import { Calendar, Clock, Radio, ChevronRight, Swords } from "lucide-react";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import VertigoFooter from "@/components/shared/vertigo-footer";
 import SiteNav from "@/components/nav/site-nav";
 import { fmt } from "@/lib/format";
+import {
+  STATUS_BADGE,
+  LIVE_STATUSES,
+  mismoDia,
+  type FixtureMatch,
+} from "@/components/fixture/fixture-shared";
+import { FixtureMatchCard, VersusTeams } from "@/components/fixture/fixture-match-card";
 
 export const dynamic = "force-dynamic";
-
-interface FixtureMatch {
-  id: string;
-  status: string;
-  scheduledAtStart: string | null;
-  scheduledAtEnd: string | null;
-  jornadaLabel: string | null;
-  roundName: string | null;
-  format: string | null;
-  teamA: { id: string; name: string; seed: number | null; emblemUrl: string | null } | null;
-  teamB: { id: string; name: string; seed: number | null; emblemUrl: string | null } | null;
-  scoreA: number;
-  scoreB: number;
-  winnerTeamId: string | null;
-}
-
-const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
-  scheduled: { label: "Programado", cls: "vertigo-badge-purple" },
-  open: { label: "Abierto", cls: "vertigo-badge-success" },
-  drawing: { label: "Sorteando", cls: "vertigo-badge-warning" },
-  lineup: { label: "Lineup", cls: "vertigo-badge-warning" },
-  comodin_window: { label: "Comodines", cls: "vertigo-badge-warning" },
-  in_progress: { label: "En juego", cls: "vertigo-badge-success" },
-  finished: { label: "Finalizado", cls: "vertigo-badge-purple" },
-  disputed: { label: "Disputa", cls: "vertigo-badge-danger" },
-  forfeit: { label: "W.O.", cls: "vertigo-badge-danger" },
-  cancelled: { label: "Cancelado", cls: "vertigo-badge-danger" },
-};
-
-/** Riel de color por estado (mismo lenguaje que las boletas de /apuestas) */
-const STATUS_RAIL: Record<string, string> = {
-  scheduled: "rgba(124,58,237,0.55)",
-  open: "var(--vertigo-success)",
-  drawing: "var(--vertigo-warning)",
-  lineup: "var(--vertigo-warning)",
-  comodin_window: "var(--vertigo-warning)",
-  in_progress: "var(--vertigo-success)",
-  finished: "rgba(124,58,237,0.9)",
-  disputed: "var(--vertigo-danger)",
-  forfeit: "var(--vertigo-danger)",
-  cancelled: "var(--vertigo-danger)",
-};
-
-const LIVE_STATUSES = ["open", "drawing", "lineup", "comodin_window", "in_progress", "disputed"];
 
 async function loadFixture(): Promise<FixtureMatch[]> {
   try {
@@ -149,6 +112,9 @@ export default async function FixturePage() {
     ) ??
     matches.find((m) => LIVE_STATUSES.includes(m.status)) ??
     null;
+
+  // La jornada que contiene la próxima llave recibe el tratamiento épico
+  const nextKey = nextUp ? (nextUp.jornadaLabel ?? "Sin jornada") : null;
 
   return (
     <div className="vertigo-page vertigo-shell vertigo-fade-in">
@@ -264,36 +230,101 @@ export default async function FixturePage() {
           </div>
         ) : (
           <div className="flex flex-col gap-10 mb-10">
-            {groupKeys.map((key) => (
-              <section key={key}>
-                {/* Header editorial de jornada */}
-                <div className="flex items-center gap-3 mb-4">
-                  <h2
-                    className="font-cinzel font-bold"
-                    style={{ fontSize: 16, letterSpacing: 1.5, textTransform: "uppercase", color: "var(--vertigo-text)" }}
-                  >
-                    {key}
-                  </h2>
-                  <div
-                    className="flex-1 h-px"
-                    style={{ background: "linear-gradient(90deg, rgba(124,58,237,0.45), transparent)" }}
-                  />
-                  <span className="text-[10px] tracking-[1px]" style={{ color: "var(--vertigo-faint)" }}>
-                    {rangoJornada(groups[key]) && <span className="uppercase">{rangoJornada(groups[key])} · </span>}
-                    {groups[key].length} llave{groups[key].length !== 1 ? "s" : ""}
-                  </span>
-                </div>
+            {groupKeys.map((key) => {
+              const epic = key === nextKey;
+              const isSinJornada = key === "Sin jornada";
+              const rango = rangoJornada(groups[key]);
 
+              const grid = (
                 <div
                   className="grid gap-3"
                   style={{ gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))" }}
                 >
-                  {groups[key].map((m) => (
-                    <FixtureMatchCard key={m.id} m={m} />
+                  {groups[key].map((m, i) => (
+                    <FixtureMatchCard key={m.id} m={m} epic={epic} hoverVideo={isSinJornada} index={i} />
                   ))}
                 </div>
-              </section>
-            ))}
+              );
+
+              if (!epic) {
+                return (
+                  <section key={key}>
+                    {/* Header editorial de jornada */}
+                    <div className="flex items-center gap-3 mb-4">
+                      <h2
+                        className="font-cinzel font-bold"
+                        style={{ fontSize: 16, letterSpacing: 1.5, textTransform: "uppercase", color: "var(--vertigo-text)" }}
+                      >
+                        {key}
+                      </h2>
+                      <div
+                        className="flex-1 h-px"
+                        style={{ background: "linear-gradient(90deg, rgba(124,58,237,0.45), transparent)" }}
+                      />
+                      <span className="text-[10px] tracking-[1px]" style={{ color: "var(--vertigo-faint)" }}>
+                        {rango && <span className="uppercase">{rango} · </span>}
+                        {groups[key].length} llave{groups[key].length !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                    {grid}
+                  </section>
+                );
+              }
+
+              // ═══ PRÓXIMA JORNADA — treatment épico y cinematográfico ═══
+              return (
+                <section key={key} className="fxt-epic">
+                  <span className="fxt-epic-glow" aria-hidden />
+                  <span className="fxt-epic-rays" aria-hidden />
+                  <span className="fxt-dots" aria-hidden>
+                    {Array.from({ length: 9 }).map((_, i) => (
+                      <i
+                        key={i}
+                        style={{
+                          left: `${6 + i * 11}%`,
+                          animationDelay: `${(i * 1.1).toFixed(1)}s`,
+                          animationDuration: `${7 + (i % 3) * 2.5}s`,
+                        }}
+                      />
+                    ))}
+                  </span>
+
+                  <div className="relative" style={{ zIndex: 2 }}>
+                    <div className="flex items-end justify-between gap-4 flex-wrap">
+                      <div>
+                        <span className="fxt-kicker">PROXIMA JORNADA</span>
+                        <h2
+                          className="font-cinzel font-bold"
+                          style={{
+                            fontSize: "clamp(22px, 3vw, 32px)",
+                            letterSpacing: 2.5,
+                            textTransform: "uppercase",
+                            lineHeight: 1.05,
+                            margin: "4px 0 0",
+                            color: "var(--vertigo-gold)",
+                            textShadow: "0 2px 28px rgba(212,175,55,0.3)",
+                          }}
+                        >
+                          {key}
+                        </h2>
+                      </div>
+                      <span
+                        className="text-[10px] tracking-[1.5px] uppercase"
+                        style={{ color: "rgba(244,220,138,0.75)", fontWeight: 700 }}
+                      >
+                        {rango && <span>{rango} · </span>}
+                        {groups[key].length} llave{groups[key].length !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="fxt-epic-line" aria-hidden />
+
+                  <div className="relative" style={{ zIndex: 2 }}>
+                    {grid}
+                  </div>
+                </section>
+              );
+            })}
           </div>
         )}
 
@@ -304,204 +335,8 @@ export default async function FixturePage() {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Tarjeta de llave del fixture — mini boleta con riel de estado
-// ─────────────────────────────────────────────────────────────
-
-function FixtureMatchCard({ m }: { m: FixtureMatch }) {
-  const meta = STATUS_BADGE[m.status] ?? STATUS_BADGE.scheduled;
-  const rail = STATUS_RAIL[m.status] ?? STATUS_RAIL.scheduled;
-  const live = LIVE_STATUSES.includes(m.status);
-  const decidido = m.status === "finished" || m.status === "disputed" || m.status === "forfeit";
-  const showScore = decidido || m.scoreA > 0 || m.scoreB > 0;
-  // Chip de día: solo HOY/MAÑANA — el resto de fechas ya se explican solas
-  const diaChip = diaRelativo(m.scheduledAtStart);
-
-  return (
-    <Link
-      href={`/partido/${m.id}`}
-      className="fx-card relative group flex flex-col rounded-xl overflow-hidden transition-all hover:-translate-y-0.5"
-      style={{
-        textDecoration: "none",
-        background: "linear-gradient(180deg, rgba(22,17,32,0.72), rgba(13,9,19,0.92))",
-        border: "1px solid var(--vertigo-line-soft)",
-      }}
-    >
-      <span className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: rail }} aria-hidden />
-
-      <div style={{ padding: "14px 16px 13px 19px" }}>
-        <div className="flex items-center justify-between gap-2 mb-3">
-          <span className="text-[9.5px] tracking-[1.5px] uppercase truncate" style={{ color: "var(--vertigo-faint)" }}>
-            {m.roundName ?? "Llave"}
-            {m.format && <span style={{ color: "var(--vertigo-purple-soft)" }}> · {m.format}</span>}
-          </span>
-          <span className={`vertigo-badge ${meta.cls}`} style={{ fontSize: 9, padding: "3px 8px", flex: "none" }}>
-            {live && <span className="brk-pulse" />}
-            {meta.label}
-          </span>
-        </div>
-
-        <VersusTeams m={m} showScore={showScore} />
-
-        <div
-          className="flex items-center gap-2 mt-3 pt-3 text-[11px]"
-          style={{ borderTop: "1px solid var(--vertigo-line-soft)", color: "var(--vertigo-faint)" }}
-        >
-          {m.scheduledAtStart ? (
-            <>
-              <Clock style={{ width: 11, height: 11, flex: "none" }} />
-              {diaChip && (
-                <span
-                  className="flex-none"
-                  style={{
-                    fontSize: 8.5,
-                    fontWeight: 800,
-                    letterSpacing: 1.5,
-                    color: "#0b0713",
-                    background: "linear-gradient(90deg, #D4AF37, #f0d878)",
-                    borderRadius: 999,
-                    padding: "2px 7px",
-                  }}
-                >
-                  {diaChip}
-                </span>
-              )}
-              <span className="truncate">
-                {fmt.dayMonTime(m.scheduledAtStart)}
-                {m.scheduledAtEnd && ` — ${fmt.time(m.scheduledAtEnd)}`}
-              </span>
-            </>
-          ) : (
-            <span className="truncate">Fecha por confirmar</span>
-          )}
-          <ChevronRight
-            className="ml-auto transition-transform group-hover:translate-x-0.5"
-            style={{ width: 13, height: 13, color: "var(--vertigo-purple-soft)", flex: "none" }}
-          />
-        </div>
-      </div>
-    </Link>
-  );
-}
-
-function FixtureTeamRow({
-  name,
-  seed,
-  emblemUrl,
-  score,
-  isWinner,
-  isLoser,
-}: {
-  name: string;
-  seed: number | null;
-  emblemUrl: string | null;
-  score: number | null;
-  isWinner: boolean;
-  isLoser: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3 min-w-0">
-      <div className="flex items-center gap-2.5 min-w-0">
-        {/* Escudo con aro: dorado si ganó */}
-        <span
-          className="flex-none rounded-full overflow-hidden flex items-center justify-center"
-          style={{
-            width: 34,
-            height: 34,
-            border: isWinner ? "1.5px solid rgba(212,175,55,0.7)" : "1px solid var(--vertigo-line)",
-            boxShadow: isWinner ? "0 0 12px rgba(212,175,55,0.25)" : "none",
-            background: "var(--vertigo-input-bg, #0e0a14)",
-          }}
-        >
-          {emblemUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={emblemUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-          ) : (
-            <Trophy style={{ width: 14, height: 14, color: "var(--vertigo-faint)" }} strokeWidth={1.4} />
-          )}
-        </span>
-        <div className="min-w-0">
-          <div
-            className="text-[13.5px] truncate leading-tight"
-            style={{
-              fontWeight: isWinner ? 700 : 500,
-              color: isWinner ? "var(--vertigo-gold)" : isLoser ? "var(--vertigo-faint)" : "var(--vertigo-text)",
-            }}
-          >
-            {name}
-          </div>
-          {seed != null && (
-            <div className="text-[9px] font-bold uppercase mt-0.5" style={{ letterSpacing: 1.5, color: "var(--vertigo-faint)" }}>
-              Seed #{seed}
-            </div>
-          )}
-        </div>
-      </div>
-      {score != null && (
-        <span
-          className="font-cinzel font-bold tabular-nums flex-none"
-          style={{ fontSize: 18, color: isWinner ? "var(--vertigo-gold)" : "var(--vertigo-faint)" }}
-        >
-          {score}
-        </span>
-      )}
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────
-// Cara a cara compartido: dos filas de equipo con sello VS al medio
-// ─────────────────────────────────────────────────────────────
-
-function VersusTeams({ m, showScore }: { m: FixtureMatch; showScore: boolean }) {
-  const aWin = !!m.winnerTeamId && !!m.teamA && m.winnerTeamId === m.teamA.id;
-  const bWin = !!m.winnerTeamId && !!m.teamB && m.winnerTeamId === m.teamB.id;
-
-  return (
-    <div className="flex flex-col gap-1.5">
-      <FixtureTeamRow
-        name={m.teamA?.name ?? "Por definir"}
-        seed={m.teamA?.seed ?? null}
-        emblemUrl={m.teamA?.emblemUrl ?? null}
-        score={showScore ? m.scoreA : null}
-        isWinner={aWin}
-        isLoser={bWin}
-      />
-      {/* Sello VS sobre hairline — marca el cruce sin agregar ruido */}
-      <div className="flex items-center gap-2.5" aria-hidden>
-        <span className="flex-1 h-px" style={{ background: "var(--vertigo-line-soft)" }} />
-        <span className="font-cinzel font-bold" style={{ fontSize: 8, letterSpacing: 3, color: "rgba(212,175,55,0.65)" }}>
-          VS
-        </span>
-        <span className="flex-1 h-px" style={{ background: "var(--vertigo-line-soft)" }} />
-      </div>
-      <FixtureTeamRow
-        name={m.teamB?.name ?? "Por definir"}
-        seed={m.teamB?.seed ?? null}
-        emblemUrl={m.teamB?.emblemUrl ?? null}
-        score={showScore ? m.scoreB : null}
-        isWinner={bWin}
-        isLoser={aWin}
-      />
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────
 // Tiempo: chips HOY/MAÑANA y rango de fechas por jornada
 // ─────────────────────────────────────────────────────────────
-
-function mismoDia(a: Date, b: Date): boolean {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-}
-
-/** "HOY" / "MAÑANA" — cualquier otro día no necesita chip: la fecha ya lo dice. */
-function diaRelativo(iso: string | null): string | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (mismoDia(d, new Date())) return "HOY";
-  if (mismoDia(d, new Date(Date.now() + 86_400_000))) return "MAÑANA";
-  return null;
-}
 
 /** Rango de fechas de una jornada: "24 ago" o "22 ago – 29 ago"; "" si no hay fechas. */
 function rangoJornada(ms: FixtureMatch[]): string {
