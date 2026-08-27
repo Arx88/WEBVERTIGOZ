@@ -77,10 +77,13 @@ export default async function ApuestasPage() {
             boxShadow: "0 30px 70px rgba(0,0,0,0.5)",
           }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/brand/mina-de-oro.webp"
-            alt=""
+          <video
+            src="/brand/mina-de-oro.mp4"
+            autoPlay
+            muted
+            loop
+            playsInline
+            aria-hidden
             className="absolute inset-0"
             style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 32%" }}
           />

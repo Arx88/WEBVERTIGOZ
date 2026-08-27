@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 interface ModalProps {
@@ -19,6 +20,14 @@ interface ModalProps {
  * públicas necesitan su propio overlay.
  */
 export function Modal({ open, onClose, children, maxWidth = 440, showClose = true }: ModalProps) {
+  // Portal a <body>: si la página envuelve el contenido en un nodo con
+  // transform (ej. .vertigo-fade-in conserva matrix(1,0,0,1,0,0) tras la
+  // animación), el position:fixed del overlay pasa a ser relativo a ese nodo
+  // y el overlay termina ocupando TODO el documento (el panel queda centrado
+  // a miles de px fuera del viewport). El portal lo saca de ahí.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -32,9 +41,9 @@ export function Modal({ open, onClose, children, maxWidth = 440, showClose = tru
     };
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
+  return createPortal(
     <div
       onClick={onClose}
       style={{
@@ -46,7 +55,6 @@ export function Modal({ open, onClose, children, maxWidth = 440, showClose = tru
         justifyContent: "center",
         padding: 20,
         background: "rgba(7, 3, 16, 0.82)",
-        backdropFilter: "blur(6px)",
       }}
     >
       <div
@@ -94,7 +102,8 @@ export function Modal({ open, onClose, children, maxWidth = 440, showClose = tru
           from { opacity: 0; transform: translateY(14px) scale(0.97); }
           to { opacity: 1; transform: translateY(0) scale(1); }
         }
-      `}</style>
-    </div>
+      `}      </style>
+    </div>,
+    document.body
   );
 }
