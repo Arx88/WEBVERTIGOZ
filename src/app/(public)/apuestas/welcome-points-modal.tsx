@@ -94,7 +94,7 @@ export default function WelcomePointsModal({ points }: { points: number }) {
           <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
             <Swords style={{ width: 14, height: 14, color: "var(--vertigo-purple-soft)", marginTop: 2, flexShrink: 0 }} />
             <span style={{ fontSize: 12, color: "var(--vertigo-muted)", lineHeight: 1.5 }}>
-              Una apuesta por llave, monto libre hasta tu saldo. Podés cancelarla mientras la llave no abra.
+              Una apuesta por llave, hasta el tope de la llave (33% del pozo, mínimo 100). Cancelar devuelve el 75% del monto.
             </span>
           </div>
           <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>

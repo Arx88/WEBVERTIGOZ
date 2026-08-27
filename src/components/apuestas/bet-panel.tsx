@@ -224,7 +224,7 @@ export default function BetPanel({ context, matchId, status, teamA, teamB }: Pro
 
       <div className="mt-4 pt-3 border-t border-[var(--vertigo-line-soft)] text-[10px] text-[var(--vertigo-faint)] leading-relaxed">
         Pari-mutuel: el pozo se reparte entre los que aciertan, proporcional al monto apostado.
-        {bettable && " Podés cancelar tu boleta mientras la llave no abra."}
+        {bettable && " Podés cancelar tu boleta mientras la llave no abra (se devuelve el 75% del monto)."}
       </div>
     </div>
   );
@@ -378,7 +378,10 @@ function BetForm({
   const [loading, setLoading] = useState(false);
 
   const stake = Number.parseInt(stakeStr, 10);
-  const validStake = Number.isFinite(stake) && stake >= 1 && stake <= context.balance;
+  // Tope anti-ballena (espejo del server): 33% del pozo, piso 100.
+  const maxStake = Math.max(100, Math.floor(context.pool * 0.33));
+  const tope = Math.min(context.balance, maxStake);
+  const validStake = Number.isFinite(stake) && stake >= 1 && stake <= tope;
 
   const pickedTeam = pickedId === teamA.id ? teamA : pickedId === teamB.id ? teamB : null;
   const pickedSide = pickedId === teamA.id ? context.stakeA : pickedId === teamB.id ? context.stakeB : 0;
@@ -386,13 +389,13 @@ function BetForm({
   const payoutEstimado = proyectada !== null && validStake ? Math.floor(stake * proyectada) : null;
 
   const quicks = useMemo(() => {
-    const b = context.balance;
+    const b = Math.min(context.balance, maxStake);
     return [
       { label: "25%", value: Math.max(1, Math.floor(b * 0.25)) },
       { label: "50%", value: Math.max(1, Math.floor(b * 0.5)) },
       { label: "Todo", value: b },
     ];
-  }, [context.balance]);
+  }, [context.balance, maxStake]);
 
   async function confirm() {
     if (!pickedId || !validStake || loading) return;
@@ -505,7 +508,7 @@ function BetForm({
                 <button
                   key={q.label}
                   type="button"
-                  onClick={() => setStakeStr(String(Math.min(q.value, context.balance)))}
+                  onClick={() => setStakeStr(String(Math.min(q.value, tope, context.balance)))}
                   className="vertigo-btn vertigo-btn-ghost"
                   style={{ padding: "4px 10px", fontSize: "10px" }}
                 >
@@ -530,9 +533,14 @@ function BetForm({
               pts
             </span>
           </div>
+          <div className="text-center text-[10px] -mt-1" style={{ color: "var(--vertigo-faint)" }}>
+            Tope de esta llave: <span className="font-bold text-[var(--vertigo-gold)]">{fmt(maxStake)} pts</span> (33% del pozo) · cancelar devuelve el 75%
+          </div>
           {stakeStr !== "" && !validStake && (
             <div className="text-center text-[11px] text-[var(--vertigo-danger)]">
-              Ingresá un entero entre 1 y {fmt(context.balance)}.
+              {stake > tope
+                ? `Superás el tope: máximo ${fmt(tope)} pts en esta llave.`
+                : `Ingresá un entero entre 1 y ${fmt(tope)}.`}
             </div>
           )}
         </div>
@@ -627,7 +635,7 @@ function MyPendingBet({
         return;
       }
       toast.success("Apuesta cancelada", {
-        description: `Te reintegramos ${fmt(bet.stake)} puntos.`,
+        description: `Te reintegramos ${fmt(Math.floor(bet.stake * 0.75))} puntos (penalidad del 25%).`,
       });
       router.refresh();
     } catch (err) {
@@ -728,7 +736,7 @@ function MyPendingBet({
           }}
         >
           <Undo2 style={{ width: 12, height: 12 }} />
-          {loading ? "Cancelando…" : "Cancelar boleta (reintegro total)"}
+          {loading ? "Cancelando…" : "Cancelar boleta (devuelve el 75%)"}
         </button>
       </div>
     </div>

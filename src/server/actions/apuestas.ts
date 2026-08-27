@@ -190,6 +190,28 @@ export async function placeBetAction(formData: FormData): Promise<ActionResult> 
     return { ok: false, error: "Ya apostaste en esta llave. Cancelá tu apuesta si querés cambiarla." };
   }
 
+  // Tope anti-ballena: el stake no puede aplastar el pozo. Máximo el 33%
+  // del pozo actual, con piso de 100 para que las llaves arranquen igual.
+  // Sin esto, un solo apostador dominaba pozos chicos: si ganaba cobraba
+  // casi solo su propia plata (ganancia ~0) y si perdía le regalaba el
+  // pozo al otro lado, que con 5 pts podía llevarse 1005.
+  const { data: poolRows } = (await admin
+    .from("bet")
+    .select("stake")
+    .eq("match_id", matchId)
+    .eq("status", "pending")) as { data: any };
+  const pool = (poolRows ?? []).reduce((s: number, b: any) => s + (b.stake ?? 0), 0);
+  const maxStake = Math.max(100, Math.floor(pool * 0.33));
+  if (stake > maxStake) {
+    return {
+      ok: false,
+      error:
+        pool === 0
+          ? "Esta llave arranca con tope de 100 pts: nadie puede aplastar el pozo desde la primera apuesta."
+          : `El tope de esta llave es ${maxStake} pts (33% del pozo actual de ${pool} pts).`,
+    };
+  }
+
   const { error: insErr } = await admin.from("bet").insert({
     spectator_account_id: account.id,
     match_id: matchId,
