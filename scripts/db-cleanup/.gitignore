@@ -1,0 +1,3 @@
+# El backup contiene datos personales (emails) — nunca subir al repo
+backup-*.json
+.region

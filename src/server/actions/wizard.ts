@@ -54,6 +54,63 @@ export async function signUpOrLogin(data: WizardData) {
 }
 
 // ============================================================
+// Reanudación del wizard — si ya estás logueado con reino o inscripción,
+// no te hacemos repetir todo: se precargan datos y se reutiliza el reino.
+// ============================================================
+
+export async function getWizardResume() {
+  const supabase = await getSupabaseServer();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { authenticated: false as const };
+
+  const service = getSupabaseServiceRole() as any;
+  const { data: accountRow } = await service
+    .from("account")
+    .select("id")
+    .eq("supabase_auth_id", user.id)
+    .maybeSingle();
+  if (!accountRow) {
+    return { authenticated: true as const, email: user.email ?? "", hasOpenRegistration: false as const, existingTeam: null };
+  }
+
+  const { data: teams } = await service
+    .from("team_account")
+    .select("id, name, tagline, emblem_id")
+    .eq("owner_id", accountRow.id)
+    .order("created_at", { ascending: true });
+  const teamIds = (teams ?? []).map((t: any) => t.id);
+
+  let hasOpenRegistration = false;
+  if (teamIds.length > 0) {
+    const edition = await getEditionForRegistration(service);
+    if (edition) {
+      const { data: reg } = await service
+        .from("team_registration")
+        .select("id")
+        .eq("tournament_edition_id", edition.id)
+        .in("team_account_id", teamIds)
+        .maybeSingle();
+      hasOpenRegistration = !!reg;
+    }
+  }
+
+  const first = (teams ?? [])[0] ?? null;
+  return {
+    authenticated: true as const,
+    email: user.email ?? "",
+    hasOpenRegistration,
+    existingTeam: first
+      ? {
+          id: first.id as string,
+          name: first.name as string,
+          tagline: (first.tagline ?? "") as string,
+          emblemId: (first.emblem_id ?? null) as string | null,
+        }
+      : null,
+  };
+}
+
+// ============================================================
 // Submit wizard completo
 // ============================================================
 
@@ -134,16 +191,18 @@ export async function submitWizard(data: WizardData) {
       }
     }
 
-    // 2d. Unicidad de nombre: no puede haber dos equipos con el mismo nombre
-    //     (case-insensitive), para evitar confusiones en el bracket.
+    // 2d. Unicidad de nombre + reutilización de reino: si el nombre coincide con
+    //     un equipo del PROPIO usuario, se reutiliza ese team_account (update) en
+    //     vez de duplicar reinos ni rechazar el submit. Si es de otro dueño, error.
     const { data: nameClash } = await service
       .from("team_account")
       .select("id, name")
       .ilike("name", data.teamName.trim())
       .maybeSingle();
-    if (nameClash) {
+    if (nameClash && !myTeamIds.includes(nameClash.id)) {
       return { ok: false as const, error: `Ya existe un equipo llamado "${nameClash.name}". Elegí otro nombre.` };
     }
+    const reuseTeamId: string | null = nameClash ? nameClash.id : null;
 
     // 3. Validar que los 3 aoe2ProfileId sean distintos
     const profileIds = data.players.map((p) => p.aoe2ProfileId).filter((id): id is number => id != null);
@@ -228,19 +287,39 @@ export async function submitWizard(data: WizardData) {
       return { ok: false as const, error: "Debe haber 1 capitán." };
     }
 
-    // 6. Crear team_account (con emblem_id del wizard, no null)
-    const { data: team, error: teamErr } = await supabase
-      .from("team_account")
-      .insert({
-        owner_id: accountId,
-        name: data.teamName,
-        tagline: data.teamTagline || null,
-        emblem_id: data.emblemId, // ← fix bug #10: antes era null
-      })
-      .select("id")
-      .single();
-    if (teamErr || !team) return { ok: false as const, error: `Error creando equipo: ${teamErr?.message ?? "desconocido"}` };
-    createdTeamAccountId = team.id;
+    // 6. Reino: reutilizar el team_account existente si el nombre coincide
+    //    (update — nunca duplicar reinos), o crear uno nuevo.
+    let team: { id: string };
+    if (reuseTeamId) {
+      const { data: updated, error: upErr } = await supabase
+        .from("team_account")
+        .update({
+          name: data.teamName,
+          tagline: data.teamTagline || null,
+          emblem_id: data.emblemId,
+        })
+        .eq("id", reuseTeamId)
+        .select("id")
+        .single();
+      if (upErr || !updated) return { ok: false as const, error: `Error actualizando tu reino: ${upErr?.message ?? "desconocido"}` };
+      team = updated;
+      // OJO: reuseTeamId NO se marca como creado — si algo falla después,
+      // el cleanup NO debe borrar el reino preexistente del usuario.
+    } else {
+      const { data: insertedTeam, error: teamErr } = await supabase
+        .from("team_account")
+        .insert({
+          owner_id: accountId,
+          name: data.teamName,
+          tagline: data.teamTagline || null,
+          emblem_id: data.emblemId, // ← fix bug #10: antes era null
+        })
+        .select("id")
+        .single();
+      if (teamErr || !insertedTeam) return { ok: false as const, error: `Error creando equipo: ${teamErr?.message ?? "desconocido"}` };
+      team = insertedTeam;
+      createdTeamAccountId = team.id; // solo se limpia si lo creamos acá
+    }
 
     // 7. Crear team_registration (con ELO snapshot del servidor)
     const { data: reg, error: regErr } = await supabase
@@ -261,9 +340,11 @@ export async function submitWizard(data: WizardData) {
       .select("id")
       .single();
     if (regErr || !reg) {
-      // Cleanup: borrar team_account creado
-      await supabase.from("team_account").delete().eq("id", team.id);
-      createdTeamAccountId = null;
+      // Cleanup: borrar SOLO el team_account si lo creamos en este submit
+      if (createdTeamAccountId) {
+        await supabase.from("team_account").delete().eq("id", createdTeamAccountId);
+        createdTeamAccountId = null;
+      }
       return { ok: false as const, error: `Error creando inscripción: ${regErr?.message ?? "desconocido"}` };
     }
     createdTeamRegistrationId = reg.id;
@@ -286,9 +367,11 @@ export async function submitWizard(data: WizardData) {
       }))
     );
     if (playersErr) {
-      // Cleanup: borrar team_registration y team_account creados
+      // Cleanup: borrar lo creado en este submit (jamás un reino reutilizado)
       await supabase.from("team_registration").delete().eq("id", reg.id);
-      await supabase.from("team_account").delete().eq("id", team.id);
+      if (createdTeamAccountId) {
+        await supabase.from("team_account").delete().eq("id", createdTeamAccountId);
+      }
       createdTeamRegistrationId = null;
       createdTeamAccountId = null;
       return { ok: false as const, error: `Error cargando jugadores: ${playersErr.message}` };

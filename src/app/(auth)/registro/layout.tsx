@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, Fragment, type ReactNode } from "react";
+import { useState, useEffect, useRef, Fragment, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { WizardProvider, useWizard, WIZARD_STEPS, isValidEmblemId } from "@/components/wizard/wizard-context";
 import { toast } from "sonner";
-import { signUpOrLogin, submitWizard } from "@/server/actions/wizard";
+import { signUpOrLogin, submitWizard, getWizardResume } from "@/server/actions/wizard";
 import "@/styles/wizard-referencia.css";
 
 const STEP_INFO = [
@@ -21,7 +21,7 @@ const STEP_INFO = [
 
 function WizardShell({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const { step, totalSteps, prevStep, nextStep, data, setStep, config } = useWizard();
+  const { step, totalSteps, prevStep, nextStep, data, setStep, config, updateData } = useWizard();
   const [submitting, setSubmitting] = useState(false);
   const [authDone, setAuthDone] = useState(false);
   const [maxReached, setMaxReached] = useState(1);
@@ -32,7 +32,8 @@ function WizardShell({ children }: { children: ReactNode }) {
 
   const canProceed = (): boolean => {
     switch (step) {
-      case 1: return data.email.length > 0 && data.password.length >= 6;
+      // Con sesión válida (resume), el paso 1 no vuelve a pedir credenciales
+      case 1: return authDone || (data.email.length > 0 && data.password.length >= 6);
       case 2: return data.teamName.length >= 3 && isValidEmblemId(data.emblemId);
       case 3: {
         // Los 3 jugadores deben estar cargados, sin duplicados, Y el ELO total no debe superar el máximo
@@ -58,6 +59,46 @@ function WizardShell({ children }: { children: ReactNode }) {
     setStep(n);
   }
 
+  // ── Reanudación: si ya tenés cuenta con reino, precargar datos; si ya estás
+  //    inscripto en la edición abierta, no repetir el wizard — directo a /mi-equipo.
+  const resumeRan = useRef(false);
+  async function applyResume(notify: boolean) {
+    try {
+      const r = await getWizardResume();
+      if (!r.authenticated) return;
+      if (r.hasOpenRegistration) {
+        toast.info("Ya tenés un equipo inscripto en esta edición.", {
+          description: "Te llevamos a Mi Reino para que lo gestiones.",
+        });
+        setTimeout(() => router.push("/mi-equipo"), 1500);
+        return;
+      }
+      updateData({ email: r.email, existingAccount: true });
+      setAuthDone(true); // sesión válida: no re-pedir password en el paso 1
+      if (r.existingTeam) {
+        updateData({
+          teamName: r.existingTeam.name,
+          teamTagline: r.existingTeam.tagline ?? "",
+          emblemId: r.existingTeam.emblemId,
+        });
+        if (notify) {
+          toast.success(`Cargamos los datos de tu reino "${r.existingTeam.name}".`, {
+            description: "Podés ajustarlos antes de confirmar tu inscripción.",
+          });
+        }
+      }
+    } catch {
+      // Si el resume falla, el wizard funciona como siempre desde cero.
+    }
+  }
+
+  useEffect(() => {
+    if (resumeRan.current) return;
+    resumeRan.current = true;
+    applyResume(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function handleNext() {
     if (step === 1 && !authDone) {
       setSubmitting(true);
@@ -65,6 +106,8 @@ function WizardShell({ children }: { children: ReactNode }) {
       setSubmitting(false);
       if (!result.ok) { toast.error(result.error); return; }
       setAuthDone(true);
+      // Login recién hecho: traer reino/inscripción existente (si hay)
+      await applyResume(true);
     }
     if (step < totalSteps) {
       nextStep();
