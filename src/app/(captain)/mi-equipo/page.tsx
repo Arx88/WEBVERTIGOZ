@@ -299,6 +299,7 @@ export default async function MiEquipoPage() {
             emblemUrl={emblemUrl}
             seed={team.id}
             backgroundImage="/landing/castillo-vertigo.webp"
+            backgroundVideo="/landing/mi-reino-hero.mp4"
           />
           <div style={{
             position: "absolute", top: 0, left: 0, right: 0, height: "2px",

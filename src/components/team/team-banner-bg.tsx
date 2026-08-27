@@ -1,7 +1,8 @@
 /**
- * Fondo de banner: imagen de marca del torneo como capa base + paleta
+ * Fondo de banner: video o imagen de marca del torneo como capa base + paleta
  * derivada del id del equipo como tinte único (determinística: mismo
- * equipo, mismas siempre). Sin imagen, cae al emblema difuminado.
+ * equipo, mismas siempre). El video tiene prioridad sobre la imagen (que a su
+ * vez le sirve de poster). Sin nada, cae al emblema difuminado.
  */
 const PALETTES: [string, string][] = [
   ["#7c3aed", "#ff2e9e"], // violeta → rosa (marca)
@@ -22,16 +23,38 @@ export function TeamBannerBg({
   emblemUrl,
   seed,
   backgroundImage,
+  backgroundVideo,
 }: {
   emblemUrl?: string | null;
   seed: string;
   /** Imagen de marca (castillo, trofeo…): base del banner, con tinte único encima. */
   backgroundImage?: string;
+  /** Video de marca en loop: tiene prioridad sobre backgroundImage. */
+  backgroundVideo?: string;
 }) {
   const [c1, c2] = deriveTeamPalette(seed);
+  const hasMedia = Boolean(backgroundVideo || backgroundImage);
   return (
     <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
-      {backgroundImage ? (
+      {backgroundVideo ? (
+        // Video de marca del torneo, en loop y protagonista
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          src={backgroundVideo}
+          poster={backgroundImage}
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            objectPosition: "center 35%",
+          }}
+        />
+      ) : backgroundImage ? (
         // Imagen de marca del torneo, nítida y protagonista
         <div
           style={{
@@ -67,7 +90,7 @@ export function TeamBannerBg({
         style={{
           position: "absolute",
           inset: 0,
-          opacity: backgroundImage ? 0.45 : 1,
+          opacity: hasMedia ? 0.45 : 1,
           background: `radial-gradient(62% 95% at 12% 8%, ${c1}59, transparent 62%), radial-gradient(52% 85% at 88% 18%, ${c2}47, transparent 66%)`,
         }}
       />
