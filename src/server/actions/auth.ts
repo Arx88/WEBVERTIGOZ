@@ -477,3 +477,34 @@ export async function deleteCasterAction(formData: FormData) {
   revalidatePath("/admin/casters");
   revalidatePath("/casters");
 }
+
+/**
+ * Marca/desmarca el caster DESTACADO de /casters (uno solo a la vez).
+ * Regla pública: si el destacado está en vivo, su stream va al reproductor
+ * principal; si no, se muestra el caster en vivo más visto (y el destacado
+ * lleva el badge). Toggle: si ya era el destacado, se desmarca.
+ */
+export async function setFeaturedCasterAction(formData: FormData) {
+  await requireAdminAccount();
+  const casterId = String(formData.get("caster_id") ?? "");
+  if (!casterId) throw new Error("Falta ID del caster");
+
+  const service = getSupabaseServiceRole() as any;
+
+  const { data: current } = await service
+    .from("caster")
+    .select("featured")
+    .eq("id", casterId)
+    .single();
+  const makeFeatured = !(current?.featured ?? false);
+
+  // Uno solo destacado: primero bajo todos, después marco el elegido.
+  await service.from("caster").update({ featured: false }).neq("id", "");
+  if (makeFeatured) {
+    const { error } = await service.from("caster").update({ featured: true }).eq("id", casterId);
+    if (error) throw new Error(`Error: ${error.message}`);
+  }
+
+  revalidatePath("/admin/casters");
+  revalidatePath("/casters");
+}

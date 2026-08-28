@@ -1,41 +1,56 @@
 /**
- * Detección de "en vivo" para los canales de los casters — server only.
+ * Datos de canales de streamers para la página de casters — server only.
  *
- * Twitch:
- *  1. Si hay TWITCH_CLIENT_ID + TWITCH_CLIENT_SECRET en el entorno, usa la
- *     API oficial de Helix (lo más confiable).
- *  2. Si no, usa la GQL pública que usa el propio player web de Twitch
- *     (client-ID público) — devuelve title, viewers, juego y thumbnail.
+ * Trae el PERFIL COMPLETO de cada canal, no solo el estado en vivo:
+ *   Twitch → GQL pública del player web (client-ID público): avatar, banner,
+ *            seguidores, bio, último stream y el stream en vivo (viewers,
+ *            juego, thumbnail).
+ *   Kick   → API pública api/v2/channels/{slug}: avatar, banner, seguidores,
+ *            verificado, bio, redes y el livestream.
  *
- * Kick: endpoint público api/v2/channels/{slug}. A veces Cloudflare corta
- * requests de servidores: si falla, devolvemos null y la UI simplemente no
- * muestra badge para ese canal (nunca rompe la página).
+ * Si Kick rechaza (Cloudflare a veces corta requests de servidores) o Twitch
+ * no responde, ese canal devuelve null y la tarjeta muestra el fallback
+ * elegante — la página nunca se rompe.
  *
- * Cache en memoria 60s por canal: las pages re-renderizan seguido y los
- * clientes re-polluean cada 90s; no queremos golpear las APIs por eso.
+ * Cache en memoria 60s por canal: re-renders y re-polls del cliente no
+ * vuelven a golpear las APIs.
  */
 
 const BROWSER_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 
-// El client-ID público del player web de Twitch (no requiere credenciales).
+// Client-ID público del player web de Twitch — no requiere credenciales.
 const TWITCH_GQL_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko";
 
 const TTL_MS = 60_000;
 const FETCH_TIMEOUT_MS = 7_000;
 
-export interface LiveStatus {
+export interface ChannelStatus {
+  platform: "twitch" | "kick";
+  channel: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  bannerUrl: string | null;
+  followers: number | null;
+  bio: string | null;
+  verified: boolean;
+  // En vivo
   live: boolean;
   viewers: number | null;
   title: string | null;
   game: string | null;
   thumbnail: string | null;
+  // Último broadcast (cuando no está en vivo)
+  lastLiveAt: string | null;
+  lastTitle: string | null;
+  // Redes (Kick las expone; Twitch via panic/pylon no es público)
+  socials: { youtube?: string | null; twitter?: string | null; instagram?: string | null; discord?: string | null };
 }
 
-type CacheEntry = { at: number; data: LiveStatus | null };
+type CacheEntry = { at: number; data: ChannelStatus | null };
 const cache = new Map<string, CacheEntry>();
 
-async function cached(key: string, fn: () => Promise<LiveStatus | null>): Promise<LiveStatus | null> {
+async function cached(key: string, fn: () => Promise<ChannelStatus | null>): Promise<ChannelStatus | null> {
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < TTL_MS) return hit.data;
   const data = await fn();
@@ -47,80 +62,78 @@ function withTimeout(): AbortSignal {
   return AbortSignal.timeout(FETCH_TIMEOUT_MS);
 }
 
+const EMPTY = (platform: "twitch" | "kick", channel: string): ChannelStatus => ({
+  platform,
+  channel,
+  displayName: null,
+  avatarUrl: null,
+  bannerUrl: null,
+  followers: null,
+  bio: null,
+  verified: false,
+  live: false,
+  viewers: null,
+  title: null,
+  game: null,
+  thumbnail: null,
+  lastLiveAt: null,
+  lastTitle: null,
+  socials: {},
+});
+
 // ============================================================
 // Twitch
 // ============================================================
 
-async function twitchHelixToken(): Promise<string | null> {
-  const id = process.env.TWITCH_CLIENT_ID;
-  const secret = process.env.TWITCH_CLIENT_SECRET;
-  if (!id || !secret) return null;
-  try {
-    const res = await fetch(
-      `https://id.twitch.tv/oauth2/token?client_id=${id}&client_secret=${secret}&grant_type=client_credentials`,
-      { method: "POST", signal: withTimeout(), cache: "no-store" }
-    );
-    if (!res.ok) return null;
-    const j = (await res.json()) as { access_token?: string };
-    return j.access_token ?? null;
-  } catch {
-    return null;
+const TWITCH_QUERY = `
+query($login: String!) {
+  user(login: $login) {
+    displayName
+    profileImageURL(width: 300)
+    bannerImageURL
+    followers { totalCount }
+    description
+    lastBroadcast { title startedAt }
+    stream {
+      viewersCount
+      game { displayName }
+      previewImageURL(width: 640, height: 360)
+    }
   }
-}
+}`;
 
-async function twitchViaHelix(login: string): Promise<LiveStatus | null> {
-  const token = await twitchHelixToken();
-  const clientId = process.env.TWITCH_CLIENT_ID;
-  if (!token || !clientId) return null;
-  const res = await fetch(
-    `https://api.twitch.tv/helix/streams?user_login=${encodeURIComponent(login)}`,
-    { headers: { "Client-ID": clientId, Authorization: `Bearer ${token}` }, signal: withTimeout(), cache: "no-store" }
-  );
-  if (!res.ok) return null;
-  const j = (await res.json()) as { data?: any[] };
-  const s = j.data?.[0];
-  if (!s || s.type !== "live") return { live: false, viewers: null, title: null, game: null, thumbnail: null };
-  return {
-    live: true,
-    viewers: s.viewer_count ?? null,
-    title: s.title ?? null,
-    game: s.game_name ?? null,
-    thumbnail: (s.thumbnail_url ?? "").replace("{width}", "640").replace("{height}", "360") || null,
-  };
-}
-
-async function twitchViaGql(login: string): Promise<LiveStatus | null> {
-  const res = await fetch("https://gql.twitch.tv/gql", {
-    method: "POST",
-    headers: { "Client-ID": TWITCH_GQL_CLIENT_ID, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      query: `query($login: String!) { user(login: $login) { stream { id title viewersCount type game { displayName } previewImageURL(width: 640, height: 360) } } }`,
-      variables: { login },
-    }),
-    signal: withTimeout(),
-    cache: "no-store",
-  });
-  if (!res.ok) return null;
-  const j = (await res.json()) as { data?: { user?: { stream?: any } } };
-  const s = j.data?.user?.stream;
-  if (!s || s.type !== "live") return { live: false, viewers: null, title: null, game: null, thumbnail: null };
-  return {
-    live: true,
-    viewers: s.viewersCount ?? null,
-    title: s.title ?? null,
-    game: s.game?.displayName ?? null,
-    thumbnail: s.previewImageURL ?? null,
-  };
-}
-
-export function fetchTwitchLive(login: string): Promise<LiveStatus | null> {
+async function fetchTwitchChannel(login: string): Promise<ChannelStatus | null> {
   const clean = login.trim().toLowerCase();
-  if (!clean) return Promise.resolve(null);
+  if (!clean) return null;
   return cached(`twitch:${clean}`, async () => {
     try {
-      const helix = await twitchViaHelix(clean);
-      if (helix) return helix;
-      return await twitchViaGql(clean);
+      const res = await fetch("https://gql.twitch.tv/gql", {
+        method: "POST",
+        headers: { "Client-ID": TWITCH_GQL_CLIENT_ID, "Content-Type": "application/json" },
+        body: JSON.stringify({ query: TWITCH_QUERY, variables: { login: clean } }),
+        signal: withTimeout(),
+        cache: "no-store",
+      });
+      if (!res.ok) return null;
+      const j = (await res.json()) as { data?: { user?: any } };
+      const u = j.data?.user;
+      if (!u) return null;
+      const s = u.stream;
+      return {
+        ...EMPTY("twitch", clean),
+        displayName: u.displayName ?? null,
+        avatarUrl: u.profileImageURL ?? null,
+        bannerUrl: u.bannerImageURL ?? null,
+        followers: u.followers?.totalCount ?? null,
+        bio: u.description ?? null,
+        live: !!s,
+        viewers: s?.viewersCount ?? null,
+        title: s ? null : u.lastBroadcast?.title ?? null,
+        game: s?.game?.displayName ?? null,
+        thumbnail: s?.previewImageURL ?? null,
+        lastLiveAt: u.lastBroadcast?.startedAt ?? null,
+        lastTitle: u.lastBroadcast?.title ?? null,
+      };
     } catch {
       return null;
     }
@@ -131,7 +144,7 @@ export function fetchTwitchLive(login: string): Promise<LiveStatus | null> {
 // Kick
 // ============================================================
 
-export async function fetchKickLive(slug: string): Promise<LiveStatus | null> {
+async function fetchKickChannel(slug: string): Promise<ChannelStatus | null> {
   const clean = slug.trim().toLowerCase();
   if (!clean) return null;
   return cached(`kick:${clean}`, async () => {
@@ -143,14 +156,27 @@ export async function fetchKickLive(slug: string): Promise<LiveStatus | null> {
       });
       if (!res.ok) return null;
       const j = (await res.json()) as any;
-      const s = j?.livestream;
-      if (!s) return { live: false, viewers: null, title: null, game: null, thumbnail: null };
+      if (!j?.slug && !j?.id) return null;
+      const s = j.livestream;
       return {
-        live: true,
-        viewers: s.viewer_count ?? null,
-        title: s.session_title ?? null,
-        game: s.categories?.[0]?.name ?? j?.recent_categories?.[0]?.name ?? null,
-        thumbnail: s.thumbnail?.url ?? null,
+        ...EMPTY("kick", clean),
+        displayName: j.slug ?? clean,
+        avatarUrl: j.avatar?.url ?? null,
+        bannerUrl: j.banner_image?.url ?? null,
+        followers: j.followers_count ?? null,
+        bio: j.bio ?? null,
+        verified: !!j.verified,
+        live: !!s,
+        viewers: s?.viewer_count ?? null,
+        title: s?.session_title ?? null,
+        game: s?.categories?.[0]?.name ?? null,
+        thumbnail: s?.thumbnail?.url ?? null,
+        socials: {
+          youtube: j.youtube ?? null,
+          twitter: j.twitter ?? null,
+          instagram: j.instagram ?? null,
+          discord: j.discord ?? null,
+        },
       };
     } catch {
       return null;
@@ -177,17 +203,17 @@ export function channelSlug(raw: string | null | undefined): string {
   return v.replace(/^@/, "").trim();
 }
 
-/** Consulta el estado de varios canales en paralelo. Clave = ChannelRef.key. */
-export async function getLiveStatuses(refs: ChannelRef[]): Promise<Record<string, LiveStatus>> {
-  const out: Record<string, LiveStatus> = {};
+/** Perfil completo de varios canales en paralelo. Clave = ChannelRef.key. */
+export async function getChannelStatuses(refs: ChannelRef[]): Promise<Record<string, ChannelStatus>> {
+  const out: Record<string, ChannelStatus> = {};
   if (refs.length === 0) return out;
   const settled = await Promise.allSettled(
     refs.map(async (r) => ({
       key: r.key,
       status:
         r.platform === "twitch"
-          ? await fetchTwitchLive(r.channel)
-          : await fetchKickLive(r.channel),
+          ? await fetchTwitchChannel(r.channel)
+          : await fetchKickChannel(r.channel),
     }))
   );
   for (const s of settled) {

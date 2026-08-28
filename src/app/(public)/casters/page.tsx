@@ -2,15 +2,13 @@ import Link from "next/link";
 import { Mic, ChevronRight, Eye } from "lucide-react";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { ART_PREDICADOR } from "@/lib/art";
-import VertigoFooter from "@/components/shared/vertigo-footer";
 import SiteNav from "@/components/nav/site-nav";
 import HeroStat from "@/components/shared/hero-stat";
-import LiveRails, {
+import CastersGrid, {
   type RailCaster,
   type RailGroup,
-  type LiveStatusLite,
-} from "@/components/casters/live-rails";
-import { getLiveStatuses, channelSlug, type ChannelRef } from "@/lib/streams";
+} from "@/components/casters/casters-grid";
+import { getChannelStatuses, channelSlug, type ChannelRef, type ChannelStatus } from "@/lib/streams";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +26,7 @@ interface CasterRaw {
   youtube_channel: string | null;
   kick_channel: string | null;
   approved_at: string | null;
+  featured: boolean | null;
 }
 
 async function loadCasters(): Promise<RailCaster[]> {
@@ -36,7 +35,7 @@ async function loadCasters(): Promise<RailCaster[]> {
 
     const { data: castersRaw } = (await supabase
       .from("caster")
-      .select("id, display_name, tier, twitch_channel, youtube_channel, kick_channel, approved_at")
+      .select("id, display_name, tier, twitch_channel, youtube_channel, kick_channel, approved_at, featured")
       .not("approved_at", "is", null)
       .order("tier", { ascending: true })
       .order("display_name", { ascending: true })) as { data: CasterRaw[] | null };
@@ -75,8 +74,26 @@ async function loadCasters(): Promise<RailCaster[]> {
   }
 }
 
+/** El caster destacado desde el panel (uno solo). */
+async function loadFeaturedId(): Promise<string | null> {
+  try {
+    const supabase = await getSupabaseServer();
+    const { data } = (await supabase
+      .from("caster")
+      .select("id")
+      .eq("featured", true)
+      .not("approved_at", "is", null)
+      .limit(1)
+      .maybeSingle()) as { data: { id: string } | null };
+    return data?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export default async function CastersPage() {
   const casters = await loadCasters();
+  const featuredId = await loadFeaturedId();
 
   // Estado en vivo inicial (server): Twitch via GQL/Helix, Kick via API pública.
   const refs: ChannelRef[] = casters.flatMap((c) => {
@@ -85,7 +102,7 @@ export default async function CastersPage() {
     if (c.kick) out.push({ key: `kick:${c.kick.toLowerCase()}`, platform: "kick", channel: c.kick.toLowerCase() });
     return out;
   });
-  const statuses = await getLiveStatuses(refs);
+  const statuses = await getChannelStatuses(refs);
 
   const liveCount = casters.filter((c) => {
     const t = c.twitch ? statuses[`twitch:${c.twitch.toLowerCase()}`] : null;
@@ -96,14 +113,19 @@ export default async function CastersPage() {
   // Featured: el caster al aire con más espectadores (para el hero).
   const featured = casters
     .map((c) => {
-      const st: LiveStatusLite[] = [];
+      const st: ChannelStatus[] = [];
       if (c.twitch) { const s = statuses[`twitch:${c.twitch.toLowerCase()}`]; if (s?.live) st.push(s); }
       if (c.kick) { const s = statuses[`kick:${c.kick.toLowerCase()}`]; if (s?.live) st.push(s); }
       if (st.length === 0) return null;
       const top = st.sort((a, b) => (b.viewers ?? 0) - (a.viewers ?? 0))[0];
       const twitchLive = c.twitch ? statuses[`twitch:${c.twitch.toLowerCase()}`]?.live : false;
       const url = twitchLive ? `https://twitch.tv/${c.twitch}` : `https://kick.com/${c.kick}`;
-      return { c, top, url };
+      const avatar = top.avatarUrl ?? st.find((s) => s.avatarUrl)?.avatarUrl ?? null;
+      const banner = top.thumbnail ?? top.bannerUrl ?? st.find((s) => s.bannerUrl)?.bannerUrl ?? null;
+      const followers = [top.followers, ...st.map((s) => s.followers)].filter(
+        (n): n is number => typeof n === "number"
+      );
+      return { c, top, url, avatar, banner, followers: followers.length ? Math.max(...followers) : null };
     })
     .filter((x): x is NonNullable<typeof x> => x !== null)
     .sort((a, b) => (b.top.viewers ?? 0) - (a.top.viewers ?? 0))[0] ?? null;
@@ -182,7 +204,7 @@ export default async function CastersPage() {
               comodín y cada asedio en vivo — el pueblo sentado en la ladera, mirando el fuego.
             </p>
 
-            {/* Featured EN VIVO — vidrio sobre el hero */}
+            {/* Featured EN VIVO — vidrio sobre el hero, con foto real del canal */}
             {featured && (
               <div
                 className="flex flex-wrap items-center gap-x-5 gap-y-3"
@@ -194,9 +216,22 @@ export default async function CastersPage() {
                   background: "rgba(10,0,17,0.55)",
                   backdropFilter: "blur(10px)",
                   boxShadow: "0 0 30px rgba(239,68,68,0.15)",
-                  maxWidth: 720,
+                  maxWidth: 760,
                 }}
               >
+                {featured.avatar ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={featured.avatar}
+                    alt={featured.c.displayName}
+                    className="flex-none rounded-full object-cover"
+                    style={{
+                      width: 52, height: 52,
+                      border: "2px solid #ef4444",
+                      boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
+                    }}
+                  />
+                ) : null}
                 <span
                   className="inline-flex items-center gap-1.5 rounded-md bg-[#ef4444] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[1px] text-white"
                   style={{ boxShadow: "0 2px 12px rgba(239,68,68,0.5)" }}
@@ -267,10 +302,8 @@ export default async function CastersPage() {
             </div>
           </div>
         ) : (
-          <LiveRails groups={groups} initialStatuses={statuses} />
+          <CastersGrid groups={groups} initialStatuses={statuses} featuredId={featuredId} />
         )}
-
-        <VertigoFooter />
       </main>
     </div>
   );

@@ -5,8 +5,9 @@ import {
   setCasterTierAction,
   toggleCasterApprovalAction,
   deleteCasterAction,
+  setFeaturedCasterAction,
 } from "@/server/actions/auth";
-import { Mic, Twitch, Youtube, Check, ExternalLink, Trash2, EyeOff, Eye, Clock } from "lucide-react";
+import { Mic, Twitch, Youtube, Check, ExternalLink, Trash2, EyeOff, Eye, Clock, Star } from "lucide-react";
 import { ART_PREDICADOR } from "@/lib/art";
 import HeroStat from "@/components/shared/hero-stat";
 import VertigoSelect from "@/components/admin/vertigo-select";
@@ -37,7 +38,7 @@ export default async function AdminCastersPage() {
 
   const { data: casters } = (await supabase
     .from("caster")
-    .select("id, display_name, tier, twitch_channel, youtube_channel, kick_channel, approved_at, approved_by_id, created_at")
+    .select("id, display_name, tier, twitch_channel, youtube_channel, kick_channel, approved_at, approved_by_id, created_at, featured")
     .order("created_at", { ascending: false })) as { data: any };
 
   // Llaves asignadas por caster — contexto para decidir tier y aprobaciones
@@ -113,7 +114,8 @@ export default async function AdminCastersPage() {
           </h1>
           <p className="vertigo-desc" style={{ margin: 0, fontSize: 14, maxWidth: 640 }}>
             Aprobá casters, asigná tier (oficial/secundario/comunidad) y vinculá canales Twitch,
-            YouTube o Kick. Los pendientes aparecen primero.
+            YouTube o Kick. El caster DESTACADO ocupa el reproductor principal de /casters
+            cuando está en vivo. Los pendientes aparecen primero.
           </p>
           {/* Métricas del roster integradas al hero */}
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 22 }}>
@@ -278,6 +280,12 @@ function CasterAdminCard({ c, llaves }: { c: any; llaves: number }) {
           {!c.approved_at && (
             <span className="vertigo-badge vertigo-badge-danger">Oculto</span>
           )}
+          {c.featured && (
+            <span className="vertigo-badge vertigo-badge-warning">
+              <Star style={{ width: 11, height: 11 }} />
+              Destacado
+            </span>
+          )}
           <span className="vertigo-badge vertigo-badge-purple">
             {llaves === 0 ? "Sin llaves" : llaves === 1 ? "1 llave" : `${llaves} llaves`}
           </span>
@@ -345,6 +353,31 @@ function CasterAdminCard({ c, llaves }: { c: any; llaves: number }) {
             Aplicar tier
           </button>
         </form>
+
+        {c.approved_at && (
+          <form action={setFeaturedCasterAction}>
+            <input type="hidden" name="caster_id" value={c.id} />
+            {c.featured ? (
+              <button
+                type="submit"
+                className="vertigo-btn vertigo-btn-primary !py-1.5 !px-3 text-[12px]"
+                title="Quitar del reproductor principal de /casters"
+              >
+                <Star style={{ width: 12, height: 12, fill: "currentColor" }} />
+                Destacado
+              </button>
+            ) : (
+              <button
+                type="submit"
+                className="vertigo-btn vertigo-btn-ghost !py-1.5 !px-3 text-[12px]"
+                title="Destacar: su stream ocupa el reproductor principal de /casters cuando está en vivo"
+              >
+                <Star style={{ width: 12, height: 12 }} />
+                Destacar
+              </button>
+            )}
+          </form>
+        )}
 
         <form action={toggleCasterApprovalAction} className="ml-auto">
           <input type="hidden" name="caster_id" value={c.id} />

@@ -214,6 +214,7 @@ CREATE TABLE caster (
   youtube_channel varchar(100),
   kick_channel varchar(100),
   tier caster_tier DEFAULT 'community' NOT NULL,
+  featured boolean DEFAULT false NOT NULL,
   approved_at timestamptz,
   approved_by_id uuid,
   created_at timestamptz DEFAULT now() NOT NULL,

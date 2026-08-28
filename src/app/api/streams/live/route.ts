@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getLiveStatuses, type ChannelRef } from "@/lib/streams";
+import { getChannelStatuses, type ChannelRef } from "@/lib/streams";
 
 /**
  * GET /api/streams/live?twitch=a,b&kick=c,d
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
   add("twitch", req.nextUrl.searchParams.get("twitch"));
   add("kick", req.nextUrl.searchParams.get("kick"));
 
-  const statuses = await getLiveStatuses(refs);
+  const statuses = await getChannelStatuses(refs);
   return NextResponse.json(statuses, {
     headers: { "Cache-Control": "public, max-age=15" },
   });
