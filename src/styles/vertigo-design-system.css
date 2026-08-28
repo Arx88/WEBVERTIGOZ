@@ -661,6 +661,17 @@ html:has(.vertigo-page) {
   text-decoration: none;
 }
 
+/* Deshabilitado: tiene que notarse a primera vista que el botón no va.
+   Sin pointer-events:none así el title explica el motivo al pasar el mouse. */
+.vertigo-btn:disabled,
+.vertigo-btn[aria-disabled="true"] {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+  filter: saturate(0.55);
+}
+
 .vertigo-btn-ghost {
   padding: 13px 26px;
   background: transparent;
@@ -668,7 +679,7 @@ html:has(.vertigo-page) {
   color: #b7b0c2;
 }
 
-.vertigo-btn-ghost:hover {
+.vertigo-btn-ghost:hover:not(:disabled) {
   border-color: rgba(124, 58, 237, 0.45);
   color: var(--vertigo-purple-pale);
   background: rgba(124, 58, 237, 0.10);
@@ -705,7 +716,7 @@ html:has(.vertigo-page) {
   pointer-events: none;
 }
 
-.vertigo-btn-primary:hover {
+.vertigo-btn-primary:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow:
     0 10px 32px rgba(124, 58, 237, 0.55),
@@ -713,7 +724,7 @@ html:has(.vertigo-page) {
     inset 0 1px 0 rgba(255, 255, 255, 0.24);
 }
 
-.vertigo-btn-primary:hover::after {
+.vertigo-btn-primary:hover:not(:disabled)::after {
   left: 130%;
 }
 
@@ -732,7 +743,7 @@ html:has(.vertigo-page) {
   color: var(--vertigo-danger);
 }
 
-.vertigo-btn-danger:hover {
+.vertigo-btn-danger:hover:not(:disabled) {
   background: rgba(251, 113, 133, 0.18);
   border-color: var(--vertigo-danger);
   box-shadow: 0 4px 16px rgba(251, 113, 133, 0.15);
@@ -745,7 +756,7 @@ html:has(.vertigo-page) {
   color: var(--vertigo-success);
 }
 
-.vertigo-btn-success:hover {
+.vertigo-btn-success:hover:not(:disabled) {
   background: rgba(34, 197, 94, 0.18);
   border-color: var(--vertigo-success);
   box-shadow: 0 4px 16px rgba(34, 197, 94, 0.15);

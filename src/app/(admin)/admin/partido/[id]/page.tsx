@@ -13,11 +13,16 @@ import {
   advanceToLineupAction,
   closeComodinWindowAction,
 } from "@/server/actions/match-day";
+import { scheduleMatchFormAction } from "@/server/actions/tournament";
+import { enforceMatchIfDue } from "@/server/match-enforcement";
 import {
   ChevronLeft, Clock, Shield, Trophy, Shuffle, Layers,
   Users, Sparkles, AlertTriangle, Play, CheckCircle2, Dices, ArrowRight, Swords, X,
+  CalendarPlus, Save,
 } from "lucide-react";
 import ForfeitForm from "./forfeit-form";
+import VertigoDateTime from "@/components/admin/vertigo-date-time";
+import ReadyDeadlineTimer from "@/components/shared/ready-deadline-timer";
 import { civName } from "@/lib/constants/civs";
 import { fmt } from "@/lib/format";
 
@@ -58,6 +63,14 @@ export default async function AdminPartidoPage({
 
   const { id } = await params;
 
+  // W.O. automático lazy: si la tolerancia ya venció, se aplica antes de
+  // cargar los datos así la página refleja el resultado real.
+  try {
+    await enforceMatchIfDue(id);
+  } catch {
+    // best-effort: el cron lo cubre si esto falla
+  }
+
   const { data: match } = (await supabase
     .from("match")
     .select(`
@@ -96,11 +109,18 @@ export default async function AdminPartidoPage({
   //  - P2/P3 cuando el BO3 quedó 1-1 y la siguiente partida sigue "pending".
   const nextDrawingGame = games.find((g: any) => g.status === "pending" && g.game_number > 1) ?? null;
   const firstGame = games.find((g: any) => g.game_number === 1) ?? null;
+  const hasDate = !!match.scheduled_at_start;
   const canStartFirstDraw =
     (isScheduled || match.status === "open") &&
+    hasDate &&
     !!match.ready_a_at && !!match.ready_b_at &&
     (!firstGame || firstGame.status === "pending");
   const canStartNextGameDraw = match.status === "in_progress" && !!nextDrawingGame;
+  const drawBlockReason = !hasDate
+    ? "Primero asignale fecha y hora a la llave"
+    : !match.ready_a_at || !match.ready_b_at
+    ? "Ambos equipos deben confirmar READY primero"
+    : "Decidir resultado en server y reproducir la ruleta en vivo";
 
   return (
     <div className="vertigo-fade-in">
@@ -135,7 +155,58 @@ export default async function AdminPartidoPage({
             {fmt.dateTime(match.scheduled_at_start)}
           </span>
         )}
+        {isScheduled && !hasDate && (
+          <span className="vertigo-badge vertigo-badge-danger" style={{ padding: "8px 16px", fontSize: 12 }}>
+            <AlertTriangle style={{ width: 13, height: 13 }} />
+            SIN FECHA
+          </span>
+        )}
       </div>
+
+      {/* ═══ SIN FECHA: aviso prominente + programación inline ═══
+          Sin horario no existe ventana de READY ni W.O. automático:
+          programar la llave es el paso 1, y se puede hacer desde acá. */}
+      {isScheduled && !hasDate && (
+        <section className="mb-8">
+          <div
+            className="vertigo-card"
+            style={{ border: "1px solid rgba(251,113,133,0.5)", background: "rgba(251,113,133,0.06)" }}
+          >
+            <div className="flex items-start gap-3 mb-4">
+              <CalendarPlus className="flex-none mt-0.5" style={{ width: 20, height: 20, color: "var(--vertigo-danger)" }} />
+              <div>
+                <div className="font-cinzel text-base font-semibold" style={{ color: "var(--vertigo-danger)" }}>
+                  Esta llave no tiene fecha ni hora
+                </div>
+                <p className="text-sm text-[var(--vertigo-muted)] mt-1 leading-relaxed">
+                  Los capitanes no pueden confirmar READY y el sorteo está bloqueado hasta que
+                  la llave tenga horario. Asignalo acá: el READY se habilita {`15 min antes`}
+                  y a los {`15 min`} del horario el equipo ausente pierde por W.O.
+                </p>
+              </div>
+            </div>
+            <form action={scheduleMatchFormAction} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto_auto] gap-3 items-end pt-4 border-t border-[var(--vertigo-line-soft)]">
+              <input type="hidden" name="match_id" value={match.id} />
+              <div className="flex flex-col gap-1">
+                <label className="text-[9px] uppercase tracking-widest text-[var(--vertigo-faint)]">Inicio</label>
+                <VertigoDateTime name="scheduled_at_start" required />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[9px] uppercase tracking-widest text-[var(--vertigo-faint)]">Fin estimado</label>
+                <VertigoDateTime name="scheduled_at_end" required />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[9px] uppercase tracking-widest text-[var(--vertigo-faint)]">Jornada</label>
+                <input type="text" name="jornada_label" defaultValue={match.jornada_label ?? ""} placeholder="Jornada 1"
+                  className="bg-[var(--vertigo-input-bg)] border border-[var(--vertigo-input-border)] rounded-md px-3 py-2 text-[13px] text-[var(--vertigo-text)] w-32" />
+              </div>
+              <button type="submit" className="vertigo-btn vertigo-btn-primary" style={{ padding: "12px 22px", fontSize: 11 }}>
+                <Save style={{ width: 13, height: 13 }} /> Programar llave
+              </button>
+            </form>
+          </div>
+        </section>
+      )}
 
       {/* Team cards */}
       <section className="mb-8">
@@ -165,7 +236,7 @@ export default async function AdminPartidoPage({
         <div className="vertigo-subtitle">Centro de operaciones</div>
         <div className="vertigo-card premium">
           <div className="vertigo-action-bar" style={{ alignItems: "stretch" }}>
-            {/* INICIAR SORTEO P1 — habilitado cuando ambos están ready (scheduled u open) */}
+            {/* INICIAR SORTEO P1 — habilitado con fecha + ambos ready (scheduled u open) */}
             {(isScheduled || match.status === "open") && (
               <div className="flex flex-col gap-2">
                 <form action={startDrawFormAction}>
@@ -175,14 +246,16 @@ export default async function AdminPartidoPage({
                     type="submit"
                     className="vertigo-btn vertigo-btn-primary"
                     disabled={!canStartFirstDraw}
-                    title={!match.ready_a_at || !match.ready_b_at ? "Ambos equipos deben confirmar READY primero" : "Decidir resultado en server y reproducir la ruleta en vivo"}
+                    title={drawBlockReason}
                   >
                     <Dices style={{ width: 14, height: 14 }} />
                     Iniciar sorteo (Partida 1)
                   </button>
                 </form>
                 <p className="text-[11px] text-[var(--vertigo-faint)] max-w-xs leading-snug">
-                  {match.ready_a_at && match.ready_b_at
+                  {!hasDate
+                    ? "⚠ La llave no tiene fecha: programala arriba para habilitar el READY y el sorteo."
+                    : match.ready_a_at && match.ready_b_at
                     ? "Ambos equipos confirmaron. El sorteo decide en server y se reproduce en vivo (admin, capitanes y overlay ven lo mismo)."
                     : "Esperando READY #1 de ambos equipos para habilitar el sorteo."}
                 </p>
@@ -232,6 +305,17 @@ export default async function AdminPartidoPage({
               <p className="text-sm text-[var(--vertigo-success)]">
                 ✓ Ambos equipos confirmaron READY. La llave está HABILITADA para el sorteo.
               </p>
+            </div>
+          )}
+          {/* Timer de la ventana de READY: cuenta regresiva visible para el admin */}
+          {isScheduled && hasDate && (
+            <div className="mt-4 pt-4 border-t border-[var(--vertigo-line-soft)] grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <ReadyDeadlineTimer scheduledAtStart={match.scheduled_at_start} status={match.status} variant="block" />
+              <div className="text-[11px] text-[var(--vertigo-faint)] leading-relaxed self-center">
+                El READY se habilita 15 min antes del horario. Si a los 15 min del horario un
+                equipo no confirmó, pierde por W.O. automáticamente (cron cada 5 min + check al
+                abrir la página). Si ninguno confirma, la llave cierra sin ganador y decidís vos.
+              </div>
             </div>
           )}
         </div>
@@ -490,7 +574,14 @@ export default async function AdminPartidoPage({
                 </div>
               )}
               {/* Forfeit — siempre disponible si no terminó */}
-              <ForfeitForm matchId={match.id} action={markForfeitFormAction} />
+              <ForfeitForm
+                matchId={match.id}
+                action={markForfeitFormAction}
+                teamAId={teamA?.id}
+                teamBId={teamB?.id}
+                teamAName={teamA?.team_account?.name}
+                teamBName={teamB?.team_account?.name}
+              />
             </div>
           </div>
         </section>

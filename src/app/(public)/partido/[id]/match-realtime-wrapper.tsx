@@ -24,6 +24,7 @@ import MatchHero from "@/components/shared/match-hero";
 import { artForMode, artForMap } from "@/lib/art";
 import { CaptainMatchPanel, type CaptainPanelContext } from "@/components/captain/captain-match-panel";
 import BetPanel, { type BetPanelContext } from "@/components/apuestas/bet-panel";
+import ReadyDeadlineTimer from "@/components/shared/ready-deadline-timer";
 import { loadMatch, type GameView, type MatchData } from "./match-data";
 import { fmt } from "@/lib/format";
 
@@ -216,6 +217,7 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
         <CaptainMatchPanel
           matchId={matchId}
           status={match.status}
+          scheduledAtStart={match.scheduledAtStart}
           myTeamRegId={captainContext.myTeamRegId}
           teamA={{ id: match.teamA.id, name: match.teamA.name, seed: match.teamA.seed }}
           teamB={{ id: match.teamB.id, name: match.teamB.name, seed: match.teamB.seed }}
@@ -414,6 +416,16 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
               {fmt.dayMonTime(match.scheduledAtStart)}
             </span>
           )}
+          {!match.scheduledAtStart && match.status === "scheduled" && (
+            <span
+              className="vertigo-badge vertigo-badge-danger"
+              style={{ fontSize: 10, padding: "5px 12px" }}
+              title="La organización todavía no confirmó el horario de esta llave"
+            >
+              <Calendar style={{ width: 11, height: 11 }} />
+              FECHA A CONFIRMAR
+            </span>
+          )}
           {/* Fin estimado y formato: datos operativos, solo interesan al capitán */}
           {captainContext && match.scheduledAtEnd && (
             <span className="inline-flex items-center gap-1.5 text-[11px]" style={{ color: "var(--vertigo-muted)" }}>
@@ -441,6 +453,14 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
               />
               {formatCountdown(countdown)}
             </div>
+          </div>
+        )}
+
+        {/* Tolerancia W.O.: desde la hora de la llave corre el timer de 15 min.
+            El equipo que no confirmó READY pierde la llave al agotarse. */}
+        {start !== null && now >= start && match.status === "scheduled" && (
+          <div style={{ margin: "16px 28px 4px" }}>
+            <ReadyDeadlineTimer scheduledAtStart={match.scheduledAtStart} status={match.status} variant="block" />
           </div>
         )}
 

@@ -6,6 +6,7 @@ import { TeamBannerBg } from "@/components/team/team-banner-bg";
 import { ComodinesGrid } from "@/components/team/comodin-cards";
 import VertigoFooter from "@/components/shared/vertigo-footer";
 import { confirmReadyAction } from "@/server/actions/ready";
+import { computeReadyPhase } from "@/lib/match-rules";
 import { Calendar, History, ArrowRight, ArrowUpRight, Clock, CheckCircle, AlertCircle, Zap, Sparkles } from "lucide-react";
 import { fmt } from "@/lib/format";
 
@@ -347,6 +348,9 @@ export default async function MisPartidosPage() {
                 const isScheduled = m.status === "scheduled";
                 const isOpen = m.status === "open";
                 const isComodinWindow = m.status === "comodin_window";
+                // Ventana de READY: [15 min antes del horario, 15 min después].
+                // Gating server-side; el timer vivo está en la página del partido.
+                const readyWin = computeReadyPhase(m.scheduled_at_start ?? null, m.status, Date.now());
                 return (
                   <div key={m.id} className="vertigo-card premium">
                     {/* Fondo de video + velo oscuro */}
@@ -402,7 +406,7 @@ export default async function MisPartidosPage() {
                           <div className="vertigo-info-card-value" style={{ fontSize: "13px" }}>
                             {m.scheduled_at_start
                               ? fmt.dayMonTimeNum(m.scheduled_at_start)
-                              : "A confirmar"}
+                              : <span style={{ color: "#fbbf24" }}>A confirmar ⚠</span>}
                           </div>
                         </div>
                         <div className="vertigo-info-card" style={{ padding: "16px" }}>
@@ -454,12 +458,12 @@ export default async function MisPartidosPage() {
                         )}
                       </div>
 
-                      {/* Alertas de estado */}
+                      {/* Alertas de estado — el botón READY solo existe dentro de la ventana */}
                       {isScheduled && (
                         <div style={{
                           padding: "14px 18px",
-                          background: myReady ? "rgba(34,197,94,0.08)" : "rgba(251,191,36,0.06)",
-                          border: `1px solid ${myReady ? "rgba(34,197,94,0.3)" : "rgba(251,191,36,0.25)"}`,
+                          background: myReady ? "rgba(34,197,94,0.08)" : readyWin.phase === "grace" || readyWin.phase === "expired" ? "rgba(251,113,133,0.07)" : "rgba(251,191,36,0.06)",
+                          border: `1px solid ${myReady ? "rgba(34,197,94,0.3)" : readyWin.phase === "grace" || readyWin.phase === "expired" ? "rgba(251,113,133,0.4)" : "rgba(251,191,36,0.25)"}`,
                           borderRadius: "10px",
                           marginBottom: "16px",
                           display: "flex",
@@ -471,15 +475,42 @@ export default async function MisPartidosPage() {
                           <div style={{ fontSize: "13px", display: "flex", alignItems: "center", gap: "8px" }}>
                             {myReady ? (
                               <span style={{ color: "var(--vertigo-success)" }}>✓ Estás listo{rivalReady ? " — Rival también" : " — Esperando rival"}</span>
+                            ) : readyWin.phase === "no-date" ? (
+                              <span style={{ color: "#fbbf24" }}>⚠ La llave no tiene horario confirmado — el READY se habilita 15 min antes del horario</span>
+                            ) : readyWin.phase === "early" ? (
+                              <span style={{ color: "#fbbf24" }}>
+                                El READY se habilita 15 min antes del horario
+                                {readyWin.msToOpen != null && ` (faltan ~${Math.max(1, Math.ceil(readyWin.msToOpen / 60_000))} min)`}
+                              </span>
+                            ) : readyWin.phase === "grace" ? (
+                              <span style={{ color: "var(--vertigo-danger)", fontWeight: 600 }}>⚠ Tolerancia en curso — si no confirmás antes del límite, perdés por W.O.</span>
+                            ) : readyWin.phase === "expired" ? (
+                              <span style={{ color: "var(--vertigo-danger)", fontWeight: 600 }}>Tiempo agotado — aplicando W.O.…</span>
                             ) : rivalReady ? (
                               <span style={{ color: "#fbbf24" }}>⚠ El rival está listo — Confirmá tu participación</span>
                             ) : (
                               <span style={{ color: "#fbbf24" }}>Confirmá tu participación para habilitar el sorteo</span>
                             )}
                           </div>
-                          {!myReady && (
+                          {!myReady && readyWin.phase === "early" && (
+                            <button
+                              type="button"
+                              className="vertigo-btn vertigo-btn-success"
+                              disabled
+                              title="Se habilita 15 minutos antes del horario de la llave"
+                              style={{ fontSize: "11px", padding: "10px 20px" }}
+                            >
+                              <CheckCircle style={{ width: 14, height: 14 }} />
+                              ESTOY LISTO
+                            </button>
+                          )}
+                          {!myReady && (readyWin.phase === "open" || readyWin.phase === "grace") && (
                             <form action={confirmReadyAction.bind(null, m.id)} style={{ display: "inline" }}>
-                              <button type="submit" className="vertigo-btn vertigo-btn-success" style={{ fontSize: "11px", padding: "10px 20px" }}>
+                              <button
+                                type="submit"
+                                className={`vertigo-btn ${readyWin.phase === "grace" ? "vertigo-btn-danger" : "vertigo-btn-success"}`}
+                                style={{ fontSize: "11px", padding: "10px 20px" }}
+                              >
                                 <CheckCircle style={{ width: 14, height: 14 }} />
                                 ESTOY LISTO
                               </button>

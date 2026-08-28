@@ -27,6 +27,7 @@ import {
   confirmLineupReadyFormAction,
   requestComodinFormAction,
 } from "@/server/actions/match-day";
+import ReadyDeadlineTimer, { useReadyWindow } from "@/components/shared/ready-deadline-timer";
 import {
   CheckCircle2, Users, Sword, Timer, Sparkles, Loader2, AlertCircle,
 } from "lucide-react";
@@ -62,6 +63,8 @@ export interface CaptainPanelContext {
 interface Props {
   matchId: string;
   status: string;
+  /** Horario programado de la llave (null = sin fecha). Gating de la ventana READY. */
+  scheduledAtStart: string | null;
   /** Mi team_registration.id si soy capitán de un equipo de este match; null si no lo soy */
   myTeamRegId: string | null;
   teamA: TeamLite | null;
@@ -90,6 +93,7 @@ interface Props {
 export function CaptainMatchPanel({
   matchId,
   status,
+  scheduledAtStart,
   myTeamRegId,
   teamA,
   teamB,
@@ -113,6 +117,8 @@ export function CaptainMatchPanel({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  // Ventana de READY: [15 min antes del horario, 15 min después] (tolerancia W.O.)
+  const { phase: readyPhase } = useReadyWindow(scheduledAtStart, status);
 
   const panelClasses = "vertigo-card";
   const isCaptainOfThisMatch = !!myTeamRegId;
@@ -193,27 +199,63 @@ export function CaptainMatchPanel({
         )}
       </div>
 
-      {/* READY #1: confirmar asistencia para habilitar la llave */}
+      {/* READY #1: confirmar asistencia para habilitar la llave.
+          Solo dentro de la ventana: desde 15 min antes del horario hasta
+          15 min después (tolerancia). Sin fecha confirmada no hay botón. */}
       {waitingStart && (
         <>
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="text-sm text-[var(--vertigo-muted)]">
               {myReady
                 ? (rivalReady ? "✓ Ambos equipos listos. Aguardando al admin para el sorteo." : "✓ Estás listo. Esperando al rival.")
+                : readyPhase === "no-date"
+                ? "⚠ Esta llave todavía no tiene fecha y horario confirmados."
+                : readyPhase === "early"
+                ? "Confirmá tu asistencia cuando se abra la ventana."
+                : readyPhase === "expired"
+                ? "El tiempo para confirmar READY terminó."
                 : "Confirmá tu asistencia para habilitar la llave."}
             </div>
-            {!myReady && (
+            {!myReady && readyPhase === "early" && (
+              <button
+                type="button"
+                className="vertigo-btn vertigo-btn-success"
+                disabled
+                title="Se habilita 15 minutos antes del horario de la llave"
+                style={{ fontSize: 11, padding: "10px 20px" }}
+              >
+                <CheckCircle2 style={{ width: 14, height: 14 }} />
+                ESTOY LISTO
+              </button>
+            )}
+            {!myReady && (readyPhase === "open" || readyPhase === "grace") && (
               <form action={confirmReadyAction.bind(null, matchId)}>
-                <button type="submit" className="vertigo-btn vertigo-btn-success" style={{ fontSize: 11, padding: "10px 20px" }}>
+                <button
+                  type="submit"
+                  className={`vertigo-btn ${readyPhase === "grace" ? "vertigo-btn-danger" : "vertigo-btn-success"}`}
+                  style={{ fontSize: 11, padding: "10px 20px" }}
+                >
                   <CheckCircle2 style={{ width: 14, height: 14 }} />
                   ESTOY LISTO
                 </button>
               </form>
             )}
           </div>
-          <div className="text-[12px] text-[var(--vertigo-faint)] mt-3 flex items-center gap-2">
+          <div className="text-[12px] text-[var(--vertigo-faint)] mt-3 flex items-center gap-2 flex-wrap">
             <Timer style={{ width: 12, height: 12, flexShrink: 0 }} />
-            La ruleta gira 15 min antes del horario. Avisá a tu equipo.
+            {readyPhase === "no-date" ? (
+              <span>
+                Cuando la organización confirme el horario, vas a poder confirmar desde 15 min
+                antes hasta 15 min después. Si tu equipo no confirma a tiempo, pierde por W.O.
+              </span>
+            ) : (
+              <>
+                <ReadyDeadlineTimer scheduledAtStart={scheduledAtStart} status={status} variant="chip" />
+                <span className="text-[var(--vertigo-faint)]">
+                  · Si no confirmás dentro de la ventana, tu equipo pierde por W.O.
+                </span>
+              </>
+            )}
           </div>
         </>
       )}

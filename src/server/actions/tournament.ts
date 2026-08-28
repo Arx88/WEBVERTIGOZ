@@ -330,7 +330,7 @@ export async function scheduleMatchAction(formData: FormData): Promise<{ ok: boo
   // Leer match a programar
   const { data: match } = await service
     .from("match")
-    .select("id, round_id")
+    .select("id, round_id, scheduled_at_start, ready_a_at, ready_b_at")
     .eq("id", matchId)
     .single();
   if (!match) return { ok: false, error: "Match no encontrado." };
@@ -351,12 +351,20 @@ export async function scheduleMatchAction(formData: FormData): Promise<{ ok: boo
     return { ok: false, error: "El horario se solapa con otro partido programado. El torneo no tiene partidas simultáneas." };
   }
 
+  // Si cambia el horario, los READY viejos ya no valen: la ventana de
+  // confirmación es relativa al horario, así que los equipos deben re-confirmar.
+  const changedStart =
+    !match.scheduled_at_start ||
+    new Date(match.scheduled_at_start).getTime() !== start.getTime();
+  const clearReady = changedStart && !!(match.ready_a_at || match.ready_b_at);
+
   const { error } = await service
     .from("match")
     .update({
       scheduled_at_start: start.toISOString(),
       scheduled_at_end: end.toISOString(),
       jornada_label: jornada,
+      ...(clearReady ? { ready_a_at: null, ready_b_at: null, status: "scheduled" } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq("id", matchId);
@@ -364,6 +372,9 @@ export async function scheduleMatchAction(formData: FormData): Promise<{ ok: boo
 
   revalidatePath("/admin/jornadas");
   revalidatePath("/admin/bracket");
+  revalidatePath(`/admin/partido/${matchId}`);
+  revalidatePath(`/partido/${matchId}`);
+  revalidatePath("/mis-partidos");
   return { ok: true };
 }
 
@@ -444,7 +455,7 @@ export async function startDrawAction(formData: FormData): Promise<{ ok: boolean
   // Match + equipos + ronda
   const { data: match } = await service
     .from("match")
-    .select("id, status, round_id, team_a_id, team_b_id, round:round_id(bracket_id, index, bracket:bracket_id(tournament_edition_id))")
+    .select("id, status, round_id, team_a_id, team_b_id, scheduled_at_start, round:round_id(bracket_id, index, bracket:bracket_id(tournament_edition_id))")
     .eq("id", matchId)
     .single();
   if (!match) return { ok: false, error: "Match no encontrado." };
@@ -456,6 +467,10 @@ export async function startDrawAction(formData: FormData): Promise<{ ok: boolean
   }
   if (!match.team_a_id || !match.team_b_id) {
     return { ok: false, error: "El match no tiene ambos equipos definidos todavía." };
+  }
+  // El primer sorteo requiere fecha confirmada: sin fecha no existe ventana READY.
+  if (gameNumber === 1 && !match.scheduled_at_start) {
+    return { ok: false, error: "El match no tiene fecha y horario programados. Programalo antes de iniciar el sorteo." };
   }
 
   const editionId = match.round?.bracket?.tournament_edition_id;

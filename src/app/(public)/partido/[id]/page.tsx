@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Swords } from "lucide-react";
 import { getSupabaseServer } from "@/lib/supabase/server";
+import { enforceMatchIfDue } from "@/server/match-enforcement";
 import { loadMatch } from "./match-data";
 import MatchRealtimeWrapper from "./match-realtime-wrapper";
 import VertigoFooter from "@/components/shared/vertigo-footer";
@@ -15,6 +16,14 @@ export default async function PartidoPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+
+  // W.O. automático lazy: si la tolerancia ya venció, se aplica antes de
+  // cargar los datos así la página refleja el resultado real.
+  try {
+    await enforceMatchIfDue(id);
+  } catch {
+    // best-effort: el cron lo cubre si esto falla
+  }
 
   const supabase = await getSupabaseServer();
   let initialMatch = null;

@@ -2,11 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { getSupabaseServer } from "@/lib/supabase/server";
+import { READY_WINDOW_MIN, GRACE_MIN } from "@/lib/match-rules";
 
 /**
  * Confirma "ESTOY LISTO" para un match.
  * El capitán hace click y se marca ready_a_at o ready_b_at.
  * Cuando AMBOS equipos están ready, el match pasa a status="open" (HABILITADA).
+ *
+ * Ventana: solo se puede confirmar desde READY_WINDOW_MIN antes del horario
+ * programado hasta GRACE_MIN después (tolerancia). Sin fecha no se puede.
  */
 export async function confirmReadyAction(matchId: string, fd: FormData): Promise<void> {
   const supabase = (await getSupabaseServer()) as any;
@@ -44,7 +48,7 @@ export async function confirmReadyAction(matchId: string, fd: FormData): Promise
   // Buscar el match
   const { data: match } = (await supabase
     .from("match")
-    .select("id, status, team_a_id, team_b_id, ready_a_at, ready_b_at")
+    .select("id, status, scheduled_at_start, team_a_id, team_b_id, ready_a_at, ready_b_at")
     .eq("id", matchId)
     .single()) as { data: any };
   if (!match) throw new Error("Match no encontrado.");
@@ -57,6 +61,22 @@ export async function confirmReadyAction(matchId: string, fd: FormData): Promise
   // Validar que el match esté en estado scheduled
   if (match.status !== "scheduled") {
     throw new Error(`El match ya no está en estado programado (actual: ${match.status}).`);
+  }
+
+  // Ventana de READY: requiere fecha confirmada y estar dentro de
+  // [inicio - READY_WINDOW_MIN, inicio + GRACE_MIN].
+  if (!match.scheduled_at_start) {
+    throw new Error("La llave todavía no tiene fecha y horario confirmados.");
+  }
+  const startMs = new Date(match.scheduled_at_start).getTime();
+  const nowMs = Date.now();
+  if (nowMs < startMs - READY_WINDOW_MIN * 60_000) {
+    throw new Error(
+      `Podés confirmar READY desde ${READY_WINDOW_MIN} minutos antes del horario de la llave.`
+    );
+  }
+  if (nowMs > startMs + GRACE_MIN * 60_000) {
+    throw new Error("El tiempo para confirmar READY ya terminó.");
   }
 
   const now = new Date().toISOString();

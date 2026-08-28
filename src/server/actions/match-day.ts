@@ -586,6 +586,9 @@ export async function markForfeitAction(formData: FormData): Promise<{ ok: boole
   }).eq("id", matchId);
   if (error) return { ok: false, error: error.message };
   revalidatePath(`/admin/partido/${matchId}`);
+  revalidatePath(`/partido/${matchId}`);
+  revalidatePath("/mis-partidos");
+  revalidatePath("/admin/bracket");
   revalidatePath("/bracket");
   return { ok: true };
 }
