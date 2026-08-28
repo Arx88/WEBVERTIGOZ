@@ -6,13 +6,33 @@ import { createServerClient } from "@supabase/ssr";
  *
  * - /admin/* → requiere sesión + role admin/super_admin (el check de role se hace en el layout)
  * - /captain/* → requiere sesión
- * - /caster/* → requiere sesión
  *
  * El middleware solo verifica que haya sesión. El check de role específico
  * se hace en el layout de cada route group (más eficiente que hacer query
  * a la DB en cada request).
+ *
+ * Performance/resiliencia: las rutas PÚBLICAS no tocan Supabase acá.
+ * Solo las protegidas llaman a auth, con timeout: si Supabase se cuelga,
+ * el resto del sitio sigue funcionando y la ruta protegida degrada a
+ * /login en vez de colgar el request (504).
  */
+
+const AUTH_TIMEOUT_MS = 3000;
+
 export async function middleware(req: NextRequest) {
+  // Rutas protegidas (requieren sesión)
+  // IMPORTANTE: NO incluir "/caster" — la página /casters es pública y
+  // startsWith("/caster") la mandaba a login. No existen rutas /caster/* privadas.
+  // /overlay es para OBS Browser Source (sin sesión) — también público.
+  const protectedPaths = ["/admin", "/captain"];
+  const isProtected = protectedPaths.some((p) =>
+    req.nextUrl.pathname.startsWith(p)
+  );
+
+  // Páginas públicas: sin llamada a auth. Si Supabase está lento/caído,
+  // la landing, el bracket, el fixture, etc. siguen cargando igual.
+  if (!isProtected) return NextResponse.next();
+
   const res = NextResponse.next();
 
   // Crear cliente Supabase que lee las cookies del request
@@ -33,20 +53,19 @@ export async function middleware(req: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getUser() con timeout: un bache de Supabase no puede colgar el request.
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const user = await Promise.race([
+    supabase.auth.getUser()
+      .then((r) => r.data.user)
+      .catch(() => null),
+    new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), AUTH_TIMEOUT_MS);
+    }),
+  ]);
+  if (timer) clearTimeout(timer);
 
-  // Rutas protegidas (requieren sesión)
-  // IMPORTANTE: NO incluir "/caster" — la página /casters es pública y
-  // startsWith("/caster") la mandaba a login. No existen rutas /caster/* privadas.
-  // /overlay es para OBS Browser Source (sin sesión) — también público.
-  const protectedPaths = ["/admin", "/captain"];
-  const isProtected = protectedPaths.some((p) =>
-    req.nextUrl.pathname.startsWith(p)
-  );
-
-  if (isProtected && !user) {
+  if (!user) {
     const redirectUrl = req.nextUrl.clone();
     redirectUrl.pathname = "/login";
     redirectUrl.searchParams.set("redirect", req.nextUrl.pathname);

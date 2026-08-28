@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getSupabaseServer, getSupabaseServiceRole } from "@/lib/supabase/server";
 import { GENERIC_AVATARS } from "@/lib/constants";
@@ -14,7 +15,18 @@ import { refreshPlayerStatsCache } from "@/lib/aoe2/stats-cache";
 
 export async function logoutAction() {
   const supabase = await getSupabaseServer();
-  await supabase.auth.signOut();
+  // signOut con timeout: si Supabase se cuelga, igual limpiamos la sesión
+  // local y redirigimos (el token expira solo en 1h). Sin esto, un bache
+  // de auth deja el botón SALIR colgado para siempre.
+  await Promise.race([
+    supabase.auth.signOut().catch(() => {}),
+    new Promise((r) => setTimeout(r, 3000)),
+  ]);
+  // Si signOut no completó, la cookie de sesión puede seguir viva: borrarla.
+  const store = await cookies();
+  for (const c of store.getAll()) {
+    if (c.name.startsWith("sb-")) store.delete(c.name);
+  }
   // La cookie de dispositivo confiable NO se borra: permite volver a
   // entrar con un clic desde /login. Se puede olvidar desde el chip.
   revalidatePath("/");

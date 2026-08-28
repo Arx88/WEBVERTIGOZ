@@ -145,7 +145,25 @@ export async function listTrustedDevices(): Promise<TrustedDevice[]> {
  * magic link generado con service role + verificación OTP server-side
  * (el cliente @supabase/ssr deja las cookies de sesión listas).
  */
+const RESTORE_TIMEOUT_MS = 8000;
+
 export async function restoreDeviceSession(
+  email: string,
+): Promise<{ ok: boolean; role?: string }> {
+  // Timeout global: si Supabase se cuelga en generateLink/verifyOtp,
+  // degradamos a {ok:false} (→ /login) en vez de colgar la server action.
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const result = await Promise.race([
+    runRestore(email),
+    new Promise<{ ok: boolean; role?: string }>((resolve) => {
+      timer = setTimeout(() => resolve({ ok: false }), RESTORE_TIMEOUT_MS);
+    }),
+  ]);
+  if (timer) clearTimeout(timer);
+  return result;
+}
+
+async function runRestore(
   email: string,
 ): Promise<{ ok: boolean; role?: string }> {
   try {

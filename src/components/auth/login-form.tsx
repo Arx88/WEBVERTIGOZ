@@ -30,7 +30,12 @@ export default function LoginForm() {
       if (error) throw error;
 
       let destino = "/mi-equipo";
-      if (data.user) {
+      // ?redirect= lo pone el middleware al rechazar una ruta protegida:
+      // después de loguearse, el usuario vuelve a donde quería ir.
+      const pedido = new URLSearchParams(window.location.search).get("redirect");
+      if (pedido && pedido.startsWith("/") && !pedido.startsWith("//")) {
+        destino = pedido;
+      } else if (data.user) {
         const { data: account } = await supabase
           .from("account")
           .select("role")
@@ -41,8 +46,19 @@ export default function LoginForm() {
         else if (role === "caster") destino = "/casters";
       }
 
-      // Recordar este navegador para el acceso rápido de un clic
-      await ensureDeviceTrustAction();
+      // Recordar este navegador para el acceso rápido de un clic.
+      // Best-effort con timeout: si Supabase se cuelga acá, el login NO se
+      // rompe — simplemente no queda cuenta recordada.
+      try {
+        await Promise.race([
+          ensureDeviceTrustAction(),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("timeout")), 5000),
+          ),
+        ]);
+      } catch {
+        /* noop: el acceso rápido queda desactivado, la sesión está viva */
+      }
 
       toast.success("¡Bienvenido!", {
         description: `Sesión iniciada como ${data.user?.email}`,

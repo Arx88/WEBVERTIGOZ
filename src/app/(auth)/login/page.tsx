@@ -13,13 +13,29 @@ import LoginForm from "@/components/auth/login-form";
  * (cuentas recordadas en este navegador → entran con UN clic) y debajo
  * el formulario clásico.
  */
-export default async function LoginPage() {
+/** Destino pedido vía ?redirect= (lo pone el middleware al rechazar rutas). */
+function destinoSeguro(raw: string | undefined): string | null {
+  // Solo paths internos: empieza con "/" y no con "//" (open redirect).
+  if (typeof raw === "string" && raw.startsWith("/") && !raw.startsWith("//")) {
+    return raw;
+  }
+  return null;
+}
+
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ redirect?: string }>;
+}) {
+  const { redirect: redirectParam } = await searchParams;
   const supabase = (await getSupabaseServer()) as any;
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (user) {
+    const pedido = destinoSeguro(redirectParam);
+    if (pedido) redirect(pedido);
     const { data: account } = await supabase
       .from("account")
       .select("role")
