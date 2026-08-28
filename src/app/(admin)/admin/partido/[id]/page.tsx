@@ -320,8 +320,8 @@ export default async function AdminPartidoPage({
               <ReadyDeadlineTimer scheduledAtStart={match.scheduled_at_start} status={match.status} variant="block" />
               <div className="text-[11px] text-[var(--vertigo-faint)] leading-relaxed self-center">
                 El READY se habilita 15 min antes del horario. Si a los 15 min del horario un
-                equipo no confirmó, pierde por W.O. automáticamente (cron cada 5 min + check al
-                abrir la página). Si ninguno confirma, la llave cierra sin ganador y decidís vos.
+                equipo no confirmó, pierde por W.O. automáticamente (check al abrir la página
+                + cron diario de respaldo). Si ninguno confirma, la llave cierra sin ganador y decidís vos.
               </div>
             </div>
           )}

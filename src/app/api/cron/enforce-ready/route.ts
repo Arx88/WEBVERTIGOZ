@@ -8,7 +8,8 @@ export const dynamic = "force-dynamic";
  *
  * Aplica W.O. automático a los matches scheduled cuya tolerancia
  * (15 min después del horario) ya venció. Pensado para Vercel Cron
- * (ver vercel.json, cada 5 min):
+ * (ver vercel.json, diario a las 03:00 UTC — el plan Hobby no permite
+ * frecuencias mayores; el check lazy al abrir las páginas cubre el resto):
  *   curl -H "Authorization: Bearer $CRON_SECRET" https://<host>/api/cron/enforce-ready
  * Sin CRON_SECRET configurado, solo se permite en desarrollo.
  * Además las páginas del partido aplican el mismo check de forma lazy.
