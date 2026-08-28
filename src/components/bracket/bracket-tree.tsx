@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Crown, Trophy, Swords } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fmt } from "@/lib/format";
+import LocalTime from "@/components/shared/local-time";
 
 export interface BracketTeamInfo {
   id: string;
@@ -309,8 +310,6 @@ function BracketCard({
 
   const title = m.scheduledAtStart ? `Programado: ${fmt.dayLongMonTime(m.scheduledAtStart)}` : undefined;
 
-  const fechaCorta = m.scheduledAtStart ? `${fmt.dayMon(m.scheduledAtStart)} · ${fmt.time(m.scheduledAtStart)}` : null;
-
   const card = (
     <div
       className={cn("brk-card", meta.live && "brk-live", (aWin || bWin) && "brk-finished")}
@@ -320,7 +319,14 @@ function BracketCard({
       <div className="brk-card-head">
         <span className="brk-card-slot">
           Llave {m.slotIndex + 1}
-          {fechaCorta && <span className="brk-card-fecha"> · {fechaCorta}</span>}
+          {m.scheduledAtStart && (
+            <span className="brk-card-fecha">
+              {" · "}
+              <LocalTime value={m.scheduledAtStart} variant="dayMon" />
+              {" · "}
+              <LocalTime value={m.scheduledAtStart} variant="time" />
+            </span>
+          )}
         </span>
         <span className={cn("vertigo-badge", meta.cls, "brk-status")}>
           {meta.live && <span className="brk-pulse" />}

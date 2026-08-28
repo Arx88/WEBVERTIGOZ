@@ -9,7 +9,7 @@ import { ComodinesGrid } from "@/components/team/comodin-cards";
 import TeamRealtimeWrapper, {
   type NextMatchData,
 } from "./team-realtime-wrapper";
-import { fmt } from "@/lib/format";
+import LocalTime from "@/components/shared/local-time";
 import SiteNav from "@/components/nav/site-nav";
 
 export const dynamic = "force-dynamic";
@@ -723,7 +723,7 @@ export default async function EquipoDetallePage({
                       <div className="vertigo-card-title">{m.roundName ?? "Partido"}</div>
                       {m.scheduledAtStart && (
                         <div className="text-[11px] text-[var(--vertigo-faint)] mt-1">
-                          {fmt.dayMonYear(m.scheduledAtStart)}
+                          <LocalTime value={m.scheduledAtStart} variant="dayMonYear" />
                         </div>
                       )}
                     </div>

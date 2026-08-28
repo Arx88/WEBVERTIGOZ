@@ -168,6 +168,11 @@ export default function VertigoSelect({
             ref={popRef}
             role="listbox"
             style={{ position: "fixed", top: pos.top, left: pos.left, width: pos.width }}
+            // El portal vive en <body>, fuera del DOM de quien lo hospeda
+            // (p. ej. el popup de VertigoDateTime): sin stopPropagation, el
+            // mousedown llega al handler "click afuera" del hospedador y lo
+            // cierra antes de que el click elija la opción.
+            onMouseDown={(e) => e.stopPropagation()}
             className="vertigo-scroll z-[9999] max-h-64 overflow-auto rounded-[10px] border border-[#2a2334] bg-[#161122] py-1.5 shadow-[0_18px_50px_rgba(0,0,0,0.65)]"
           >
             {options.map((o, i) => {

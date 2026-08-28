@@ -6,9 +6,11 @@ import { TeamBannerBg } from "@/components/team/team-banner-bg";
 import { ComodinesGrid } from "@/components/team/comodin-cards";
 import VertigoFooter from "@/components/shared/vertigo-footer";
 import { confirmReadyAction } from "@/server/actions/ready";
+import { NoDateBanner } from "@/components/shared/no-date-banner";
 import { computeReadyPhase } from "@/lib/match-rules";
 import { Calendar, History, ArrowRight, ArrowUpRight, Clock, CheckCircle, AlertCircle, Zap, Sparkles } from "lucide-react";
 import { fmt } from "@/lib/format";
+import LocalTime from "@/components/shared/local-time";
 
 export const dynamic = "force-dynamic";
 
@@ -270,7 +272,7 @@ export default async function MisPartidosPage() {
               {
                 label: "Próximo encuentro",
                 value: nextRivalName ?? "—",
-                sub: nextMatch?.scheduled_at_start ? fmt.dayMonTimeNum(nextMatch.scheduled_at_start) : (nextMatch ? "A confirmar" : "Sin programar"),
+                sub: nextMatch?.scheduled_at_start ? <LocalTime value={nextMatch.scheduled_at_start} variant="dayMonTimeNum" /> : (nextMatch ? "A confirmar" : "Sin programar"),
               },
               { label: "Récord", value: `${wins} – ${losses}`, sub: "V/D histórico" },
               { label: "Comodines", value: `${totalComodines}`, sub: "disponibles" },
@@ -405,8 +407,8 @@ export default async function MisPartidosPage() {
                           <div className="vertigo-info-card-label" style={{ marginBottom: "4px" }}>Horario</div>
                           <div className="vertigo-info-card-value" style={{ fontSize: "13px" }}>
                             {m.scheduled_at_start
-                              ? fmt.dayMonTimeNum(m.scheduled_at_start)
-                              : <span style={{ color: "#fbbf24" }}>A confirmar ⚠</span>}
+                              ? <LocalTime value={m.scheduled_at_start} variant="dayMonTimeNum" />
+                              : <span style={{ color: "var(--vertigo-gold)", fontWeight: 600 }}>A confirmar</span>}
                           </div>
                         </div>
                         <div className="vertigo-info-card" style={{ padding: "16px" }}>
@@ -459,7 +461,12 @@ export default async function MisPartidosPage() {
                       </div>
 
                       {/* Alertas de estado — el botón READY solo existe dentro de la ventana */}
-                      {isScheduled && (
+                      {isScheduled && !myReady && readyWin.phase === "no-date" && (
+                        <div style={{ marginBottom: "16px" }}>
+                          <NoDateBanner />
+                        </div>
+                      )}
+                      {isScheduled && (myReady || readyWin.phase !== "no-date") && (
                         <div style={{
                           padding: "14px 18px",
                           background: myReady ? "rgba(34,197,94,0.08)" : readyWin.phase === "grace" || readyWin.phase === "expired" ? "rgba(251,113,133,0.07)" : "rgba(251,191,36,0.06)",
@@ -475,8 +482,6 @@ export default async function MisPartidosPage() {
                           <div style={{ fontSize: "13px", display: "flex", alignItems: "center", gap: "8px" }}>
                             {myReady ? (
                               <span style={{ color: "var(--vertigo-success)" }}>✓ Estás listo{rivalReady ? " — Rival también" : " — Esperando rival"}</span>
-                            ) : readyWin.phase === "no-date" ? (
-                              <span style={{ color: "#fbbf24" }}>⚠ La llave no tiene horario confirmado — el READY se habilita 15 min antes del horario</span>
                             ) : readyWin.phase === "early" ? (
                               <span style={{ color: "#fbbf24" }}>
                                 El READY se habilita 15 min antes del horario

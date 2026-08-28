@@ -7,7 +7,7 @@ import {
   type GeneratedMatch,
 } from "@/lib/bracket/engine";
 import { cn } from "@/lib/utils";
-import { fmt } from "@/lib/format";
+import LocalTime from "@/components/shared/local-time";
 
 interface BracketViewProps {
   bracketSize?: number;
@@ -197,7 +197,7 @@ function MatchCard({
       {/* Scheduled time */}
       {data?.scheduledAt && status === "scheduled" && (
         <div className="px-2 py-1 border-t border-border-subtle text-caption text-text-tertiary">
-          {fmt.dayMonTime(data.scheduledAt)}
+          <LocalTime value={data.scheduledAt} variant="dayMonTime" />
         </div>
       )}
     </div>

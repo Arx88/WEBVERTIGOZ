@@ -25,6 +25,7 @@ import VertigoDateTime from "@/components/admin/vertigo-date-time";
 import ReadyDeadlineTimer from "@/components/shared/ready-deadline-timer";
 import { civName } from "@/lib/constants/civs";
 import { fmt } from "@/lib/format";
+import LocalTime from "@/components/shared/local-time";
 
 export const dynamic = "force-dynamic";
 
@@ -152,11 +153,11 @@ export default async function AdminPartidoPage({
         {match.scheduled_at_start && (
           <span className="text-xs text-[var(--vertigo-muted)] flex items-center gap-1">
             <Clock style={{ width: 12, height: 12 }} />
-            {fmt.dateTime(match.scheduled_at_start)}
+            <LocalTime value={match.scheduled_at_start} variant="dateTime" />
           </span>
         )}
         {isScheduled && !hasDate && (
-          <span className="vertigo-badge vertigo-badge-danger" style={{ padding: "8px 16px", fontSize: 12 }}>
+          <span className="vertigo-badge vertigo-badge-warning" style={{ padding: "8px 16px", fontSize: 12 }}>
             <AlertTriangle style={{ width: 13, height: 13 }} />
             SIN FECHA
           </span>
@@ -165,35 +166,41 @@ export default async function AdminPartidoPage({
 
       {/* ═══ SIN FECHA: aviso prominente + programación inline ═══
           Sin horario no existe ventana de READY ni W.O. automático:
-          programar la llave es el paso 1, y se puede hacer desde acá. */}
+          programar la llave es el paso 1, y se puede hacer desde acá.
+          Identidad dorada de "pendiente" (el rojo es para W.O.). */}
       {isScheduled && !hasDate && (
         <section className="mb-8">
-          <div
-            className="vertigo-card"
-            style={{ border: "1px solid rgba(251,113,133,0.5)", background: "rgba(251,113,133,0.06)" }}
-          >
-            <div className="flex items-start gap-3 mb-4">
-              <CalendarPlus className="flex-none mt-0.5" style={{ width: 20, height: 20, color: "var(--vertigo-danger)" }} />
+          <div className="vertigo-nodate" style={{ padding: "24px 26px" }}>
+            <div className="flex items-start gap-4 mb-5">
+              <div className="vertigo-nodate-medallion" style={{ width: 46, height: 46 }}>
+                <CalendarPlus style={{ width: 21, height: 21 }} strokeWidth={1.75} />
+              </div>
               <div>
-                <div className="font-cinzel text-base font-semibold" style={{ color: "var(--vertigo-danger)" }}>
+                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "2.2px", color: "var(--vertigo-gold)", opacity: 0.85 }}>
+                  ACCIÓN REQUERIDA · PASO 1
+                </div>
+                <div
+                  className="font-cinzel"
+                  style={{ fontSize: 17, fontWeight: 700, letterSpacing: "1.2px", textTransform: "uppercase", color: "#e9d18a", marginTop: 3 }}
+                >
                   Esta llave no tiene fecha ni hora
                 </div>
-                <p className="text-sm text-[var(--vertigo-muted)] mt-1 leading-relaxed">
+                <p style={{ fontSize: 13, lineHeight: 1.6, color: "var(--vertigo-muted)", margin: "8px 0 0", maxWidth: 640 }}>
                   Los capitanes no pueden confirmar READY y el sorteo está bloqueado hasta que
-                  la llave tenga horario. Asignalo acá: el READY se habilita {`15 min antes`}
-                  y a los {`15 min`} del horario el equipo ausente pierde por W.O.
+                  la llave tenga horario. Asignalo acá: el READY se habilita 15 min antes
+                  y a los 15 min del horario el equipo ausente pierde por W.O.
                 </p>
               </div>
             </div>
-            <form action={scheduleMatchFormAction} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto_auto] gap-3 items-end pt-4 border-t border-[var(--vertigo-line-soft)]">
+            <form
+              action={scheduleMatchFormAction}
+              className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-3 items-end pt-5"
+              style={{ borderTop: "1px solid rgba(212,175,55,0.18)" }}
+            >
               <input type="hidden" name="match_id" value={match.id} />
               <div className="flex flex-col gap-1">
                 <label className="text-[9px] uppercase tracking-widest text-[var(--vertigo-faint)]">Inicio</label>
                 <VertigoDateTime name="scheduled_at_start" required />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-[9px] uppercase tracking-widest text-[var(--vertigo-faint)]">Fin estimado</label>
-                <VertigoDateTime name="scheduled_at_end" required />
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-[9px] uppercase tracking-widest text-[var(--vertigo-faint)]">Jornada</label>

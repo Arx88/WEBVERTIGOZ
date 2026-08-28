@@ -26,7 +26,7 @@ import { CaptainMatchPanel, type CaptainPanelContext } from "@/components/captai
 import BetPanel, { type BetPanelContext } from "@/components/apuestas/bet-panel";
 import ReadyDeadlineTimer from "@/components/shared/ready-deadline-timer";
 import { loadMatch, type GameView, type MatchData } from "./match-data";
-import { fmt } from "@/lib/format";
+import LocalTime from "@/components/shared/local-time";
 
 export { loadMatch };
 export type { GameView, MatchData };
@@ -163,6 +163,11 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
     match.games[0] ??
     null;
 
+  // Antes del primer sorteo la partida existe pero no tiene mapa/modo: el hero
+  // solo diría "Modo por sortear" y no aporta nada. En ese caso manda al VERSUS
+  // (ronda, escudos, horario) arriba vía `order` y el hero no se renderiza.
+  const hasDrawnGame = !!(heroGame && (heroGame.map || heroGame.gameMode));
+
   return (
     <div className="flex flex-col gap-6">
       {/* RULETA EN VIVO — overlay fullscreen cuando el server dispara el sorteo
@@ -191,6 +196,8 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
           background: "rgba(19,15,27,0.6)",
           border: "1px solid var(--vertigo-line)",
           cursor: "pointer",
+          // Sin sorteo el VERSUS sube al tope (order -1); Volver queda arriba suyo
+          ...(!hasDrawnGame ? { order: -2 } : {}),
         }}
       >
         <ArrowLeft style={{ width: 13, height: 13 }} />
@@ -198,18 +205,21 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
       </button>
 
       {/* HERO cinematográfico del partido (modo + mapa, fondo con arte del sorteo).
-          Muestra la partida ACTIVA: en BO3 1-1 es la partida 2/3, no la 1. */}
-      <MatchHero
-        mapName={heroGame?.map ?? null}
-        gameModeName={heroGame?.gameMode ?? null}
-        antimetaName={heroGame?.antimetaMode ?? null}
-        playerModeName={heroGame?.playerMode ?? null}
-        llaveName={match.format ?? null}
-        status={match.status}
-        civsA={heroGame?.civsA ?? []}
-        civsB={heroGame?.civsB ?? []}
-        live={match.status === "in_progress" || match.status === "drawing"}
-      />
+          Muestra la partida ACTIVA: en BO3 1-1 es la partida 2/3, no la 1.
+          Antes del primer sorteo no se renderiza (solo diría "Modo por sortear"). */}
+      {hasDrawnGame && (
+        <MatchHero
+          mapName={heroGame?.map ?? null}
+          gameModeName={heroGame?.gameMode ?? null}
+          antimetaName={heroGame?.antimetaMode ?? null}
+          playerModeName={heroGame?.playerMode ?? null}
+          llaveName={match.format ?? null}
+          status={match.status}
+          civsA={heroGame?.civsA ?? []}
+          civsB={heroGame?.civsB ?? []}
+          live={match.status === "in_progress" || match.status === "drawing"}
+        />
+      )}
 
       {/* PANEL DEL CAPITÁN — solo si el viewer es capitán de un equipo de esta llave.
           Le da lineup, READY #2 y comodines en contexto del partido. */}
@@ -249,7 +259,9 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
         />
       )}
 
-      {/* ENFRENTAMIENTO — bloque VERSUS, pieza central del partido */}
+      {/* ENFRENTAMIENTO — bloque VERSUS, pieza central del partido.
+          Antes del primer sorteo sube al tope de la página (order -1):
+          es lo útil (ronda, escudos, horario); el hero no se renderiza. */}
       <div
         style={{
           position: "relative",
@@ -258,6 +270,7 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
           border: "1px solid var(--vertigo-line)",
           background: "#0d0913",
           boxShadow: "var(--shadow-lg)",
+          ...(!hasDrawnGame ? { order: -1 } : {}),
         }}
       >
         {/* Fondo de video + velo oscuro para legibilidad */}
@@ -413,12 +426,12 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
           {match.scheduledAtStart && (
             <span className="inline-flex items-center gap-1.5 text-[11px]" style={{ color: "var(--vertigo-muted)" }}>
               <Calendar style={{ width: 12, height: 12, color: "var(--vertigo-faint)" }} />
-              {fmt.dayMonTime(match.scheduledAtStart)}
+              <LocalTime value={match.scheduledAtStart} variant="dayMonTime" />
             </span>
           )}
           {!match.scheduledAtStart && match.status === "scheduled" && (
             <span
-              className="vertigo-badge vertigo-badge-danger"
+              className="vertigo-badge vertigo-badge-warning"
               style={{ fontSize: 10, padding: "5px 12px" }}
               title="La organización todavía no confirmó el horario de esta llave"
             >
@@ -426,14 +439,7 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
               FECHA A CONFIRMAR
             </span>
           )}
-          {/* Fin estimado y formato: datos operativos, solo interesan al capitán */}
-          {captainContext && match.scheduledAtEnd && (
-            <span className="inline-flex items-center gap-1.5 text-[11px]" style={{ color: "var(--vertigo-muted)" }}>
-              <Clock style={{ width: 12, height: 12, color: "var(--vertigo-faint)" }} />
-              Fin estimado{" "}
-              {fmt.time(match.scheduledAtEnd)}
-            </span>
-          )}
+          {/* Stream y caster: datos operativos de la transmisión */}
           {match.streamCaster && (
             <span className="inline-flex items-center gap-1.5 text-[11px]" style={{ color: "var(--vertigo-muted)" }}>
               <Youtube style={{ width: 12, height: 12, color: "var(--vertigo-faint)" }} />

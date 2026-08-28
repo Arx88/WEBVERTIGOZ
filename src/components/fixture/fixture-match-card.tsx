@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Clock, ChevronRight, Trophy } from "lucide-react";
 import { useRef, useState } from "react";
-import { fmt } from "@/lib/format";
+import LocalTime from "@/components/shared/local-time";
 import {
   STATUS_BADGE,
   STATUS_RAIL,
@@ -138,8 +138,7 @@ export function FixtureMatchCard({
                 </span>
               )}
               <span className="truncate">
-                {fmt.dayMonTime(m.scheduledAtStart)}
-                {m.scheduledAtEnd && ` — ${fmt.time(m.scheduledAtEnd)}`}
+                <LocalTime value={m.scheduledAtStart} variant="dayMonTime" />
               </span>
             </>
           ) : (

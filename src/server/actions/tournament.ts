@@ -11,6 +11,7 @@
 import { revalidatePath } from "next/cache";
 import { getSupabaseServer, getSupabaseServiceRole } from "@/lib/supabase/server";
 import { generateBracket, BRACKET_SIZE, BRACKET_ROUNDS } from "@/lib/bracket/engine";
+import { parseWallClockWithOffset } from "@/lib/tz";
 
 // ============================================================
 // Helpers de autorización
@@ -304,26 +305,28 @@ export async function deleteBracketAction(formData: FormData): Promise<{ ok: boo
 }
 
 /**
- * Asigna scheduled_at_start/end y jornada_label a un match.
- * Validaciones:
- * - start < end
- * - No solapamiento con matches ya programados que estén en la misma jornada
- *   (regla "no partidas simultáneas").
+ * Asigna scheduled_at_start y jornada_label a un match.
+ * Solo se programa el INICIO: la duración depende del formato que decida el
+ * sorteo (BO3, deathmatch…), así que no se guarda hora de fin.
+ * El horario llega en la zona del browser del admin y se guarda como UTC.
  */
 export async function scheduleMatchAction(formData: FormData): Promise<{ ok: boolean; error?: string }> {
   await requireAdminAccount();
   const matchId = String(formData.get("match_id") ?? "").trim();
   const startStr = String(formData.get("scheduled_at_start") ?? "").trim();
-  const endStr = String(formData.get("scheduled_at_end") ?? "").trim();
+  const tzOffsetRaw = formData.get("scheduled_at_start_tz_offset");
   const jornada = String(formData.get("jornada_label") ?? "").trim() || null;
-  if (!matchId || !startStr || !endStr) return { ok: false, error: "Faltan campos." };
+  if (!matchId || !startStr) return { ok: false, error: "Faltan campos." };
 
-  const start = new Date(startStr);
-  const end = new Date(endStr);
-  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-    return { ok: false, error: "Fechas inválidas." };
+  // startStr es la hora de pared del admin ("YYYY-MM-DDTHH:mm"); el offset
+  // es el de su browser para esa fecha. Sin offset, fallback a hora argentina.
+  const start = parseWallClockWithOffset(
+    startStr,
+    tzOffsetRaw == null ? null : String(tzOffsetRaw)
+  );
+  if (!start) {
+    return { ok: false, error: "Fecha inválida." };
   }
-  if (end <= start) return { ok: false, error: "La hora de fin debe ser posterior a la de inicio." };
 
   const service = getSupabaseServiceRole() as any;
 
@@ -334,22 +337,6 @@ export async function scheduleMatchAction(formData: FormData): Promise<{ ok: boo
     .eq("id", matchId)
     .single();
   if (!match) return { ok: false, error: "Match no encontrado." };
-
-  // Verificar no solapamiento con otros matches programados
-  const { data: overlaps } = await service
-    .from("match")
-    .select("id, scheduled_at_start, scheduled_at_end")
-    .not("scheduled_at_start", "is", null)
-    .not("scheduled_at_end", "is", null);
-  const overlapping = (overlaps ?? []).some((m: any) => {
-    if (m.id === matchId) return false;
-    const s = new Date(m.scheduled_at_start).getTime();
-    const e = new Date(m.scheduled_at_end).getTime();
-    return start.getTime() < e && end.getTime() > s;
-  });
-  if (overlapping) {
-    return { ok: false, error: "El horario se solapa con otro partido programado. El torneo no tiene partidas simultáneas." };
-  }
 
   // Si cambia el horario, los READY viejos ya no valen: la ventana de
   // confirmación es relativa al horario, así que los equipos deben re-confirmar.
@@ -362,7 +349,7 @@ export async function scheduleMatchAction(formData: FormData): Promise<{ ok: boo
     .from("match")
     .update({
       scheduled_at_start: start.toISOString(),
-      scheduled_at_end: end.toISOString(),
+      scheduled_at_end: null,
       jornada_label: jornada,
       ...(clearReady ? { ready_a_at: null, ready_b_at: null, status: "scheduled" } : {}),
       updated_at: new Date().toISOString(),

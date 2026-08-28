@@ -5,7 +5,7 @@ import { scheduleMatchFormAction } from "@/server/actions/tournament";
 import { Calendar, Clock, AlertCircle, ChevronRight, Save } from "lucide-react";
 import AdminHero from "@/components/shared/admin-hero";
 import VertigoDateTime from "@/components/admin/vertigo-date-time";
-import { fmt } from "@/lib/format";
+import LocalTime from "@/components/shared/local-time";
 
 export const dynamic = "force-dynamic";
 
@@ -101,7 +101,6 @@ export default async function AdminJornadasPage() {
                   const teamAName = m.team_a?.team_account?.name ?? "Por definir";
                   const teamBName = m.team_b?.team_account?.name ?? "Por definir";
                   const startLocal = m.scheduled_at_start ? toLocalInput(m.scheduled_at_start) : "";
-                  const endLocal = m.scheduled_at_end ? toLocalInput(m.scheduled_at_end) : "";
                   const editable = m.status === "scheduled";
                   return (
                     <div key={m.id} className="vertigo-card" style={{ padding: 20 }}>
@@ -139,7 +138,7 @@ export default async function AdminJornadasPage() {
                       <div className="flex items-center gap-3 mb-4 text-xs text-[var(--vertigo-muted)] flex-wrap">
                         <Clock style={{ width: 13, height: 13 }} />
                         {m.scheduled_at_start
-                          ? `${fmt.dayMonTime(m.scheduled_at_start)} → ${m.scheduled_at_end ? fmt.time(m.scheduled_at_end) : "?"}`
+                          ? <LocalTime value={m.scheduled_at_start} variant="dayMonTime" />
                           : "Sin programar"}
                         {m.jornada_label && (
                           <span className="vertigo-badge vertigo-badge-purple" style={{ fontSize: 9 }}>{m.jornada_label}</span>
@@ -147,15 +146,11 @@ export default async function AdminJornadasPage() {
                       </div>
 
                       {editable ? (
-                        <form action={scheduleMatchFormAction} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto_auto] gap-3 items-end pt-4 border-t border-[var(--vertigo-line-soft)]">
+                        <form action={scheduleMatchFormAction} className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-3 items-end pt-4 border-t border-[var(--vertigo-line-soft)]">
                           <input type="hidden" name="match_id" value={m.id} />
                           <div className="flex flex-col gap-1">
                             <label className="text-[9px] uppercase tracking-widest text-[var(--vertigo-faint)]">Inicio</label>
                             <VertigoDateTime name="scheduled_at_start" defaultValue={startLocal} required />
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <label className="text-[9px] uppercase tracking-widest text-[var(--vertigo-faint)]">Fin estimado</label>
-                            <VertigoDateTime name="scheduled_at_end" defaultValue={endLocal} required />
                           </div>
                           <div className="flex flex-col gap-1">
                             <label className="text-[9px] uppercase tracking-widest text-[var(--vertigo-faint)]">Jornada</label>

@@ -28,6 +28,7 @@ import {
   requestComodinFormAction,
 } from "@/server/actions/match-day";
 import ReadyDeadlineTimer, { useReadyWindow } from "@/components/shared/ready-deadline-timer";
+import { NoDateBanner } from "@/components/shared/no-date-banner";
 import {
   CheckCircle2, Users, Sword, Timer, Sparkles, Loader2, AlertCircle,
 } from "lucide-react";
@@ -201,15 +202,15 @@ export function CaptainMatchPanel({
 
       {/* READY #1: confirmar asistencia para habilitar la llave.
           Solo dentro de la ventana: desde 15 min antes del horario hasta
-          15 min después (tolerancia). Sin fecha confirmada no hay botón. */}
-      {waitingStart && (
+          15 min después (tolerancia). Sin fecha confirmada no hay botón:
+          se muestra el banner de "horario a confirmar". */}
+      {waitingStart && !myReady && readyPhase === "no-date" && <NoDateBanner />}
+      {waitingStart && !(readyPhase === "no-date" && !myReady) && (
         <>
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="text-sm text-[var(--vertigo-muted)]">
               {myReady
                 ? (rivalReady ? "✓ Ambos equipos listos. Aguardando al admin para el sorteo." : "✓ Estás listo. Esperando al rival.")
-                : readyPhase === "no-date"
-                ? "⚠ Esta llave todavía no tiene fecha y horario confirmados."
                 : readyPhase === "early"
                 ? "Confirmá tu asistencia cuando se abra la ventana."
                 : readyPhase === "expired"
@@ -243,19 +244,10 @@ export function CaptainMatchPanel({
           </div>
           <div className="text-[12px] text-[var(--vertigo-faint)] mt-3 flex items-center gap-2 flex-wrap">
             <Timer style={{ width: 12, height: 12, flexShrink: 0 }} />
-            {readyPhase === "no-date" ? (
-              <span>
-                Cuando la organización confirme el horario, vas a poder confirmar desde 15 min
-                antes hasta 15 min después. Si tu equipo no confirma a tiempo, pierde por W.O.
-              </span>
-            ) : (
-              <>
-                <ReadyDeadlineTimer scheduledAtStart={scheduledAtStart} status={status} variant="chip" />
-                <span className="text-[var(--vertigo-faint)]">
-                  · Si no confirmás dentro de la ventana, tu equipo pierde por W.O.
-                </span>
-              </>
-            )}
+            <ReadyDeadlineTimer scheduledAtStart={scheduledAtStart} status={status} variant="chip" />
+            <span className="text-[var(--vertigo-faint)]">
+              · Si no confirmás dentro de la ventana, tu equipo pierde por W.O.
+            </span>
           </div>
         </>
       )}

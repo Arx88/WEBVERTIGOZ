@@ -41,7 +41,8 @@ function toLocalInput(date: Date, hh: number, mm: number) {
  * — Grilla mensual (lunes primero) con navegación por mes y año.
  * — Hora y minuto con VertigoSelect; botones Hoy y Limpiar.
  * — Input hidden con el mismo formato "YYYY-MM-DDTHH:mm" que enviaba el
- *   nativo, así las server actions no cambian.
+ *   nativo, más `<name>_tz_offset` con el offset UTC del browser para la
+ *   fecha elegida (DST-aware), así el server convierte a UTC exacto.
  * — `required`: bloquea el submit del form mientras esté vacío.
  * — Popup en portal sobre <body> (fixed): ninguna tarjeta lo recorta.
  */
@@ -59,6 +60,10 @@ export default function VertigoDateTime({
   className?: string;
 }) {
   const [value, setValue] = useState(defaultValue);
+  // Offset UTC del browser del admin PARA la fecha elegida (DST-aware).
+  // Arranca vacío para que SSR y primer render del cliente coincidan; se
+  // llena después del mount.
+  const [tzOffset, setTzOffset] = useState("");
   const [open, setOpen] = useState(false);
   const [missing, setMissing] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0 });
@@ -128,6 +133,16 @@ export default function VertigoDateTime({
     return () => form.removeEventListener("submit", onSubmit);
   }, [required]);
 
+  // Offset del browser para la fecha elegida: la zona puede cambiar con el
+  // horario de verano, así que se calcula sobre la fecha concreta y no "ahora".
+  useEffect(() => {
+    const p = parseLocalInput(value);
+    const probe = p
+      ? new Date(p.y, p.mo - 1, p.d, p.hh ?? 0, p.mm ?? 0)
+      : new Date();
+    setTzOffset(String(probe.getTimezoneOffset()));
+  }, [value]);
+
   const parts = parseLocalInput(value);
 
   function setFromDate(d: Date) {
@@ -166,6 +181,7 @@ export default function VertigoDateTime({
   return (
     <div ref={rootRef} className={`relative ${className}`} onKeyDown={(e) => { if (e.key === "Escape") setOpen(false); }}>
       <input ref={hiddenRef} type="hidden" name={name} value={value} />
+      <input type="hidden" name={`${name}_tz_offset`} value={tzOffset} />
       <button
         ref={btnRef}
         type="button"

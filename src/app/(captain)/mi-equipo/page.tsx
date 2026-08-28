@@ -23,7 +23,7 @@ import {
   ScanFace, CreditCard, MonitorPlay, MessagesSquare, ListChecks,
   Hourglass, ArrowUpRight,
 } from "lucide-react";
-import { fmt } from "@/lib/format";
+import LocalTime from "@/components/shared/local-time";
 
 export const dynamic = "force-dynamic";
 
@@ -430,7 +430,7 @@ export default async function MiEquipoPage() {
                     </div>
                     <div style={{ fontSize: 13, color: "var(--vertigo-muted)", marginTop: "3px" }}>
                       {upcomingMatch.scheduled_at_start
-                        ? fmt.longDateTime(upcomingMatch.scheduled_at_start)
+                        ? <LocalTime value={upcomingMatch.scheduled_at_start} variant="longDateTime" />
                         : "Horario a confirmar"}
                     </div>
                   </div>

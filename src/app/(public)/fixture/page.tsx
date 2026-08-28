@@ -3,7 +3,7 @@ import { Calendar, Clock, Radio, ChevronRight, Swords } from "lucide-react";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import VertigoFooter from "@/components/shared/vertigo-footer";
 import SiteNav from "@/components/nav/site-nav";
-import { fmt } from "@/lib/format";
+import LocalTime from "@/components/shared/local-time";
 import {
   STATUS_BADGE,
   LIVE_STATUSES,
@@ -406,7 +406,7 @@ function NextUpCard({ m }: { m: FixtureMatch }) {
             <>
               <Clock style={{ width: 11, height: 11, flex: "none", color: "var(--vertigo-gold)" }} />
               <span className="truncate">
-                {fmt.weekdayShortTime(m.scheduledAtStart)}
+                <LocalTime value={m.scheduledAtStart} variant="weekdayShortTime" />
               </span>
             </>
           ) : (

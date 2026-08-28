@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Clock, Calendar, Swords, ArrowRight } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
-import { fmt } from "@/lib/format";
+import LocalTime from "@/components/shared/local-time";
 
 export interface NextMatchData {
   id: string;
@@ -331,7 +331,7 @@ export default function TeamRealtimeWrapper({ teamRegistrationId, initialNextMat
           <div className="vertigo-info-card">
             <div className="vertigo-info-card-label">Inicio</div>
             <div className="vertigo-info-card-value" style={{ fontSize: 13 }}>
-              {fmt.dayMonTime(nextMatch.scheduledAtStart)}
+              <LocalTime value={nextMatch.scheduledAtStart} variant="dayMonTime" />
             </div>
           </div>
         )}
