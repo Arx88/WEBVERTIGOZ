@@ -215,6 +215,88 @@ export default async function AdminPartidoPage({
         </section>
       )}
 
+      {/* ═══ W.O. DOBLE SIN GANADOR: la llave cerró y nadie avanza ═══
+          Ningún equipo confirmó READY → forfeit sin ganador. No existe
+          disputa que resolver: la decisión se toma acá. Dos caminos:
+          A) asignar ganador (el rival avanza en el bracket) o
+          B) reprogramar la llave (vuelve a scheduled, READY desde cero).
+          El rojo es el color reservado para W.O. */}
+      {match.status === "forfeit" && !match.winner_team_id && (
+        <section className="mb-8">
+          <div className="vertigo-wo" style={{ padding: "24px 26px" }}>
+            <div className="flex items-start gap-4 mb-5">
+              <div className="vertigo-wo-medallion" style={{ width: 46, height: 46 }}>
+                <AlertTriangle style={{ width: 21, height: 21 }} strokeWidth={1.75} />
+              </div>
+              <div>
+                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "2.2px", color: "var(--vertigo-danger)", opacity: 0.9 }}>
+                  ACCIÓN REQUERIDA · W.O. SIN GANADOR
+                </div>
+                <div
+                  className="font-cinzel"
+                  style={{ fontSize: 17, fontWeight: 700, letterSpacing: "1.2px", textTransform: "uppercase", color: "var(--vertigo-danger)", marginTop: 3 }}
+                >
+                  Ningún equipo confirmó READY
+                </div>
+                <p style={{ fontSize: 13, lineHeight: 1.6, color: "var(--vertigo-muted)", margin: "8px 0 0", maxWidth: 660 }}>
+                  La llave cerró por W.O. doble y quedó SIN ganador: así no avanza en el bracket.
+                  No hay disputa que abrir — decidís acá. Asigná un ganador (el equipo que pierde
+                  queda eliminado y el rival avanza) o reprogramá la llave para que se vuelva a
+                  jugar con una nueva ventana de READY.
+                </p>
+              </div>
+            </div>
+            <div
+              className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-5"
+              style={{ borderTop: "1px solid rgba(251,113,133,0.18)" }}
+            >
+              <div className="flex flex-col gap-3">
+                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "2px", color: "var(--vertigo-faint)" }}>
+                  OPCIÓN A · ASIGNAR GANADOR
+                </div>
+                <ForfeitForm
+                  matchId={match.id}
+                  action={markForfeitFormAction}
+                  teamAId={teamA?.id}
+                  teamBId={teamB?.id}
+                  teamAName={teamA?.team_account?.name}
+                  teamBName={teamB?.team_account?.name}
+                  requireWinner
+                  buttonLabel="Asignar ganador"
+                />
+                <p className="text-[11px] text-[var(--vertigo-faint)] leading-snug">
+                  Elegí qué equipo pierde; el rival gana la llave y avanza a la siguiente ronda.
+                </p>
+              </div>
+              <div className="flex flex-col gap-3">
+                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "2px", color: "var(--vertigo-faint)" }}>
+                  OPCIÓN B · REPROGRAMAR LA LLAVE
+                </div>
+                <form action={scheduleMatchFormAction} className="flex flex-wrap items-end gap-3">
+                  <input type="hidden" name="match_id" value={match.id} />
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[9px] uppercase tracking-widest text-[var(--vertigo-faint)]">Nuevo inicio</label>
+                    <VertigoDateTime name="scheduled_at_start" required />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[9px] uppercase tracking-widest text-[var(--vertigo-faint)]">Jornada</label>
+                    <input type="text" name="jornada_label" defaultValue={match.jornada_label ?? ""} placeholder="Jornada 1"
+                      className="bg-[var(--vertigo-input-bg)] border border-[var(--vertigo-input-border)] rounded-md px-3 py-2 text-[13px] text-[var(--vertigo-text)] w-32" />
+                  </div>
+                  <button type="submit" className="vertigo-btn vertigo-btn-primary" style={{ padding: "12px 22px", fontSize: 11 }}>
+                    <Save style={{ width: 13, height: 13 }} /> Reprogramar llave
+                  </button>
+                </form>
+                <p className="text-[11px] text-[var(--vertigo-faint)] leading-snug">
+                  La llave vuelve a PROGRAMADA con el nuevo horario: ambos equipos deben
+                  confirmar READY de nuevo y nadie queda eliminado.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Team cards */}
       <section className="mb-8">
         <div className="vertigo-subtitle">Equipos</div>
@@ -286,7 +368,10 @@ export default async function AdminPartidoPage({
               </div>
             )}
 
-            {!isFinished && !isScheduled && match.status !== "disputed" && (
+            {/* El W.O. doble sin ganador NO es una disputa: se resuelve con la
+                tarjeta de arriba (asignar ganador o reprogramar). */}
+            {!isFinished && !isScheduled && match.status !== "disputed" &&
+              !(match.status === "forfeit" && !match.winner_team_id) && (
               <Link href="/admin/disputas" className="vertigo-btn vertigo-btn-danger">
                 <AlertTriangle style={{ width: 14, height: 14 }} />
                 Ver disputas

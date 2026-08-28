@@ -5,7 +5,7 @@ import SiteNav from "@/components/nav/site-nav";
 import { TeamBannerBg } from "@/components/team/team-banner-bg";
 import { ComodinesGrid } from "@/components/team/comodin-cards";
 import VertigoFooter from "@/components/shared/vertigo-footer";
-import { confirmReadyAction } from "@/server/actions/ready";
+import ConfirmReadyForm from "@/components/captain/confirm-ready-form";
 import { NoDateBanner } from "@/components/shared/no-date-banner";
 import { computeReadyPhase } from "@/lib/match-rules";
 import { Calendar, History, ArrowRight, ArrowUpRight, Clock, CheckCircle, AlertCircle, Zap, Sparkles } from "lucide-react";
@@ -510,16 +510,7 @@ export default async function MisPartidosPage() {
                             </button>
                           )}
                           {!myReady && (readyWin.phase === "open" || readyWin.phase === "grace") && (
-                            <form action={confirmReadyAction.bind(null, m.id)} style={{ display: "inline" }}>
-                              <button
-                                type="submit"
-                                className={`vertigo-btn ${readyWin.phase === "grace" ? "vertigo-btn-danger" : "vertigo-btn-success"}`}
-                                style={{ fontSize: "11px", padding: "10px 20px" }}
-                              >
-                                <CheckCircle style={{ width: 14, height: 14 }} />
-                                ESTOY LISTO
-                              </button>
-                            </form>
+                            <ConfirmReadyForm matchId={m.id} phase={readyWin.phase} />
                           )}
                         </div>
                       )}

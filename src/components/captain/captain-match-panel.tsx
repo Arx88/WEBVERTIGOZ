@@ -19,9 +19,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { civName } from "@/lib/constants/civs";
-import {
-  confirmReadyAction,
-} from "@/server/actions/ready";
+import ConfirmReadyForm from "@/components/captain/confirm-ready-form";
 import {
   declareLineupFormAction,
   confirmLineupReadyFormAction,
@@ -230,16 +228,7 @@ export function CaptainMatchPanel({
               </button>
             )}
             {!myReady && (readyPhase === "open" || readyPhase === "grace") && (
-              <form action={confirmReadyAction.bind(null, matchId)}>
-                <button
-                  type="submit"
-                  className={`vertigo-btn ${readyPhase === "grace" ? "vertigo-btn-danger" : "vertigo-btn-success"}`}
-                  style={{ fontSize: 11, padding: "10px 20px" }}
-                >
-                  <CheckCircle2 style={{ width: 14, height: 14 }} />
-                  ESTOY LISTO
-                </button>
-              </form>
+              <ConfirmReadyForm matchId={matchId} phase={readyPhase} />
             )}
           </div>
           <div className="text-[12px] text-[var(--vertigo-faint)] mt-3 flex items-center gap-2 flex-wrap">

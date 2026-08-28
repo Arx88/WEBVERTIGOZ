@@ -333,10 +333,22 @@ export async function scheduleMatchAction(formData: FormData): Promise<{ ok: boo
   // Leer match a programar
   const { data: match } = await service
     .from("match")
-    .select("id, round_id, scheduled_at_start, ready_a_at, ready_b_at")
+    .select("id, round_id, scheduled_at_start, ready_a_at, ready_b_at, status, winner_team_id")
     .eq("id", matchId)
     .single();
   if (!match) return { ok: false, error: "Match no encontrado." };
+
+  // Un match terminado, o un W.O. ya resuelto con ganador, no se reprograman.
+  if (match.status === "finished") {
+    return { ok: false, error: "El match está terminado y no se puede reprogramar." };
+  }
+  if (match.status === "forfeit" && match.winner_team_id) {
+    return { ok: false, error: "El W.O. ya tiene ganador asignado y no se puede reprogramar." };
+  }
+
+  // W.O. doble sin ganador: reprogramar revive la llave — vuelve a scheduled
+  // y se limpian los READY y el finished_at del forfeit.
+  const doubleForfeitReset = match.status === "forfeit" && !match.winner_team_id;
 
   // Si cambia el horario, los READY viejos ya no valen: la ventana de
   // confirmación es relativa al horario, así que los equipos deben re-confirmar.
@@ -352,6 +364,9 @@ export async function scheduleMatchAction(formData: FormData): Promise<{ ok: boo
       scheduled_at_end: null,
       jornada_label: jornada,
       ...(clearReady ? { ready_a_at: null, ready_b_at: null, status: "scheduled" } : {}),
+      ...(doubleForfeitReset
+        ? { status: "scheduled", ready_a_at: null, ready_b_at: null, finished_at: null }
+        : {}),
       updated_at: new Date().toISOString(),
     })
     .eq("id", matchId);

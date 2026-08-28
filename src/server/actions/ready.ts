@@ -1,8 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getSupabaseServer } from "@/lib/supabase/server";
+import { getSupabaseServer, getSupabaseServiceRole } from "@/lib/supabase/server";
 import { READY_WINDOW_MIN, GRACE_MIN } from "@/lib/match-rules";
+
+export interface ReadyActionState {
+  error?: string;
+}
 
 /**
  * Confirma "ESTOY LISTO" para un match.
@@ -11,11 +15,23 @@ import { READY_WINDOW_MIN, GRACE_MIN } from "@/lib/match-rules";
  *
  * Ventana: solo se puede confirmar desde READY_WINDOW_MIN antes del horario
  * programado hasta GRACE_MIN después (tolerancia). Sin fecha no se puede.
+ *
+ * Compatible con useActionState: recibe (matchId, prevState, formData) vía
+ * bind y devuelve { error } en fallo o null en éxito, para que la UI muestre
+ * el motivo en vez de fallar en silencio.
+ *
+ * RLS: la tabla match solo permite escritura de admin, así que la validación
+ * se hace acá (auth → account → equipo → inscripción → participación →
+ * ventana) y la escritura usa service role.
  */
-export async function confirmReadyAction(matchId: string, fd: FormData): Promise<void> {
+export async function confirmReadyAction(
+  matchId: string,
+  _prev: ReadyActionState | null,
+  _fd: FormData
+): Promise<ReadyActionState | null> {
   const supabase = (await getSupabaseServer()) as any;
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("No autenticado.");
+  if (!user) return { error: "No autenticado." };
 
   // Buscar account
   const { data: account } = (await supabase
@@ -23,7 +39,7 @@ export async function confirmReadyAction(matchId: string, fd: FormData): Promise
     .select("id, role")
     .eq("supabase_auth_id", user.id)
     .single()) as { data: any };
-  if (!account) throw new Error("Account no encontrado.");
+  if (!account) return { error: "Account no encontrado." };
 
   // Buscar team_account del usuario
   const { data: teamAccount } = (await supabase
@@ -33,7 +49,7 @@ export async function confirmReadyAction(matchId: string, fd: FormData): Promise
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle()) as { data: any };
-  if (!teamAccount) throw new Error("No tenés equipo.");
+  if (!teamAccount) return { error: "No tenés equipo." };
 
   // Buscar team_registration activa
   const { data: reg } = (await supabase
@@ -43,7 +59,7 @@ export async function confirmReadyAction(matchId: string, fd: FormData): Promise
     .order("submitted_at", { ascending: false })
     .limit(1)
     .single()) as { data: any };
-  if (!reg) throw new Error("No tenés inscripción activa.");
+  if (!reg) return { error: "No tenés inscripción activa." };
 
   // Buscar el match
   const { data: match } = (await supabase
@@ -51,48 +67,49 @@ export async function confirmReadyAction(matchId: string, fd: FormData): Promise
     .select("id, status, scheduled_at_start, team_a_id, team_b_id, ready_a_at, ready_b_at")
     .eq("id", matchId)
     .single()) as { data: any };
-  if (!match) throw new Error("Match no encontrado.");
+  if (!match) return { error: "Match no encontrado." };
 
   // Validar que el team del capitán participa en este match
   if (match.team_a_id !== reg.id && match.team_b_id !== reg.id) {
-    throw new Error("Tu equipo no participa en este match.");
+    return { error: "Tu equipo no participa en este match." };
   }
 
   // Validar que el match esté en estado scheduled
   if (match.status !== "scheduled") {
-    throw new Error(`El match ya no está en estado programado (actual: ${match.status}).`);
+    return { error: `El match ya no está en estado programado (actual: ${match.status}).` };
   }
 
   // Ventana de READY: requiere fecha confirmada y estar dentro de
   // [inicio - READY_WINDOW_MIN, inicio + GRACE_MIN].
   if (!match.scheduled_at_start) {
-    throw new Error("La llave todavía no tiene fecha y horario confirmados.");
+    return { error: "La llave todavía no tiene fecha y horario confirmados." };
   }
   const startMs = new Date(match.scheduled_at_start).getTime();
   const nowMs = Date.now();
   if (nowMs < startMs - READY_WINDOW_MIN * 60_000) {
-    throw new Error(
-      `Podés confirmar READY desde ${READY_WINDOW_MIN} minutos antes del horario de la llave.`
-    );
+    return {
+      error: `Podés confirmar READY desde ${READY_WINDOW_MIN} minutos antes del horario de la llave.`,
+    };
   }
   if (nowMs > startMs + GRACE_MIN * 60_000) {
-    throw new Error("El tiempo para confirmar READY ya terminó.");
+    return { error: "El tiempo para confirmar READY ya terminó." };
   }
 
   const now = new Date().toISOString();
   const isTeamA = match.team_a_id === reg.id;
   const readyField = isTeamA ? "ready_a_at" : "ready_b_at";
 
-  // Marcar este team como ready
-  const { error } = await supabase
+  // Marcar este team como ready (service role: RLS de match es solo admin).
+  const service = getSupabaseServiceRole() as any;
+  const { error } = await service
     .from("match")
     .update({ [readyField]: now, updated_at: now })
     .eq("id", matchId);
 
-  if (error) throw new Error(`DB error: ${error.message}`);
+  if (error) return { error: `DB error: ${error.message}` };
 
   // Verificar si AMBOS teams están ready
-  const { data: updated } = (await supabase
+  const { data: updated } = (await service
     .from("match")
     .select("ready_a_at, ready_b_at, status")
     .eq("id", matchId)
@@ -100,7 +117,7 @@ export async function confirmReadyAction(matchId: string, fd: FormData): Promise
 
   if (updated?.ready_a_at && updated?.ready_b_at) {
     // Ambos ready → HABILITADA (status = open)
-    await supabase
+    await service
       .from("match")
       .update({ status: "open", updated_at: now })
       .eq("id", matchId);
@@ -109,6 +126,7 @@ export async function confirmReadyAction(matchId: string, fd: FormData): Promise
   revalidatePath("/mis-partidos");
   revalidatePath(`/partido/${matchId}`);
   revalidatePath(`/admin/partido/${matchId}`);
+  return null;
 }
 
 /**

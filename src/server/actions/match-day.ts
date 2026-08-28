@@ -168,11 +168,13 @@ export async function declareLineupAction(formData: FormData): Promise<{ ok: boo
     }
   }
 
-  // Escribir lineup + asignación de civs en el lado correcto
+  // Escribir lineup + asignación de civs en el lado correcto.
+  // Service role: RLS de match_game solo permite escritura admin; la
+  // validación de participación ya se hizo arriba con la sesión del capitán.
   const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
   update[isTeamA ? "lineup_a" : "lineup_b"] = playerIds;
   update[isTeamA ? "civ_assignment_a" : "civ_assignment_b"] = civAssignment;
-  const { error } = await supabase.from("match_game").update(update).eq("id", matchGameId);
+  const { error } = await serviceCtx.from("match_game").update(update).eq("id", matchGameId);
   if (error) return { ok: false, error: error.message };
 
   revalidatePath(`/partido/${game.match_id}`);
@@ -209,14 +211,17 @@ export async function confirmLineupReadyAction(formData: FormData): Promise<{ ok
   const isTeamA = match.team_a_id === myReg.id;
   const now = new Date().toISOString();
   const field = isTeamA ? "ready_lineup_a_at" : "ready_lineup_b_at";
-  await supabase.from("match").update({ [field]: now, updated_at: now }).eq("id", matchId);
+  // Service role: RLS de match solo permite escritura admin; la validación
+  // de participación ya se hizo arriba con la sesión del capitán.
+  const service = getSupabaseServiceRole() as any;
+  await service.from("match").update({ [field]: now, updated_at: now }).eq("id", matchId);
 
   // Si ambos confirmaron → comodin_window + comodin_window_expires_at = now + 5 min
-  const { data: fresh } = (await supabase.from("match").select("ready_lineup_a_at, ready_lineup_b_at").eq("id", matchId).single()) as { data: any };
+  const { data: fresh } = (await service.from("match").select("ready_lineup_a_at, ready_lineup_b_at").eq("id", matchId).single()) as { data: any };
   if (fresh?.ready_lineup_a_at && fresh?.ready_lineup_b_at) {
     const windowMinutes = 5;
     const expiresAt = new Date(Date.now() + windowMinutes * 60 * 1000).toISOString();
-    await supabase.from("match").update({
+    await service.from("match").update({
       status: "comodin_window",
       comodin_window_expires_at: expiresAt,
       updated_at: now,
