@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Cinzel, Anton, Inter, Rajdhani } from "next/font/google";
 import { Toaster } from "@/components/ui/toaster";
+import SoundProvider from "@/components/shared/sound-provider";
 import "./globals.css";
 
 const cinzel = Cinzel({
@@ -64,6 +65,7 @@ export default function RootLayout({
       <body className="bg-bg text-text antialiased min-h-screen">
         {children}
         <Toaster />
+        <SoundProvider />
       </body>
     </html>
   );

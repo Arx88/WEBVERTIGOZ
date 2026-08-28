@@ -48,6 +48,26 @@ async function fetchApi<T>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+/**
+ * Fetch SIN cache de datos de Next (para el sync en vivo de partidas).
+ * El watcher necesita datos frescos, no el cache de 30 min.
+ */
+async function fetchLive<T>(path: string): Promise<T> {
+  await throttle();
+  const url = `${API_URL}${path}`;
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": USER_AGENT,
+      "Accept": "application/json",
+    },
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    throw new Error(`AoE2 Companion API error: ${res.status} ${res.statusText}`);
+  }
+  return res.json() as Promise<T>;
+}
+
 // ============================================================
 // Endpoints
 // ============================================================
@@ -187,4 +207,120 @@ export async function validateTeamEloCap(
     isWithinCap: totalElo <= maxAllowed,
     perPlayer,
   };
+}
+
+// ============================================================
+// Matches (sync del watcher — datos en vivo, sin cache)
+// ============================================================
+
+export interface Aoe2MatchPlayer {
+  profileId: number;
+  name: string;
+  rating: number | null;
+  ratingDiff: number | null;
+  civ: string | null;
+  civName: string | null;
+  color: number | null;
+  colorHex: string | null;
+  slot: number | null;
+  team: number | null;
+  won: boolean | null;
+  verified?: boolean;
+}
+
+export interface Aoe2MatchTeam {
+  teamId: number;
+  players: Aoe2MatchPlayer[];
+}
+
+/** Item del listado /matches (ya incluye la configuración completa). */
+export interface Aoe2MatchSummary {
+  matchId: number;
+  started: string | null; // ISO string
+  finished: string | null; // ISO string; null = en curso
+  updated: string | null;
+  abandoned: number | null;
+  leaderboardId: string | null;
+  name: string | null; // nombre del lobby
+  server: string | null;
+  patch: number | null;
+  mapName: string | null;
+  gameModeName: string | null;
+  mapSizeName: string | null;
+  population: number | null;
+  speed: number | null;
+  startingAge: number | null;
+  victory: number | null;
+  regicideMode: boolean | null;
+  suddenDeathMode: boolean | null;
+  empireWarsMode: boolean | null;
+  teams: Aoe2MatchTeam[];
+}
+
+/**
+ * Historial reciente de partidas para un conjunto de perfiles.
+ * `profile_ids` es obligatorio en la API (semántica de unión: devuelve
+ * partidas donde jugó CUALQUIERA de los perfiles). leaderboard_ids=unranked
+ * acota a salas custom, que es donde se juegan las partidas del torneo.
+ */
+export async function getMatchesForProfiles(
+  profileIds: number[],
+  page: number = 1
+): Promise<Aoe2MatchSummary[]> {
+  if (profileIds.length === 0) return [];
+  const data = await fetchLive<{ matches?: Aoe2MatchSummary[] }>(
+    `/matches?profile_ids=${profileIds.join(",")}&leaderboard_ids=unranked&page=${page}`
+  );
+  return data.matches ?? [];
+}
+
+/** Un match por id (vínculo forzado del admin). Mismo shape que el listado. */
+export async function fetchLiveMatch(matchId: number | string): Promise<Aoe2MatchSummary | null> {
+  try {
+    return await fetchLive<Aoe2MatchSummary>(`/matches/${matchId}`);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Análisis completo de una partida (~2 MB): build order, uptimes, eAPM,
+ * timeseries, chat, resignaciones, objetos finales del mapa.
+ */
+export async function getMatchAnalysis(matchId: number | string): Promise<any> {
+  return fetchLive<any>(`/matches/${matchId}/analysis`);
+}
+
+/** SVG renderizado del mapa final de la partida. */
+export async function getMatchAnalysisSvg(matchId: number | string): Promise<Buffer | null> {
+  await throttle();
+  const res = await fetch(`${API_URL}/matches/${matchId}/analysis/svg`, {
+    headers: { "User-Agent": USER_AGENT, Accept: "image/svg+xml" },
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+  return Buffer.from(await res.arrayBuffer());
+}
+
+/**
+ * Descarga el .aoe2record de una partida desde la API oficial.
+ * Server-side únicamente: api.ageofempires.com rechaza requests con
+ * header Origin (CORS), por eso el browser no puede pedirla directo.
+ * La retención en la API oficial es de ~30 días → archivar apenas
+ * termina la partida. Devuelve null si no está disponible.
+ */
+export async function downloadReplayFile(
+  matchId: number | string,
+  profileId: number
+): Promise<Buffer | null> {
+  const url = `https://aoe.ms/replay/?gameId=${matchId}&profileId=${profileId}&matchId=${matchId}`;
+  const res = await fetch(url, {
+    headers: { "User-Agent": USER_AGENT },
+    redirect: "follow",
+  });
+  if (!res.ok) return null;
+  const buf = Buffer.from(await res.arrayBuffer());
+  // Respuestas cortas suelen ser páginas de error, no un .aoe2record
+  if (buf.length < 10_000) return null;
+  return buf;
 }

@@ -25,6 +25,14 @@ export interface GameView {
   replayUrl: string | null;
   startedAt: string | null;
   finishedAt: string | null;
+  /** Sync con AoE2 Companion (liviano: solo flags para decidir qué mostrar).
+      El payload pesado del análisis se busca on-demand vía /api/replays/analysis. */
+  aoe2: {
+    matchId: number | null;
+    syncStatus: string;
+    hasRec: boolean;
+    hasAnalysis: boolean;
+  } | null;
   drawResult: {
     gameMode?: string;
     antimetaMode?: string;
@@ -39,6 +47,8 @@ export interface MatchData {
   id: string;
   status: string;
   format: string | null;
+  /** Posición de la llave en su ronda (para derivar el nombre de sala AoE2). */
+  slotIndex: number;
   scheduledAtStart: string | null;
   scheduledAtEnd: string | null;
   jornadaLabel: string | null;
@@ -88,7 +98,7 @@ export async function loadMatch(supabase: any, matchId: string): Promise<MatchDa
   const { data: match } = (await supabase
     .from("match")
     .select(
-      "id, status, format, scheduled_at_start, scheduled_at_end, jornada_label, score_a, score_b, winner_team_id, team_a_id, team_b_id, round_id, stream_caster_id, stream_embed_enabled, ready_a_at, ready_b_at, ready_lineup_a_at, ready_lineup_b_at, comodin_window_expires_at"
+      "id, status, format, slot_index, scheduled_at_start, scheduled_at_end, jornada_label, score_a, score_b, winner_team_id, team_a_id, team_b_id, round_id, stream_caster_id, stream_embed_enabled, ready_a_at, ready_b_at, ready_lineup_a_at, ready_lineup_b_at, comodin_window_expires_at"
     )
     .eq("id", matchId)
     .maybeSingle()) as { data: any };
@@ -163,9 +173,21 @@ export async function loadMatch(supabase: any, matchId: string): Promise<MatchDa
   // Games
   const { data: gamesRaw } = (await supabase
     .from("match_game")
-    .select("id, game_number, status, game_mode, antimeta_mode, player_mode, map, civs_a, civs_b, winner_team_id, replay_url, started_at, finished_at, draw_id")
+    .select("id, game_number, status, game_mode, antimeta_mode, player_mode, map, civs_a, civs_b, winner_team_id, replay_url, started_at, finished_at, draw_id, aoe2_match_id, aoe2_sync_status, rec_storage_path")
     .eq("match_id", matchId)
     .order("game_number", { ascending: true })) as { data: any };
+
+  // Qué games tienen análisis archivado (tabla con política de lectura pública,
+  // así que esta query funciona igual con el cliente anon del browser).
+  const gameIds: string[] = (gamesRaw ?? []).map((g: any) => g.id);
+  const analysisSet = new Set<string>();
+  if (gameIds.length > 0) {
+    const { data: analysisRows } = (await supabase
+      .from("match_game_analysis")
+      .select("match_game_id")
+      .in("match_game_id", gameIds)) as { data: any };
+    for (const r of analysisRows ?? []) analysisSet.add(r.match_game_id);
+  }
 
   const games: GameView[] = [];
   for (const g of gamesRaw ?? []) {
@@ -178,11 +200,15 @@ export async function loadMatch(supabase: any, matchId: string): Promise<MatchDa
         .maybeSingle()) as { data: any };
       if (draw && draw.result) {
         const r = draw.result as any;
+        // El result guarda cada fase como objeto PresetMode completo
+        // ({ id, title, … }); el GameView espera el título para display.
+        const title = (v: any): string | undefined =>
+          v == null ? undefined : typeof v === "object" ? v.title ?? undefined : String(v);
         drawResult = {
-          gameMode: r.gameMode,
-          antimetaMode: r.antimetaMode,
-          playerMode: r.playerMode,
-          map: r.map,
+          gameMode: title(r.gameMode),
+          antimetaMode: title(r.antimetaMode),
+          playerMode: title(r.playerMode),
+          map: title(r.map),
           civsA: r.civsA,
           civsB: r.civsB,
         };
@@ -202,6 +228,12 @@ export async function loadMatch(supabase: any, matchId: string): Promise<MatchDa
       replayUrl: g.replay_url ?? null,
       startedAt: g.started_at ?? null,
       finishedAt: g.finished_at ?? null,
+      aoe2: {
+        matchId: g.aoe2_match_id ?? null,
+        syncStatus: g.aoe2_sync_status ?? "pending",
+        hasRec: !!g.rec_storage_path,
+        hasAnalysis: analysisSet.has(g.id),
+      },
       drawResult,
     });
   }
@@ -251,6 +283,7 @@ export async function loadMatch(supabase: any, matchId: string): Promise<MatchDa
     id: match.id,
     status: match.status,
     format: match.format ?? null,
+    slotIndex: match.slot_index ?? 0,
     scheduledAtStart: match.scheduled_at_start ?? null,
     scheduledAtEnd: match.scheduled_at_end ?? null,
     jornadaLabel: match.jornada_label ?? null,

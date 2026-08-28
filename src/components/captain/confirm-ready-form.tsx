@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { confirmReadyAction } from "@/server/actions/ready";
+import { playSound } from "@/lib/sounds";
 
 /**
  * Botón ESTOY LISTO con feedback real: useActionState muestra el error
@@ -18,6 +19,11 @@ export default function ConfirmReadyForm({
   phase: "open" | "grace";
 }) {
   const [state, action, pending] = useActionState(confirmReadyAction.bind(null, matchId), null);
+
+  // READY confirmado: tono cálido de "apareció el resultado".
+  useEffect(() => {
+    if (state && !state.error) playSound("reveal");
+  }, [state]);
 
   return (
     <form

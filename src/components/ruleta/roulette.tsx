@@ -131,7 +131,7 @@ export function Roulette(props: RouletteProps = {}) {
     if(!soundsEnabled) return;
     try{
       const a=audioCtx(),t=a.currentTime;
-      const f=660-progress*380,d=0.04+progress*0.06,v=(0.06+progress*0.06)*soundsVolume;
+      const f=(660-progress*380)*(0.97+Math.random()*0.06),d=0.04+progress*0.06,v=(0.06+progress*0.06)*soundsVolume*(0.9+Math.random()*0.2);
       const o=a.createOscillator(),g=a.createGain();
       o.type="triangle";o.frequency.setValueAtTime(f,t);
       o.frequency.exponentialRampToValueAtTime(f*0.7,t+d);
@@ -178,9 +178,9 @@ export function Roulette(props: RouletteProps = {}) {
     try{
       const a=audioCtx(),t=a.currentTime;
       const o=a.createOscillator(),g=a.createGain();
-      o.type="triangle";o.frequency.setValueAtTime(660,t);
+      o.type="triangle";o.frequency.setValueAtTime(660*(0.98+Math.random()*0.04),t);
       o.frequency.exponentialRampToValueAtTime(880,t+0.03);
-      g.gain.setValueAtTime(0.06*soundsVolume,t);
+      g.gain.setValueAtTime(0.06*soundsVolume*(0.9+Math.random()*0.2),t);
       g.gain.exponentialRampToValueAtTime(0.0001,t+0.08);
       o.connect(g);g.connect(a.destination);
       o.start(t);o.stop(t+0.09);

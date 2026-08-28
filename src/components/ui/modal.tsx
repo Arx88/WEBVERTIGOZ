@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
+import { playSound } from "@/lib/sounds";
 
 interface ModalProps {
   open: boolean;
@@ -27,6 +28,11 @@ export function Modal({ open, onClose, children, maxWidth = 440, showClose = tru
   // a miles de px fuera del viewport). El portal lo saca de ahí.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+
+  // Sonido de apertura (respeta el mute global).
+  useEffect(() => {
+    if (open) playSound("pop");
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;

@@ -27,6 +27,8 @@ import BetPanel, { type BetPanelContext } from "@/components/apuestas/bet-panel"
 import ReadyDeadlineTimer from "@/components/shared/ready-deadline-timer";
 import { loadMatch, type GameView, type MatchData } from "./match-data";
 import LocalTime from "@/components/shared/local-time";
+import { lobbyNameForGame } from "@/lib/aoe2/lobby-name";
+import GameAnalysisCard from "./game-analysis-card";
 
 export { loadMatch };
 export type { GameView, MatchData };
@@ -83,6 +85,14 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
   const router = useRouter();
   const [match, setMatch] = useState<MatchData | null>(initialMatch);
   const now = useNow(1000);
+
+  // Sincronizar cuando el server re-renderiza con datos frescos (p.ej. tras un
+  // form action con revalidatePath): useState ignora el nuevo prop por sí solo,
+  // así que sin esto el capitán que confirma READY no vería su banner hasta
+  // recargar a mano.
+  useEffect(() => {
+    setMatch(initialMatch);
+  }, [initialMatch]);
 
   useEffect(() => {
     const supabase = getSupabaseBrowser();
@@ -168,6 +178,18 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
   // (ronda, escudos, horario) arriba vía `order` y el hero no se renderiza.
   const hasDrawnGame = !!(heroGame && (heroGame.map || heroGame.gameMode));
 
+  // Nombre de la sala AoE2 de la partida activa (derivado, no se guarda):
+  // el capitán crea la sala con este nombre exacto y el resultado se detecta solo.
+  const lobbyName =
+    match.activeGame && match.activeGame.map && !isFinished
+      ? lobbyNameForGame({
+          jornadaLabel: match.jornadaLabel,
+          slotIndex: match.slotIndex,
+          gameNumber: match.activeGame.gameNumber,
+          matchId,
+        })
+      : null;
+
   return (
     <div className="flex flex-col gap-6">
       {/* RULETA EN VIVO — overlay fullscreen cuando el server dispara el sorteo
@@ -242,6 +264,7 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
           playerMode={match.activeGame?.playerMode ?? null}
           myCivs={captainContext.myTeamRegId === match.teamA.id ? (match.activeGame?.civsA ?? []) : (match.activeGame?.civsB ?? [])}
           comodinExpiresAt={match.comodinWindowExpiresAt}
+          lobbyName={lobbyName}
         />
       )}
 
@@ -798,6 +821,14 @@ function GameCard({
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Análisis post-partida (AoE2 Companion) — solo si terminó y fue archivada.
+          El link manual "Ver replay" de abajo sigue intacto y convive con esto. */}
+      {game.status === "finished" && game.aoe2?.hasAnalysis && (
+        <div className="mb-4">
+          <GameAnalysisCard gameId={game.id} teamAName={teamAName} teamBName={teamBName} />
         </div>
       )}
 

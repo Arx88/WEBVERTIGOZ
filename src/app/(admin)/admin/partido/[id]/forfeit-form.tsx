@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef } from "react";
+import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
+import VertigoSelect from "@/components/admin/vertigo-select";
 
 /**
  * W.O. manual (admin). El selector decide quién pierde:
@@ -32,42 +33,42 @@ export default function ForfeitForm({
   requireWinner?: boolean;
   buttonLabel?: string;
 }) {
-  const selectRef = useRef<HTMLSelectElement>(null);
+  const options = [
+    requireWinner
+      ? { value: "", label: "— Elegí quién pierde —" }
+      : { value: "", label: "Ambos (sin ganador)" },
+    ...(teamAId ? [{ value: teamAId, label: teamAName ?? "Equipo A" }] : []),
+    ...(teamBId ? [{ value: teamBId, label: teamBName ?? "Equipo B" }] : []),
+  ];
+  const [value, setValue] = useState("");
 
   return (
     <form
       action={action}
       className="flex items-end gap-2 flex-wrap"
       onSubmit={(e) => {
-        const v = selectRef.current?.value ?? "";
-        if (requireWinner && !v) {
+        if (requireWinner && !value) {
           e.preventDefault();
           return;
         }
-        const detalle = v
-          ? `Pierde ${v === teamAId ? teamAName ?? "Equipo A" : teamBName ?? "Equipo B"} y avanza el rival.`
+        const detalle = value
+          ? `Pierde ${value === teamAId ? teamAName ?? "Equipo A" : teamBName ?? "Equipo B"} y avanza el rival.`
           : "W.O. doble: la llave cierra SIN ganador y decidís vos después.";
         if (!confirm(`¿Marcar W.O.? ${detalle}`)) e.preventDefault();
       }}
     >
       <input type="hidden" name="match_id" value={matchId} />
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1 min-w-[210px]">
         <label className="text-[9px] uppercase tracking-widest text-[var(--vertigo-faint)]">
           {requireWinner ? "Quién pierde" : "Equipo ausente"}
         </label>
-        <select
-          ref={selectRef}
+        <VertigoSelect
           name="absent_team_id"
+          options={options}
           defaultValue=""
-          required={requireWinner}
-          className="bg-[var(--vertigo-input-bg)] border border-[var(--vertigo-input-border)] rounded-md px-3 py-2 text-[12px] text-[var(--vertigo-text)] min-w-[190px]"
-        >
-          {requireWinner
-            ? <option value="" disabled>— Elegí quién pierde —</option>
-            : <option value="">Ambos (sin ganador)</option>}
-          {teamAId && <option value={teamAId}>{teamAName ?? "Equipo A"}</option>}
-          {teamBId && <option value={teamBId}>{teamBName ?? "Equipo B"}</option>}
-        </select>
+          compact
+          onValueChange={setValue}
+        />
       </div>
       <button type="submit" className="vertigo-btn vertigo-btn-danger">
         <AlertTriangle style={{ width: 14, height: 14 }} /> {buttonLabel ?? "W.O."}

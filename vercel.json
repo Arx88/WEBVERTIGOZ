@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/enforce-ready",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/payment-deadline",
+      "schedule": "17 3 * * *"
     }
   ]
 }

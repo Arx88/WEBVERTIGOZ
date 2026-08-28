@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServiceRole } from "@/lib/supabase/server";
 import { getEditionForRegistration } from "@/lib/edition";
+import { expireUnpaidRegistrations } from "@/lib/cupo";
 
 /**
  * GET /api/tournament/slots
@@ -12,6 +13,16 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
+    // Sweep de cupo (0014): expira inscripciones impagas vencidas antes de
+    // contar. En Vercel Hobby el cron corre 1x/día; con este sweep la
+    // liberación de la plaza es inmediata apenas alguien abre el landing o
+    // el wizard. Es un no-op barato (índice parcial) si no hay nada vencido.
+    try {
+      await expireUnpaidRegistrations();
+    } catch (e) {
+      console.error("[slots] sweep de cupo falló (no fatal):", e);
+    }
+
     const service = getSupabaseServiceRole() as any;
 
     const edition = await getEditionForRegistration(service);

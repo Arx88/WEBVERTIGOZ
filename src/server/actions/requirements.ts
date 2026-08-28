@@ -51,6 +51,55 @@ export async function markRequirementAction(formData: FormData) {
   revalidatePath("/admin/equipos");
 }
 
+/**
+ * Pago de la plaza: confirmación explícita del staff con UN clic desde
+ * /admin/equipos. Si la inscripción fue expirada por el cron por no pagar
+ * (payment_timeout) y el pago llega tarde, confirmar el pago la re-aprueba
+ * en el mismo gesto ("salvar" la plaza) — solo si la edición aún tiene lugar.
+ */
+export async function setPaymentConfirmedAction(registrationId: string, confirmed: boolean) {
+  const supabase = await getSupabaseServer();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  const { data: account } = (await supabase
+    .from("account").select("role").eq("supabase_auth_id", user.id).maybeSingle()) as { data: any };
+  if (!account || !["admin", "super_admin"].includes(account.role ?? "")) return;
+
+  const service = getSupabaseServiceRole();
+  const { data: reg } = (await service
+    .from("team_registration")
+    .select("id, status, status_reason, tournament_edition_id")
+    .eq("id", registrationId)
+    .maybeSingle()) as { data: any };
+  if (!reg) return;
+
+  const patch: Record<string, unknown> = {
+    payment_confirmed: confirmed,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (confirmed && reg.status === "rejected" && reg.status_reason === "payment_timeout") {
+    const { data: edition } = (await service
+      .from("tournament_edition")
+      .select("max_teams")
+      .eq("id", reg.tournament_edition_id)
+      .maybeSingle()) as { data: any };
+    const { count } = (await service
+      .from("team_registration")
+      .select("id", { count: "exact", head: true })
+      .eq("tournament_edition_id", reg.tournament_edition_id)
+      .eq("status", "approved")) as { count: number | null };
+    if ((count ?? 0) < (edition?.max_teams ?? 32)) {
+      patch.status = "approved";
+      patch.status_reason = null;
+    }
+  }
+
+  await service.from("team_registration").update(patch).eq("id", registrationId);
+  revalidatePath("/admin/equipos");
+  revalidatePath("/mi-equipo");
+}
+
 /** El staff marca/desmarca cualquier requisito desde el panel de equipos. */
 export async function toggleRequirementAction(formData: FormData) {
   const field = String(formData.get("field") ?? "");

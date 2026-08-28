@@ -6,13 +6,14 @@ import { useState } from "react";
 import {
   LayoutDashboard, Trophy, Users, Brackets as BracketIcon,
   Calendar, Mic, Shield, BookOpen, AlertTriangle, ScrollText,
-  Menu, X, type LucideIcon,
+  BellRing, Menu, X, type LucideIcon,
 } from "lucide-react";
 
 const NAV_ITEMS: { href: string; label: string; icon: LucideIcon; section?: string }[] = [
   { href: "/admin", label: "Centro", icon: LayoutDashboard, section: "PRINCIPAL" },
   { href: "/admin/torneo", label: "Torneo", icon: Trophy, section: "TORNEO" },
   { href: "/admin/equipos", label: "Inscripciones", icon: Users, section: "TORNEO" },
+  { href: "/admin/waitlist", label: "Lista de espera", icon: BellRing, section: "TORNEO" },
   { href: "/admin/bracket", label: "Bracket", icon: BracketIcon, section: "TORNEO" },
   { href: "/admin/jornadas", label: "Jornadas", icon: Calendar, section: "TORNEO" },
   { href: "/admin/casters", label: "Casters", icon: Mic, section: "CONTENIDO" },

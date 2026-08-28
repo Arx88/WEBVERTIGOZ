@@ -14,17 +14,25 @@ import {
   closeComodinWindowAction,
 } from "@/server/actions/match-day";
 import { scheduleMatchFormAction } from "@/server/actions/tournament";
+import { extendReadyWindowFormAction } from "@/server/actions/ready";
 import { enforceMatchIfDue } from "@/server/match-enforcement";
+import { syncAoe2IfDue } from "@/lib/aoe2/match-sync";
+import { linkAoe2MatchFormAction } from "@/server/actions/aoe2-sync";
 import {
-  ChevronLeft, Clock, Shield, Trophy, Shuffle, Layers,
+  Shield, Trophy, Shuffle, Layers,
   Users, Sparkles, AlertTriangle, Play, CheckCircle2, Dices, ArrowRight, Swords, X,
-  CalendarPlus, Save,
+  CalendarPlus, Save, Timer, Plus, ExternalLink,
 } from "lucide-react";
 import ForfeitForm from "./forfeit-form";
 import VertigoDateTime from "@/components/admin/vertigo-date-time";
 import ReadyDeadlineTimer from "@/components/shared/ready-deadline-timer";
+import MatchLiveRefresher from "@/components/admin/match-live-refresher";
+import LobbyNameCard from "@/components/shared/lobby-name-card";
+import Aoe2SyncIndicator from "@/components/admin/aoe2-sync-indicator";
+import AdminHero from "@/components/shared/admin-hero";
 import { civName } from "@/lib/constants/civs";
 import { fmt } from "@/lib/format";
+import { lobbyNameForGame } from "@/lib/aoe2/lobby-name";
 import LocalTime from "@/components/shared/local-time";
 
 export const dynamic = "force-dynamic";
@@ -72,6 +80,14 @@ export default async function AdminPartidoPage({
     // best-effort: el cron lo cubre si esto falla
   }
 
+  // Sync lazy con AoE2 Companion: descubre la partida por nombre de sala,
+  // archiva rec/análisis y auto-reporta el resultado si es válida.
+  try {
+    await syncAoe2IfDue(id);
+  } catch {
+    // best-effort: el cron y el reporte manual lo cubren
+  }
+
   const { data: match } = (await supabase
     .from("match")
     .select(`
@@ -86,6 +102,7 @@ export default async function AdminPartidoPage({
         players:player_registration (id, display_name, is_captain, max_rating_rm_1v1)),
       games:match_game (id, game_number, status, game_mode, antimeta_mode, player_mode, map,
         lineup_a, lineup_b, civs_a, civs_b, civ_assignment_a, civ_assignment_b, winner_team_id, started_at, finished_at,
+        aoe2_match_id, aoe2_sync_status, aoe2_checked_at, aoe2_flag, rec_storage_path,
         draw:draw_id (commit_hash, revealed_seed, status)
       ),
       comodin_usages:comodin_usage (id, comodin_type, status, target_phase, target_player_id, target_player:target_player_id (display_name), notes, requested_at, executed_at)
@@ -123,46 +140,56 @@ export default async function AdminPartidoPage({
     ? "Ambos equipos deben confirmar READY primero"
     : "Decidir resultado en server y reproducir la ruleta en vivo";
 
+  // Partida activa con sorteo hecho → nombre de sala AoE2 (derivación pura,
+  // misma que usa el watcher para descubrir el resultado en Companion).
+  const lobbyGame =
+    games
+      .filter((g: any) => g.map && g.status !== "finished")
+      .sort((a: any, b: any) => b.game_number - a.game_number)[0] ?? null;
+  const lobbyName = lobbyGame
+    ? lobbyNameForGame({
+        jornadaLabel: match.jornada_label,
+        slotIndex: match.slot_index,
+        gameNumber: lobbyGame.game_number,
+        matchId: match.id,
+      })
+    : null;
+  const showLobbyBlock =
+    !!lobbyName && !isFinished && !["disputed", "forfeit", "cancelled"].includes(match.status);
+
   return (
     <div className="vertigo-fade-in">
-      <Link href="/admin/jornadas" className="vertigo-btn vertigo-btn-ghost mb-4">
-        <ChevronLeft style={{ width: 14, height: 14 }} />
-        Volver a jornadas
-      </Link>
+      {/* Refresco en vivo: READY de capitanes, resultados y extensiones de
+          ventana se reflejan sin tener que refrescar a mano. */}
+      <MatchLiveRefresher matchId={match.id} />
 
-      <span className="vertigo-kicker">{match.round?.name ?? "PARTIDO"}</span>
-      <h1 className="vertigo-title">Partido</h1>
-      <div className="vertigo-divider"><span></span><i></i><span></span></div>
-
-      {/* Status badge grande */}
-      <div className="flex items-center gap-3 mb-8 flex-wrap">
-        <span className={`vertigo-badge ${meta.cls}`} style={{ padding: "8px 16px", fontSize: 12 }}>
-          <span className="vertigo-status-dot" style={{ background: meta.dot, width: 8, height: 8 }} />
-          {meta.label}
-        </span>
-        {match.format && (
-          <span className="vertigo-badge vertigo-badge-purple" style={{ padding: "8px 16px", fontSize: 12 }}>
-            {match.format}
-          </span>
-        )}
-        {match.jornada_label && (
-          <span className="vertigo-badge vertigo-badge-purple" style={{ padding: "8px 16px", fontSize: 12 }}>
-            {match.jornada_label}
-          </span>
-        )}
-        {match.scheduled_at_start && (
-          <span className="text-xs text-[var(--vertigo-muted)] flex items-center gap-1">
-            <Clock style={{ width: 12, height: 12 }} />
-            <LocalTime value={match.scheduled_at_start} variant="dateTime" />
-          </span>
-        )}
-        {isScheduled && !hasDate && (
-          <span className="vertigo-badge vertigo-badge-warning" style={{ padding: "8px 16px", fontSize: 12 }}>
-            <AlertTriangle style={{ width: 13, height: 13 }} />
-            SIN FECHA
-          </span>
-        )}
-      </div>
+      {/* Header cinematográfico (patrón del panel): título = enfrentamiento,
+          stats de vidrio con lo esencial, "volver" integrado en el hero. */}
+      <AdminHero
+        compact
+        back={{ href: "/admin/jornadas", label: "Volver a jornadas" }}
+        kicker={match.round?.name ?? "PARTIDO"}
+        title={`${teamA?.team_account?.name ?? "Equipo A"} vs ${teamB?.team_account?.name ?? "Equipo B"}`}
+        desc={
+          hasDate ? (
+            <>
+              {match.jornada_label ? `${match.jornada_label} · ` : ""}
+              <LocalTime value={match.scheduled_at_start} variant="dateTime" />
+            </>
+          ) : (
+            "Sin fecha ni hora asignada — programala abajo para habilitar el READY."
+          )
+        }
+        stats={[
+          { value: meta.label, label: "Estado", color: meta.dot },
+          { value: match.format ?? "—", label: "Formato" },
+          {
+            value: hasDate ? fmt.time(match.scheduled_at_start) : "SIN FECHA",
+            label: "Inicio",
+            color: hasDate ? undefined : "#fbbf24",
+          },
+        ]}
+      />
 
       {/* ═══ SIN FECHA: aviso prominente + programación inline ═══
           Sin horario no existe ventana de READY ni W.O. automático:
@@ -320,93 +347,173 @@ export default async function AdminPartidoPage({
         </div>
       </section>
 
-      {/* ═══ CENTRO DE OPERACIONES — acciones reales sobre la llave ═══ */}
+      {/* ═══ CENTRO DE OPERACIONES — panel de 2 zonas ═══
+          IZQ: estado de la ventana de READY (timer + extender).
+          DER: la acción que toca ahora (sorteo, notas de fase, disputas). */}
       <section className="mb-8">
-        <div className="vertigo-subtitle">Centro de operaciones</div>
         <div className="vertigo-card premium">
-          <div className="vertigo-action-bar" style={{ alignItems: "stretch" }}>
-            {/* INICIAR SORTEO P1 — habilitado con fecha + ambos ready (scheduled u open) */}
-            {(isScheduled || match.status === "open") && (
-              <div className="flex flex-col gap-2">
-                <form action={startDrawFormAction}>
-                  <input type="hidden" name="match_id" value={match.id} />
-                  <input type="hidden" name="game_number" value="1" />
-                  <button
-                    type="submit"
-                    className="vertigo-btn vertigo-btn-primary"
-                    disabled={!canStartFirstDraw}
-                    title={drawBlockReason}
-                  >
-                    <Dices style={{ width: 14, height: 14 }} />
-                    Iniciar sorteo (Partida 1)
-                  </button>
-                </form>
-                <p className="text-[11px] text-[var(--vertigo-faint)] max-w-xs leading-snug">
-                  {!hasDate
-                    ? "⚠ La llave no tiene fecha: programala arriba para habilitar el READY y el sorteo."
-                    : match.ready_a_at && match.ready_b_at
-                    ? "Ambos equipos confirmaron. El sorteo decide en server y se reproduce en vivo (admin, capitanes y overlay ven lo mismo)."
-                    : "Esperando READY #1 de ambos equipos para habilitar el sorteo."}
-                </p>
-              </div>
-            )}
-
-            {/* SORTEAR PARTIDA 2/3 — BO3 salió 1-1 y la siguiente partida espera */}
-            {canStartNextGameDraw && nextDrawingGame && (
-              <div className="flex flex-col gap-2">
-                <form action={startDrawFormAction}>
-                  <input type="hidden" name="match_id" value={match.id} />
-                  <input type="hidden" name="game_number" value={String(nextDrawingGame.game_number)} />
-                  <button type="submit" className="vertigo-btn vertigo-btn-primary">
-                    <Dices style={{ width: 14, height: 14 }} />
-                    Sortear partida {nextDrawingGame.game_number} (decisiva)
-                  </button>
-                </form>
-                <p className="text-[11px] text-[var(--vertigo-faint)] max-w-xs leading-snug">
-                  Serie 1-1: la ruleta gira de nuevo (sin fase LLAVE) para la partida decisiva.
-                </p>
-              </div>
-            )}
-
-            {/* El W.O. doble sin ganador NO es una disputa: se resuelve con la
-                tarjeta de arriba (asignar ganador o reprogramar). */}
-            {!isFinished && !isScheduled && match.status !== "disputed" &&
-              !(match.status === "forfeit" && !match.winner_team_id) && (
-              <Link href="/admin/disputas" className="vertigo-btn vertigo-btn-danger">
-                <AlertTriangle style={{ width: 14, height: 14 }} />
-                Ver disputas
-              </Link>
-            )}
-            {match.status === "disputed" && (
-              <Link href="/admin/disputas" className="vertigo-btn vertigo-btn-danger">
-                <Shield style={{ width: 14, height: 14 }} />
-                Resolver disputa
-              </Link>
-            )}
+          {/* Header del panel: identidad + estado + acceso a la vista stream */}
+          <div
+            className="flex items-center justify-between gap-3 flex-wrap"
+            style={{ marginBottom: 24, paddingBottom: 18, borderBottom: "1px solid var(--vertigo-line-soft)" }}
+          >
+            <div className="vertigo-card-title">Centro de operaciones</div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={`vertigo-badge ${meta.cls}`}>
+                <span className="vertigo-status-dot" style={{ background: meta.dot }} />
+                {meta.label}
+              </span>
+              <a
+                href={`/overlay/${match.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="vertigo-btn vertigo-btn-ghost"
+                style={{ padding: "8px 16px", fontSize: 10 }}
+                title="Pantalla completa para el Browser Source de OBS"
+              >
+                <ExternalLink style={{ width: 12, height: 12 }} />
+                Vista stream
+              </a>
+            </div>
           </div>
-          {match.status === "drawing" && (
-            <div className="mt-4 pt-4 border-t border-[var(--vertigo-line-soft)]">
-              <p className="text-sm text-[var(--vertigo-muted)]">
-                ◆ Sorteo en curso. La ruleta está reproduciéndose en la página pública del partido, en el overlay OBS
-                y en las pantallas de ambos capitanes (sincronizado por Realtime).
-              </p>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* ── ZONA IZQ: VENTANA DE READY ── */}
+            <div>
+              <div className="vertigo-zone-label">Ventana de READY</div>
+              {isScheduled && hasDate ? (
+                <>
+                  <ReadyDeadlineTimer scheduledAtStart={match.scheduled_at_start} status={match.status} variant="block" />
+                  <form action={extendReadyWindowFormAction} className="mt-4">
+                    <input type="hidden" name="match_id" value={match.id} />
+                    <div className="text-[9px] uppercase tracking-widest text-[var(--vertigo-faint)] mb-2 flex items-center gap-1.5">
+                      <Timer style={{ width: 11, height: 11 }} />
+                      Extender ventana
+                    </div>
+                    <div className="flex gap-2">
+                      <button type="submit" name="minutes" value="5" className="vertigo-btn vertigo-btn-ghost flex-1 justify-center" style={{ padding: "10px 12px", fontSize: 11 }}>
+                        <Plus style={{ width: 12, height: 12 }} /> 5 min
+                      </button>
+                      <button type="submit" name="minutes" value="10" className="vertigo-btn vertigo-btn-ghost flex-1 justify-center" style={{ padding: "10px 12px", fontSize: 11 }}>
+                        <Plus style={{ width: 12, height: 12 }} /> 10 min
+                      </button>
+                      <button type="submit" name="minutes" value="15" className="vertigo-btn vertigo-btn-ghost flex-1 justify-center" style={{ padding: "10px 12px", fontSize: 11 }}>
+                        <Plus style={{ width: 12, height: 12 }} /> 15 min
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-[var(--vertigo-faint)] leading-snug mt-2">
+                      Mueve el horario de la llave y el límite de W.O. la misma cantidad.
+                      Los READY ya confirmados se conservan.
+                    </p>
+                  </form>
+                </>
+              ) : isScheduled ? (
+                <p className="text-[12px] text-[var(--vertigo-faint)] leading-relaxed">
+                  La llave todavía no tiene fecha: programala en el bloque de arriba para
+                  que exista la ventana de READY.
+                </p>
+              ) : (
+                <p className="text-[12px] text-[var(--vertigo-faint)] leading-relaxed">
+                  La ventana de READY ya cerró — la llave avanzó a la siguiente fase.
+                </p>
+              )}
             </div>
-          )}
-          {match.status === "open" && (
-            <div className="mt-4 pt-4 border-t border-[var(--vertigo-line-soft)]">
-              <p className="text-sm text-[var(--vertigo-success)]">
-                ✓ Ambos equipos confirmaron READY. La llave está HABILITADA para el sorteo.
-              </p>
+
+            {/* ── ZONA DER: ACCIÓN ── */}
+            <div>
+              <div className="vertigo-zone-label">Acción</div>
+              <div className="flex flex-col gap-4">
+                {/* INICIAR SORTEO P1 — habilitado con fecha + ambos ready (scheduled u open) */}
+                {(isScheduled || match.status === "open") && (
+                  <div className="flex flex-col gap-2">
+                    <form action={startDrawFormAction}>
+                      <input type="hidden" name="match_id" value={match.id} />
+                      <input type="hidden" name="game_number" value="1" />
+                      <button
+                        type="submit"
+                        className="vertigo-btn vertigo-btn-primary"
+                        disabled={!canStartFirstDraw}
+                        title={drawBlockReason}
+                      >
+                        <Dices style={{ width: 14, height: 14 }} />
+                        Iniciar sorteo (Partida 1)
+                      </button>
+                    </form>
+                    <p className="text-[11px] text-[var(--vertigo-faint)] leading-snug">
+                      {!hasDate
+                        ? "⚠ La llave no tiene fecha: programala arriba para habilitar el READY y el sorteo."
+                        : match.ready_a_at && match.ready_b_at
+                        ? "Ambos equipos confirmaron. El sorteo decide en server y se reproduce en vivo (admin, capitanes y overlay ven lo mismo)."
+                        : "Esperando READY #1 de ambos equipos para habilitar el sorteo."}
+                    </p>
+                  </div>
+                )}
+
+                {/* SORTEAR PARTIDA 2/3 — BO3 salió 1-1 y la siguiente partida espera */}
+                {canStartNextGameDraw && nextDrawingGame && (
+                  <div className="flex flex-col gap-2">
+                    <form action={startDrawFormAction}>
+                      <input type="hidden" name="match_id" value={match.id} />
+                      <input type="hidden" name="game_number" value={String(nextDrawingGame.game_number)} />
+                      <button type="submit" className="vertigo-btn vertigo-btn-primary">
+                        <Dices style={{ width: 14, height: 14 }} />
+                        Sortear partida {nextDrawingGame.game_number} (decisiva)
+                      </button>
+                    </form>
+                    <p className="text-[11px] text-[var(--vertigo-faint)] leading-snug">
+                      Serie 1-1: la ruleta gira de nuevo (sin fase LLAVE) para la partida decisiva.
+                    </p>
+                  </div>
+                )}
+
+                {match.status === "drawing" && (
+                  <p className="text-sm text-[var(--vertigo-muted)]">
+                    ◆ Sorteo en curso. La ruleta está reproduciéndose en la página pública del partido, en el overlay OBS
+                    y en las pantallas de ambos capitanes (sincronizado por Realtime).
+                  </p>
+                )}
+
+                {/* El W.O. doble sin ganador NO es una disputa: se resuelve con la
+                    tarjeta de arriba (asignar ganador o reprogramar). */}
+                {!isFinished && !isScheduled && match.status !== "disputed" &&
+                  !(match.status === "forfeit" && !match.winner_team_id) && (
+                  <Link href="/admin/disputas" className="vertigo-btn vertigo-btn-danger" style={{ alignSelf: "flex-start" }}>
+                    <AlertTriangle style={{ width: 14, height: 14 }} />
+                    Ver disputas
+                  </Link>
+                )}
+                {match.status === "disputed" && (
+                  <Link href="/admin/disputas" className="vertigo-btn vertigo-btn-danger" style={{ alignSelf: "flex-start" }}>
+                    <Shield style={{ width: 14, height: 14 }} />
+                    Resolver disputa
+                  </Link>
+                )}
+              </div>
             </div>
-          )}
-          {/* Timer de la ventana de READY: cuenta regresiva visible para el admin */}
-          {isScheduled && hasDate && (
-            <div className="mt-4 pt-4 border-t border-[var(--vertigo-line-soft)] grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <ReadyDeadlineTimer scheduledAtStart={match.scheduled_at_start} status={match.status} variant="block" />
-              <div className="text-[11px] text-[var(--vertigo-faint)] leading-relaxed self-center">
-                El READY se habilita 15 min antes del horario. Si a los 15 min del horario un
-                equipo no confirmó, pierde por W.O. automáticamente (check al abrir la página
-                + cron diario de respaldo). Si ninguno confirma, la llave cierra sin ganador y decidís vos.
+          </div>
+
+          {/* ── SALA AOE2 + SYNC AUTOMÁTICO (partida sorteada, sin terminar) ── */}
+          {showLobbyBlock && lobbyGame && (
+            <div style={{ marginTop: 28, paddingTop: 20, borderTop: "1px solid var(--vertigo-line-soft)" }}>
+              <div className="vertigo-zone-label">Sala de AoE2 y resultado automático</div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                <LobbyNameCard name={lobbyName!} variant="block" />
+                <div className="flex flex-col gap-3">
+                  {lobbyGame.status === "in_progress" ? (
+                    <Aoe2SyncIndicator
+                      syncStatus={lobbyGame.aoe2_sync_status ?? "pending"}
+                      flag={lobbyGame.aoe2_flag ?? null}
+                      aoe2MatchId={lobbyGame.aoe2_match_id ?? null}
+                      startedAt={lobbyGame.started_at ?? null}
+                    />
+                  ) : (
+                    <p className="text-[11px] text-[var(--vertigo-faint)] leading-relaxed">
+                      Cuando la partida esté en juego, el watcher busca este nombre en AoE2 Companion,
+                      valida mapa y modo contra el sorteo, archiva el .aoe2record y el análisis, y carga
+                      el resultado solo. Si algo no cierra, te lo muestra acá.
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -662,7 +769,7 @@ export default async function AdminPartidoPage({
               {match.status === "in_progress" && (
                 <div className="flex items-center gap-2 text-sm text-[var(--vertigo-success)]">
                   <span className="vertigo-status-dot" style={{ background: "var(--vertigo-success)" }} />
-                  Partida en juego. Cargá el resultado abajo cuando termine.
+                  Partida en juego. El resultado se detecta solo por el nombre de sala; si hace falta, cargalo manualmente abajo.
                 </div>
               )}
               {/* Forfeit — siempre disponible si no terminó */}
@@ -693,6 +800,43 @@ export default async function AdminPartidoPage({
                     <span className="text-xs text-[var(--vertigo-faint)]">{g.map ?? "Mapa por sorteo"} · {g.player_mode ?? "?"}</span>
                   </div>
                 </div>
+
+                {/* Sync con AoE2 Companion: estado pasivo + vínculo forzado */}
+                {g.status === "in_progress" && (
+                  <div className="mb-4 flex flex-col gap-3">
+                    <Aoe2SyncIndicator
+                      syncStatus={g.aoe2_sync_status ?? "pending"}
+                      flag={g.aoe2_flag ?? null}
+                      aoe2MatchId={g.aoe2_match_id ?? null}
+                      startedAt={g.started_at ?? null}
+                    />
+                    {g.aoe2_sync_status !== "synced" && (
+                      <details>
+                        <summary className="text-[11px] text-[var(--vertigo-faint)] cursor-pointer select-none">
+                          ¿No se detecta sola? Vincular match de Companion manualmente
+                        </summary>
+                        <form action={linkAoe2MatchFormAction} className="mt-2 flex gap-2 flex-wrap items-center">
+                          <input type="hidden" name="match_game_id" value={g.id} />
+                          <input
+                            type="text"
+                            name="companion_ref"
+                            required
+                            placeholder="URL o id del match en aoe2companion.com"
+                            className="flex-1 min-w-[240px] bg-[var(--vertigo-input-bg)] border border-[var(--vertigo-input-border)] rounded-md px-3 py-2 text-[12px] text-[var(--vertigo-text)]"
+                          />
+                          <button type="submit" className="vertigo-btn vertigo-btn-ghost" style={{ padding: "8px 14px", fontSize: 11 }}>
+                            <ExternalLink style={{ width: 12, height: 12 }} /> Vincular y reportar
+                          </button>
+                        </form>
+                        <p className="text-[10px] text-[var(--vertigo-faint)] mt-1.5">
+                          Valida mapa/modo/ganador, archiva rec y análisis, y carga el resultado.
+                          El formulario manual de abajo sigue disponible como último recurso.
+                        </p>
+                      </details>
+                    )}
+                  </div>
+                )}
+
                 <form action={reportGameResultFormAction} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 items-end">
                   <input type="hidden" name="match_game_id" value={g.id} />
                   <div className="flex flex-col gap-1">
@@ -715,7 +859,11 @@ export default async function AdminPartidoPage({
             ))}
             {games.filter((g: any) => g.status === "finished").length > 0 && (
               <p className="text-xs text-[var(--vertigo-faint)] italic">
-                Partidas ya finalizadas: {games.filter((g: any) => g.status === "finished").length}. {match.format === "BO3" ? "Si está 1-1, sorteá la partida decisiva." : ""}
+                Partidas ya finalizadas: {games.filter((g: any) => g.status === "finished").length}
+                {games.filter((g: any) => g.status === "finished" && g.aoe2_sync_status === "synced").length > 0 && (
+                  <> · {games.filter((g: any) => g.status === "finished" && g.aoe2_sync_status === "synced").length} detectada(s) automáticamente en AoE2 Companion</>
+                )}
+                . {match.format === "BO3" ? "Si está 1-1, sorteá la partida decisiva." : ""}
               </p>
             )}
           </div>
@@ -842,16 +990,22 @@ function TeamCard({
       )}
 
       <div className="grid grid-cols-2 gap-2 mb-3">
-        <div className="vertigo-info-card">
-          <div className="vertigo-info-card-label">READY #1</div>
+        <div className={`vertigo-info-card ${ready ? "vertigo-info-card-ready" : ""}`}>
+          <div className="vertigo-info-card-label">
+            {ready && <CheckCircle2 style={{ width: 11, height: 11 }} />}
+            READY #1
+          </div>
           <div className="vertigo-info-card-value text-xs">
-            {fmt.time(ready)}
+            {ready ? fmt.time(ready) : <span style={{ color: "var(--vertigo-faint)" }}>—</span>}
           </div>
         </div>
-        <div className="vertigo-info-card">
-          <div className="vertigo-info-card-label">READY #2</div>
+        <div className={`vertigo-info-card ${readyLineup ? "vertigo-info-card-ready" : ""}`}>
+          <div className="vertigo-info-card-label">
+            {readyLineup && <CheckCircle2 style={{ width: 11, height: 11 }} />}
+            READY #2
+          </div>
           <div className="vertigo-info-card-value text-xs">
-            {fmt.time(readyLineup)}
+            {readyLineup ? fmt.time(readyLineup) : <span style={{ color: "var(--vertigo-faint)" }}>—</span>}
           </div>
         </div>
       </div>

@@ -72,6 +72,9 @@ function editionPayload(fd: FormData) {
     elo_field: strOrNull(fd, "elo_field", 50) ?? "rm_1v1_max",
     team_size: intOr(fd, "team_size", 3),
     max_teams: intOr(fd, "max_teams", 32),
+    // Horas que tiene un equipo aprobado para pagar su plaza antes de que el
+    // cron libere el lugar (migración 0014).
+    payment_window_hours: Math.max(1, intOr(fd, "payment_window_hours", 72)),
     civs_base: intOr(fd, "civs_base", 9),
     civs_extra_finalist: intOr(fd, "civs_extra_finalist", 3),
     comodin_reroll: intOr(fd, "comodin_reroll", 2),

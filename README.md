@@ -115,6 +115,19 @@ docs/
 └── SPEC.md                   # Especificación técnica y funcional completa
 ```
 
+## Variables de entorno
+
+Además de las de Supabase (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_PASSWORD`) y `NEXT_PUBLIC_APP_URL`:
+
+| Variable | Uso |
+| --- | --- |
+| `CRON_SECRET` | Bearer token de los crons (`/api/cron/*`: payment-deadline, refresh-stats, etc.). |
+| `GMAIL_USER` | Mail del staff que envía los emails (ej: `vertigocupaoe2@gmail.com`). |
+| `GMAIL_APP_PASSWORD` | Contraseña de aplicación de Google de 16 letras (myaccount.google.com/apppasswords, exige verificación en 2 pasos activa). Sin ella los envíos se saltean y la waitlist queda pendiente de reintento. |
+| `RESEND_API_KEY` | (Opcional, fallback) Envío vía Resend — requiere dominio verificado para enviar a terceros. |
+
+**Crons:** en Vercel Hobby los cron jobs corren 1x/día. La expiración de plazas impagas no depende solo del cron: `/api/tournament/slots` y `/api/tournament/config` hacen un *sweep* en cada lectura, así que la plaza se libera y se notifica a la waitlist apenas alguien abre el landing o el wizard.
+
 ## Documentación
 
 - **[`docs/SPEC.md`](docs/SPEC.md)** — Especificación técnica y funcional completa (fuente única de verdad).

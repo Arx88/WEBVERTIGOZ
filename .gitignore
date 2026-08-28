@@ -64,3 +64,11 @@ dev-server.log
 dev-3003.log
 dev-3003.err.log
 serve.log
+
+# runtime de Freebuff (logs de preview, project-id)
+.freebuff/
+.freebuff-*.log
+
+# scripts descartables de análisis/calibración
+scripts/tmp-*
+scripts/db-cleanup/tmp-*

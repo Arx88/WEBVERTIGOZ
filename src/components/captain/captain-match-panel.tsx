@@ -27,6 +27,7 @@ import {
 } from "@/server/actions/match-day";
 import ReadyDeadlineTimer, { useReadyWindow } from "@/components/shared/ready-deadline-timer";
 import { NoDateBanner } from "@/components/shared/no-date-banner";
+import LobbyNameCard from "@/components/shared/lobby-name-card";
 import {
   CheckCircle2, Users, Sword, Timer, Sparkles, Loader2, AlertCircle,
 } from "lucide-react";
@@ -87,6 +88,9 @@ interface Props {
   myCivs: string[];
   /** comodin_window_expires_at */
   comodinExpiresAt: string | null;
+  /** Nombre de sala AoE2 de la partida activa (derivado, no guardado).
+      Con esto el capitán crea la sala y el resultado se detecta solo. */
+  lobbyName?: string | null;
 }
 
 export function CaptainMatchPanel({
@@ -107,6 +111,7 @@ export function CaptainMatchPanel({
   playerMode,
   myCivs,
   comodinExpiresAt,
+  lobbyName = null,
 }: Props) {
   const isMyTeamA = myTeamRegId === teamA?.id;
   const myTeam = isMyTeamA ? teamA : teamB;
@@ -203,13 +208,46 @@ export function CaptainMatchPanel({
           15 min después (tolerancia). Sin fecha confirmada no hay botón:
           se muestra el banner de "horario a confirmar". */}
       {waitingStart && !myReady && readyPhase === "no-date" && <NoDateBanner />}
-      {waitingStart && !(readyPhase === "no-date" && !myReady) && (
+
+      {/* Ya confirmaste: banner verde prominente con estado del rival */}
+      {waitingStart && myReady && (
+        <>
+          <div
+            style={{
+              padding: "14px 18px",
+              background: "rgba(34,197,94,0.08)",
+              border: "1px solid rgba(34,197,94,0.3)",
+              borderRadius: "10px",
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              flexWrap: "wrap",
+            }}
+          >
+            <CheckCircle2 style={{ width: 20, height: 20, color: "var(--vertigo-success)", flexShrink: 0 }} />
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: "1px", color: "var(--vertigo-success)" }}>
+                ✓ ESTÁS LISTO
+              </div>
+              <div style={{ fontSize: 12, color: "var(--vertigo-muted)", marginTop: 2 }}>
+                {rivalReady
+                  ? "¡El rival también está listo! Aguardando al admin para el sorteo."
+                  : "Tu confirmación quedó registrada. Esperando al rival…"}
+              </div>
+            </div>
+          </div>
+          <div className="text-[12px] text-[var(--vertigo-faint)] mt-3 flex items-center gap-2 flex-wrap">
+            <Timer style={{ width: 12, height: 12, flexShrink: 0 }} />
+            <ReadyDeadlineTimer scheduledAtStart={scheduledAtStart} status={status} variant="chip" />
+          </div>
+        </>
+      )}
+
+      {waitingStart && !myReady && readyPhase !== "no-date" && (
         <>
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="text-sm text-[var(--vertigo-muted)]">
-              {myReady
-                ? (rivalReady ? "✓ Ambos equipos listos. Aguardando al admin para el sorteo." : "✓ Estás listo. Esperando al rival.")
-                : readyPhase === "early"
+              {readyPhase === "early"
                 ? "Confirmá tu asistencia cuando se abra la ventana."
                 : readyPhase === "expired"
                 ? "El tiempo para confirmar READY terminó."
@@ -244,7 +282,14 @@ export function CaptainMatchPanel({
         <div className="text-sm text-[var(--vertigo-purple-soft)]">◆ La ruleta está girando. El resultado aparece acá apenas termina.</div>
       )}
       {status === "in_progress" && (
-        <div className="text-sm text-[var(--vertigo-success)]">▶ Partida en juego. ¡A ganar!</div>
+        <>
+          <div className="text-sm text-[var(--vertigo-success)]">▶ Partida en juego. ¡A ganar!</div>
+          {lobbyName && (
+            <div className="mt-3">
+              <LobbyNameCard name={lobbyName} variant="chip" />
+            </div>
+          )}
+        </>
       )}
     </div>
   );

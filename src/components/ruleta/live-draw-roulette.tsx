@@ -16,6 +16,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { ConfigProvider } from "@/lib/ruleta/config";
 
 const Roulette = dynamic(() => import("@/components/ruleta/roulette").then((m) => m.Roulette), {
   ssr: false,
@@ -108,12 +109,16 @@ export default function LiveDrawRoulette({ matchId, onDone, isAdmin }: LiveDrawR
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 90, background: "#050505" }}>
-      <Roulette
-        forced={forced}
-        configOverride={state.kind === "ready" ? state.preset : undefined}
-        interactive={isAdmin}
-        onResult={handleResult}
-      />
+      {/* Roulette exige ConfigProvider (useConfig); el preset del server
+          llega por configOverride y pisa la config local. */}
+      <ConfigProvider>
+        <Roulette
+          forced={forced}
+          configOverride={state.kind === "ready" ? state.preset : undefined}
+          interactive={isAdmin}
+          onResult={handleResult}
+        />
+      </ConfigProvider>
     </div>
   );
 }

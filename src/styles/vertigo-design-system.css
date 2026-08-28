@@ -1429,6 +1429,29 @@ html:has(.vertigo-page) {
   }
 }
 
+/* Etiqueta de zona dentro de un panel (p. ej. "Ventana de READY" | "Acción"
+   en el centro de operaciones del partido). Más chica que .vertigo-subtitle:
+   vive DENTRO de una card, no encima. */
+.vertigo-zone-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 2.2px;
+  text-transform: uppercase;
+  color: var(--vertigo-purple-soft);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vertigo-zone-label::before {
+  content: '';
+  width: 3px;
+  height: 12px;
+  background: linear-gradient(180deg, var(--vertigo-purple), var(--vertigo-purple-deep));
+  border-radius: 2px;
+}
+
 /* ============================================================
    INFO CARD (small data display) — MEJORADO
    ============================================================ */
@@ -1465,6 +1488,22 @@ html:has(.vertigo-page) {
   color: var(--vertigo-text);
   margin-top: 6px;
   font-family: Inter, system-ui, sans-serif;
+}
+
+/* Info card con estado confirmado (READY #1/#2): verde, mismo lenguaje
+   que las bandas de estado de mis-partidos. */
+.vertigo-info-card-ready {
+  border-color: rgba(34, 197, 94, 0.45);
+  background: rgba(34, 197, 94, 0.08);
+  box-shadow: 0 0 14px rgba(34, 197, 94, 0.12), 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.vertigo-info-card-ready .vertigo-info-card-label {
+  color: var(--vertigo-success);
+}
+
+.vertigo-info-card-ready .vertigo-info-card-value {
+  color: var(--vertigo-success);
 }
 
 /* ============================================================
@@ -1959,6 +1998,131 @@ html:has(.vertigo-page) {
 /* Título de página grande */
 .vertigo-page-title {
   margin-bottom: 36px;
+}
+
+/* ============================================================
+   ROUTE LOADER — estado de carga entre navegaciones
+   (loading.tsx de cada route group)
+   ============================================================ */
+
+.vertigo-loader {
+  min-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+
+.vertigo-loader-ring {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid var(--vertigo-line);
+  border-top-color: var(--vertigo-primary);
+  animation: vertigo-loader-spin 0.9s linear infinite;
+}
+
+.vertigo-loader-label {
+  font-family: Cinzel, serif;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--vertigo-faint);
+  text-align: center;
+}
+
+@keyframes vertigo-loader-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vertigo-loader-ring { animation-duration: 2.4s; }
+}
+
+/* ============================================================
+   PANTALLAS DE ESTADO — 404 y error de runtime
+   ============================================================ */
+
+.vertigo-state-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+}
+
+.vertigo-state-code {
+  font-family: Cinzel, serif;
+  font-size: clamp(64px, 14vw, 120px);
+  font-weight: 700;
+  line-height: 1;
+  color: transparent;
+  -webkit-text-stroke: 1px var(--vertigo-purple);
+  letter-spacing: 4px;
+  margin-bottom: 8px;
+}
+
+.vertigo-state-title {
+  font-family: Cinzel, serif;
+  font-size: 22px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--vertigo-text);
+  margin-bottom: 12px;
+}
+
+.vertigo-state-desc {
+  font-size: 14px;
+  color: var(--vertigo-muted);
+  line-height: 1.7;
+  max-width: 440px;
+  margin: 0 auto 28px;
+}
+
+.vertigo-state-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.vertigo-state-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 22px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.2s var(--vertigo-ease), border-color 0.2s var(--vertigo-ease);
+}
+
+.vertigo-state-btn--solid {
+  background: var(--vertigo-primary);
+  border: 1px solid var(--vertigo-primary);
+  color: #f2eef7;
+}
+
+.vertigo-state-btn--solid:hover {
+  background: var(--vertigo-purple-deep);
+}
+
+.vertigo-state-btn--ghost {
+  background: transparent;
+  border: 1px solid var(--vertigo-line);
+  color: var(--vertigo-muted);
+}
+
+.vertigo-state-btn--ghost:hover {
+  border-color: var(--vertigo-purple);
+  color: var(--vertigo-text);
 }
 
 /* ============================================================

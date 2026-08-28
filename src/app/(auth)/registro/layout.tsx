@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef, Fragment, type ReactNode } from "react";
+import { useState, useEffect, useRef, Fragment, type ReactNode, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { WizardProvider, useWizard, WIZARD_STEPS, isValidEmblemId } from "@/components/wizard/wizard-context";
 import { toast } from "sonner";
-import { signUpOrLogin, submitWizard, getWizardResume } from "@/server/actions/wizard";
+import { signUpOrLogin, submitWizard, getWizardResume, joinCupoWaitlist } from "@/server/actions/wizard";
 import "@/styles/wizard-referencia.css";
 
 const STEP_INFO = [
@@ -21,14 +21,28 @@ const STEP_INFO = [
 
 function WizardShell({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const { step, totalSteps, prevStep, nextStep, data, setStep, config, updateData } = useWizard();
+  const { step, totalSteps, prevStep, nextStep, data, setStep, config, configFound, slots, updateData } = useWizard();
   const [submitting, setSubmitting] = useState(false);
   const [authDone, setAuthDone] = useState(false);
   const [maxReached, setMaxReached] = useState(1);
   const [showSuccess, setShowSuccess] = useState(false);
 
+  // Waitlist de cupo: "notificarme si hay lugar" (solo visible con el cupo lleno)
+  const [notifyState, setNotifyState] = useState<"idle" | "open" | "sending" | "done">("idle");
+  const [notifyEmail, setNotifyEmail] = useState("");
+  const [notifyError, setNotifyError] = useState<string | null>(null);
+  const notifySending = notifyState === "sending";
+
   const info = STEP_INFO[step - 1];
   const isLast = step === totalSteps;
+  // Freno de entrada en lugar de los 9 pasos (antes el usuario recorría todo el
+  // wizard y recién se frenaba al enviar): sin edición en "registration" o cupo completo.
+  const closedNoEdition = configFound === false;
+  const closedCupo = configFound === true && slots !== null && slots.remaining <= 0;
+  const closed = closedNoEdition || closedCupo;
+  const slotsTaken = slots?.taken ?? slots?.maxTeams ?? 32;
+  const slotsMax = slots?.maxTeams ?? 32;
+  const slotsPct = Math.min(100, Math.round((slotsTaken / slotsMax) * 100));
 
   const canProceed = (): boolean => {
     switch (step) {
@@ -57,6 +71,20 @@ function WizardShell({ children }: { children: ReactNode }) {
   function goTo(n: number) {
     if (n < 1 || n > totalSteps || n > maxReached) return;
     setStep(n);
+  }
+
+  async function handleNotify(e: FormEvent) {
+    e.preventDefault();
+    if (notifyState === "sending") return;
+    setNotifyState("sending");
+    setNotifyError(null);
+    const r = await joinCupoWaitlist(notifyEmail);
+    if (!r.ok) {
+      setNotifyError(r.error);
+      setNotifyState("open");
+      return;
+    }
+    setNotifyState("done");
   }
 
   // ── Reanudación: si ya tenés cuenta con reino, precargar datos; si ya estás
@@ -133,37 +161,50 @@ function WizardShell({ children }: { children: ReactNode }) {
 
       <div className="wizard-page">
         <div className="modal" id="modal">
-        <div className="modal-main">
+        <div className={`modal-main ${closed ? "modal-closed" : ""}`}>
 
-          {/* SIDEBAR */}
-          <aside className="sidebar">
-            <div className="logo" style={{ textAlign: "center", marginBottom: "24px" }}>
-              <img src="/landing/logo.png" alt="VÉRTIGO Cup" style={{ width: "120px", margin: "0 auto", display: "block" }} />
+          {closed ? (
+            /* FRENO: no hay pasos a la izquierda → el arte cubre toda esa zona
+               con el logo encima, y a la derecha va el panel de estado. */
+            <div className="art art-wide">
+              <img src="/landing/wizard-art.webp" alt="Caballero contemplando el campo de batalla" />
+              <div className="art-logo">
+                <img src="/landing/logo.png" alt="VÉRTIGO Cup" />
+              </div>
             </div>
+          ) : (
+            <>
+              {/* SIDEBAR */}
+              <aside className="sidebar">
+                <div className="logo" style={{ textAlign: "center", marginBottom: "24px" }}>
+                  <img src="/landing/logo.png" alt="VÉRTIGO Cup" style={{ width: "120px", margin: "0 auto", display: "block" }} />
+                </div>
 
-            <ol className="steps" id="steps">
-              {WIZARD_STEPS.map((s) => (
-                <li
-                  key={s.num}
-                  className={`step ${s.num === step ? "is-active" : ""} ${s.num < step ? "done" : ""}`}
-                  data-step={s.num}
-                  onClick={() => goTo(s.num)}
-                  style={{ position: "relative", display: "flex", alignItems: "center", gap: "16px", padding: "12px 4px", cursor: s.num <= maxReached ? "pointer" : "default" }}
-                >
-                  <span className="dot">
-                    <span className="num">{s.roman}</span>
-                    <svg className="check" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10" /></svg>
-                  </span>
-                  <span className="label">{s.label}</span>
-                </li>
-              ))}
-            </ol>
-          </aside>
+                <ol className="steps" id="steps">
+                  {WIZARD_STEPS.map((s) => (
+                    <li
+                      key={s.num}
+                      className={`step ${s.num === step ? "is-active" : ""} ${s.num < step ? "done" : ""}`}
+                      data-step={s.num}
+                      onClick={() => goTo(s.num)}
+                      style={{ position: "relative", display: "flex", alignItems: "center", gap: "16px", padding: "12px 4px", cursor: s.num <= maxReached ? "pointer" : "default" }}
+                    >
+                      <span className="dot">
+                        <span className="num">{s.roman}</span>
+                        <svg className="check" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10" /></svg>
+                      </span>
+                      <span className="label">{s.label}</span>
+                    </li>
+                  ))}
+                </ol>
+              </aside>
 
-          {/* ARTE */}
-          <div className="art">
-            <img src="/landing/wizard-art.webp" alt="Caballero contemplando el campo de batalla" />
-          </div>
+              {/* ARTE */}
+              <div className="art">
+                <img src="/landing/wizard-art.webp" alt="Caballero contemplando el campo de batalla" />
+              </div>
+            </>
+          )}
 
           {/* CONTENIDO */}
           <section className="content">
@@ -171,8 +212,81 @@ function WizardShell({ children }: { children: ReactNode }) {
               <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg>
             </button>
 
-            <div className="panels" id="panels" key={step}>
-              {/* Panel header (dinámico según el paso) */}
+            <div className="panels" id="panels" key={closed ? "closed" : step}>
+              {closed ? (
+                <div className="panel active panel-slide-in">
+                  <div className="wz-closed">
+                    <div className="wz-seal">
+                      {closedCupo ? (
+                        <svg viewBox="0 0 24 24"><path d="M4 16L3 7l5 4 4-7 4 7 5-4-1 9z" /><path d="M5 19.5h14" /></svg>
+                      ) : (
+                        <svg viewBox="0 0 24 24"><path d="M8 11V8a4 4 0 0 1 8 0v3" /><rect x="6" y="11" width="12" height="9" rx="2" /><path d="M12 14.5v2" /></svg>
+                      )}
+                    </div>
+                    <span className="p-kicker">VÉRTIGO Cup</span>
+                    <h2 className="p-title">{closedCupo ? "Cupo completo" : "Inscripciones cerradas"}</h2>
+                    <div className="p-divider"><span></span><i></i><span></span></div>
+                    {closedCupo ? (
+                      <p className="p-desc">
+                        Los {slotsMax} lugares de esta edición ya están ocupados ({slotsTaken} equipos).
+                        Si el staff libera lugares, las inscripciones se reabren — mientras tanto, seguí el torneo en vivo.
+                      </p>
+                    ) : (
+                      <p className="p-desc">
+                        No hay ninguna edición del torneo aceptando equipos en este momento.
+                        Cuando el staff abra las inscripciones vas a poder anotar a tu reino desde acá.
+                      </p>
+                    )}
+                    {closedCupo && (
+                      <div className="wz-meter">
+                        <div className="wz-meter-head">
+                          <span>Lugares ocupados</span>
+                          <strong>{slotsTaken} / {slotsMax}</strong>
+                        </div>
+                        <div className="wz-meter-bar"><i style={{ width: `${slotsPct}%` }} /></div>
+                      </div>
+                    )}
+                    {closedCupo && (
+                      <div className="wz-notify">
+                        {notifyState === "done" ? (
+                          <div className="wz-notify-done">
+                            <svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10" /></svg>
+                            <span>Listo. Te avisamos a <strong>{notifyEmail}</strong> si se libera un lugar.</span>
+                          </div>
+                        ) : notifyState === "open" ? (
+                          <form className="wz-notify-form" onSubmit={handleNotify}>
+                            <input
+                              type="email"
+                              required
+                              autoFocus
+                              placeholder="tu@email.com"
+                              maxLength={254}
+                              value={notifyEmail}
+                              onChange={(e) => setNotifyEmail(e.target.value)}
+                            />
+                            <button className="btn primary" type="submit" disabled={notifySending}>
+                              {notifySending ? "Anotando..." : "Avisarme"}
+                            </button>
+                            {notifyError && <p className="wz-notify-err">{notifyError}</p>}
+                          </form>
+                        ) : (
+                          <button className="btn primary" onClick={() => setNotifyState("open")}>
+                            <svg className="wz-bell" viewBox="0 0 24 24">
+                              <path d="M6 9a6 6 0 1 1 12 0c0 5 2 6 2 6H4s2-1 2-6" />
+                              <path d="M10.5 19a1.8 1.8 0 0 0 3 0" />
+                            </svg>
+                            <span>Notificarme si hay lugar</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    <div className="wz-actions">
+                      <a className="btn ghost" href="/bracket">Ver el bracket</a>
+                      <a className="btn ghost" href="/tutorial">Cómo funciona</a>
+                    </div>
+                  </div>
+                </div>
+              ) : (
               <div className="panel active panel-slide-in" data-panel={step}>
                 <span className="p-kicker">{info.kicker}</span>
                 <h2 className="p-title">{info.title}</h2>
@@ -180,11 +294,13 @@ function WizardShell({ children }: { children: ReactNode }) {
                 <p className="p-desc">{info.desc}</p>
                 {children}
               </div>
+              )}
             </div>
           </section>
         </div>
 
         {/* FOOTER */}
+        {!closed && (
         <footer className="modal-footer">
           <button className="btn ghost" onClick={() => router.push("/")}>Cancelar</button>
           <div className="footer-right">
@@ -213,6 +329,7 @@ function WizardShell({ children }: { children: ReactNode }) {
             </button>
           </div>
         </footer>
+        )}
 
         {/* ÉXITO */}
         {showSuccess && (

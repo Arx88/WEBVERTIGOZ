@@ -29,6 +29,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Coins, Ticket, Trophy, Lock, Undo2, XCircle, AlertTriangle, Flame, Users } from "lucide-react";
 import { placeBetAction, cancelBetAction } from "@/server/actions/apuestas";
+import { playSound } from "@/lib/sounds";
 import CountdownBadge from "@/app/(public)/apuestas/countdown-badge";
 import { BET_MAX_PAYOUT_MULT } from "@/lib/constants";
 
@@ -415,6 +416,7 @@ function BetForm({
         toast.error("No se pudo apostar", { description: result.error });
         return;
       }
+      playSound("coin");
       toast.success("¡Apuesta registrada!", {
         description: `Apostaste ${fmt(stake)} puntos. Suerte.`,
       });

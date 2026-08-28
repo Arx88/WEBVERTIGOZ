@@ -203,11 +203,15 @@ export default function TeamRealtimeWrapper({ teamRegistrationId, initialNextMat
             .maybeSingle()) as { data: any };
           if (draw && draw.result) {
             const r = draw.result as any;
+            // result guarda cada fase como objeto PresetMode ({ id, title, … });
+            // para display se extrae el título (fallback: columna de match_game).
+            const title = (v: any, fb: any): string | undefined =>
+              v != null ? (typeof v === "object" ? v.title ?? undefined : String(v)) : (fb ?? undefined);
             drawResult = {
-              gameMode: r.gameMode ?? g.game_mode ?? undefined,
-              antimetaMode: r.antimetaMode ?? g.antimeta_mode ?? undefined,
-              playerMode: r.playerMode ?? g.player_mode ?? undefined,
-              map: r.map ?? g.map ?? undefined,
+              gameMode: title(r.gameMode, g.game_mode),
+              antimetaMode: title(r.antimetaMode, g.antimeta_mode),
+              playerMode: title(r.playerMode, g.player_mode),
+              map: title(r.map, g.map),
               civsA: r.civsA ?? g.civs_a ?? undefined,
               civsB: r.civsB ?? g.civs_b ?? undefined,
             };

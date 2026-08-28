@@ -53,6 +53,8 @@ interface HistoryMatchRow {
   scoreB: number;
   isTeamA: boolean;
   winnerTeamId: string | null;
+  /** Games del partido con su mapa y si tienen análisis archivado (AoE2 Companion). */
+  games: { id: string; gameNumber: number; map: string | null; hasAnalysis: boolean }[];
 }
 
 interface PageData {
@@ -214,6 +216,34 @@ async function loadTeam(id: string): Promise<PageData | null> {
       }
     }
 
+    // Games de cada partido del historial + cuáles tienen análisis archivado
+    const matchIds: string[] = allMatches.map((m) => m.id);
+    const gamesByMatch: Record<string, { id: string; gameNumber: number; map: string | null; hasAnalysis: boolean }[]> = {};
+    if (matchIds.length > 0) {
+      const { data: gamesRaw } = (await supabase
+        .from("match_game")
+        .select("id, match_id, game_number, map")
+        .in("match_id", matchIds)
+        .order("game_number", { ascending: true })) as { data: any };
+      const gIds: string[] = (gamesRaw ?? []).map((g: any) => g.id);
+      const analysisSet = new Set<string>();
+      if (gIds.length > 0) {
+        const { data: analysisRows } = (await supabase
+          .from("match_game_analysis")
+          .select("match_game_id")
+          .in("match_game_id", gIds)) as { data: any };
+        for (const r of analysisRows ?? []) analysisSet.add(r.match_game_id);
+      }
+      for (const g of gamesRaw ?? []) {
+        (gamesByMatch[g.match_id] ??= []).push({
+          id: g.id,
+          gameNumber: g.game_number,
+          map: g.map ?? null,
+          hasAnalysis: analysisSet.has(g.id),
+        });
+      }
+    }
+
     const history: HistoryMatchRow[] = allMatches
       .map((m) => {
         const isTeamA = m.team_a_id === reg.id;
@@ -229,6 +259,7 @@ async function loadTeam(id: string): Promise<PageData | null> {
           scoreB: m.score_b ?? 0,
           isTeamA,
           winnerTeamId: m.winner_team_id ?? null,
+          games: gamesByMatch[m.id] ?? [],
         };
       })
       .sort((a, b) => {
@@ -319,11 +350,15 @@ async function loadTeam(id: string): Promise<PageData | null> {
             .maybeSingle()) as { data: any };
           if (draw && draw.result) {
             const r = draw.result as any;
+            // result guarda cada fase como objeto PresetMode ({ id, title, … });
+            // para display se extrae el título (fallback: columna de match_game).
+            const title = (v: any, fb: any): string | undefined =>
+              v != null ? (typeof v === "object" ? v.title ?? undefined : String(v)) : (fb ?? undefined);
             drawResult = {
-              gameMode: r.gameMode ?? g.game_mode ?? undefined,
-              antimetaMode: r.antimetaMode ?? g.antimeta_mode ?? undefined,
-              playerMode: r.playerMode ?? g.player_mode ?? undefined,
-              map: r.map ?? g.map ?? undefined,
+              gameMode: title(r.gameMode, g.game_mode),
+              antimetaMode: title(r.antimetaMode, g.antimeta_mode),
+              playerMode: title(r.playerMode, g.player_mode),
+              map: title(r.map, g.map),
               civsA: r.civsA ?? g.civs_a ?? undefined,
               civsB: r.civsB ?? g.civs_b ?? undefined,
             };
@@ -761,6 +796,35 @@ export default async function EquipoDetallePage({
                       </span>
                     </div>
                   </div>
+                  {/* Chips por game: mapa + badge ANÁLISIS si fue archivada en Companion */}
+                  {m.games.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-3">
+                      {m.games.map((g) => (
+                        <Link
+                          key={g.id}
+                          href={`/partido/${m.id}`}
+                          className="inline-flex items-center gap-1.5 rounded-full transition-all hover:border-[rgba(124,58,237,0.6)]"
+                          style={{
+                            padding: "3px 10px",
+                            fontSize: 10,
+                            letterSpacing: "0.5px",
+                            color: "var(--vertigo-muted)",
+                            background: "rgba(124,58,237,0.07)",
+                            border: "1px solid var(--vertigo-line-soft)",
+                          }}
+                          title={g.hasAnalysis ? "Ver análisis de la partida" : "Ver partido"}
+                        >
+                          <span className="font-semibold">G{g.gameNumber}</span>
+                          {g.map && <span className="text-[var(--vertigo-faint)]">· {g.map}</span>}
+                          {g.hasAnalysis && (
+                            <span className="vertigo-badge vertigo-badge-success" style={{ padding: "1px 6px", fontSize: 8 }}>
+                              Análisis
+                            </span>
+                          )}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
                   <div className="vertigo-action-bar mt-4 pt-3 border-t border-[var(--vertigo-line-soft)]">
                     <Link href={`/partido/${m.id}`} className="vertigo-btn vertigo-btn-ghost" style={{ padding: "8px 16px", fontSize: "11px" }}>
                       Ver partido →

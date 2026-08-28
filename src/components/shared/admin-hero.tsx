@@ -8,6 +8,8 @@
  * Server-safe: sin estado, sin eventos.
  */
 import type { ReactNode } from "react";
+import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
 import { ART_CASTILLO } from "@/lib/art";
 import HeroStat from "./hero-stat";
 
@@ -16,11 +18,17 @@ export default function AdminHero({
   title,
   desc,
   stats = [],
+  back,
+  compact = false,
 }: {
   kicker: string;
   title: string;
   desc: ReactNode;
   stats?: { value: string | number; label: string; color?: string }[];
+  /** Link de vuelta opcional: vive adentro del hero, arriba a la izquierda. */
+  back?: { href: string; label: string };
+  /** Variante baja para páginas operativas (menos aire, más pantalla útil). */
+  compact?: boolean;
 }) {
   return (
     <div
@@ -55,16 +63,36 @@ export default function AdminHero({
           background: "linear-gradient(90deg, transparent, rgba(212,175,55,0.55), transparent)",
         }}
       />
+      {back && (
+        <Link
+          href={back.href}
+          style={{
+            position: "absolute", top: 16, left: 18, zIndex: 3,
+            display: "inline-flex", alignItems: "center", gap: 6,
+            padding: "7px 14px", borderRadius: 999,
+            border: "1px solid rgba(212,175,55,0.28)",
+            background: "rgba(7,3,16,0.55)",
+            backdropFilter: "blur(6px)",
+            fontSize: 10, fontWeight: 700, letterSpacing: "2px", textTransform: "uppercase",
+            color: "rgba(233,209,138,0.85)", textDecoration: "none",
+            transition: "all 0.2s ease",
+          }}
+        >
+          <ChevronLeft style={{ width: 12, height: 12 }} />
+          {back.label}
+        </Link>
+      )}
       <div
         style={{
-          position: "relative", zIndex: 2, padding: "36px 32px 30px",
-          display: "flex", flexDirection: "column", justifyContent: "flex-end", minHeight: 360,
+          position: "relative", zIndex: 2, padding: compact ? "30px 30px 24px" : "36px 32px 30px",
+          display: "flex", flexDirection: "column", justifyContent: "flex-end",
+          minHeight: compact ? 210 : 360,
         }}
       >
-        <span className="vertigo-kicker">{kicker}</span>
+        <span className="vertigo-kicker" style={compact ? { marginBottom: 8 } : undefined}>{kicker}</span>
         <h1
           className="vertigo-title"
-          style={{ fontSize: "clamp(24px, 3.2vw, 40px)", margin: "6px 0 10px", textShadow: "0 4px 28px rgba(0,0,0,0.6)" }}
+          style={{ fontSize: compact ? "clamp(20px, 2.6vw, 32px)" : "clamp(24px, 3.2vw, 40px)", margin: "6px 0 10px", textShadow: "0 4px 28px rgba(0,0,0,0.6)" }}
         >
           {title}
         </h1>
@@ -72,7 +100,7 @@ export default function AdminHero({
           {desc}
         </p>
         {stats.length > 0 && (
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 24 }}>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: compact ? 16 : 24 }}>
             {stats.map((s) => (
               <HeroStat key={s.label} value={s.value} label={s.label} color={s.color ?? "var(--vertigo-text)"} />
             ))}

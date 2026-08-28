@@ -16,7 +16,7 @@ import { getSupabaseServiceRole } from "@/lib/supabase/server";
 /** Columnas estándar al leer una edición (las que usa el panel y el wizard). */
 export const EDITION_SELECT = `
   id, slug, name, description, status,
-  elo_cap, elo_tolerance, elo_field, team_size, max_teams,
+  elo_cap, elo_tolerance, elo_field, team_size, max_teams, payment_window_hours,
   civs_base, civs_extra_finalist,
   comodin_reroll, comodin_anular, comodin_elegir_rival, comodin_invocar_pro,
   comodin_window_minutes, invocar_pro_minutes,

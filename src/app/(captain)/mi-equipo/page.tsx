@@ -56,7 +56,7 @@ export default async function MiEquipoPage() {
 
   const { data: regs } = (await supabase
     .from("team_registration")
-    .select("id, status, elo_freeze_snapshot, elo_verification_status, elo_verification_reason, base_civ_ids, extra_civ_ids, submitted_at, approved_at, tournament_edition_id, anti_smurf_check, payment_confirmed, tutorial_watched, discord_joined")
+    .select("id, status, elo_freeze_snapshot, elo_verification_status, elo_verification_reason, base_civ_ids, extra_civ_ids, submitted_at, approved_at, tournament_edition_id, anti_smurf_check, payment_confirmed, payment_deadline_at, tutorial_watched, discord_joined")
     .eq("team_account_id", team.id)
     .order("submitted_at", { ascending: false })) as { data: any };
 
@@ -224,6 +224,19 @@ export default async function MiEquipoPage() {
 
   // Requisitos de inscripción: Anti Smurf, Pago, Tutorial visto y Discord.
   // Anti-smurf y pago los confirma el staff; tutorial y Discord se autogestionan.
+  // Plazo de pago (migración 0014): aprobado sin pagar → cuenta regresiva; vencida,
+  // el cron libera la plaza y el equipo puede re-inscribirse si queda lugar.
+  const paymentDeadlineHint = (() => {
+    if (status !== "approved" || latestReg?.payment_confirmed) return null;
+    const dl = latestReg?.payment_deadline_at ? new Date(latestReg.payment_deadline_at) : null;
+    if (!dl) return null;
+    const hoursLeft = Math.ceil((dl.getTime() - Date.now()) / 3_600_000);
+    if (hoursLeft <= 0) {
+      return "El plazo de pago venció: tu plaza se libera automáticamente con la próxima corrida del sistema (podés re-inscribirte si queda lugar).";
+    }
+    const fecha = dl.toLocaleString("es-AR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+    return `Plaza reservada: pagá antes de ${fecha} (${hoursLeft}h restantes) o se libera automáticamente. Coordiná el pago con el staff por Discord.`;
+  })();
   const checklist: {
     ok: boolean;
     icon: typeof ScanFace;
@@ -242,7 +255,7 @@ export default async function MiEquipoPage() {
       ok: !!latestReg?.payment_confirmed,
       icon: CreditCard,
       label: "Pago de equipo",
-      hint: "Coordiná el pago con el staff por Discord; ellos lo confirman.",
+      hint: paymentDeadlineHint ?? "Coordiná el pago con el staff por Discord; ellos lo confirman.",
     },
     {
       ok: !!latestReg?.tutorial_watched,

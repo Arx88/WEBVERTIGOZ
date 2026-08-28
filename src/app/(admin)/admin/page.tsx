@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import {
   Trophy, Users, Shield, Calendar, Mic, AlertTriangle, ScrollText,
-  BookOpen, ArrowRight, type LucideIcon,
+  BookOpen, BellRing, ArrowRight, type LucideIcon,
 } from "lucide-react";
 import AdminHero from "@/components/shared/admin-hero";
 
@@ -68,6 +68,11 @@ export default async function AdminHomePage() {
     casterCount = (cas.count as number | null) ?? 0;
   }
 
+  // Waitlist de cupo (cross-edición): solo admins pueden leerla (policy 0015).
+  const { count: waitlistCount } = await supabase
+    .from("cupo_waitlist")
+    .select("id", { count: "exact", head: true });
+
   const editionLabel = edition ? (STATUS_LABEL[edition.status] ?? edition.status) : "Sin edición";
   const maxTeams = 32;
 
@@ -79,6 +84,14 @@ export default async function AdminHomePage() {
       desc: "Aprobar o rechazar equipos, validar perfiles de AoE2 Companion, verificar ELO cap y gestionar capitanes.",
       accent: "#a78bfa",
       metric: { value: pending, label: "pendientes de revisar", alert: pending > 0 },
+    },
+    {
+      href: "/admin/waitlist",
+      icon: BellRing,
+      title: "Lista de espera",
+      desc: "Emails anotados cuando el cupo quedó lleno. Al liberarse lugar (pago vencido o rechazo) el cron los avisa solos. Export en CSV.",
+      accent: "#a78bfa",
+      metric: { value: (waitlistCount as number | null) ?? 0, label: "anotados" },
     },
     {
       href: "/admin/torneo",

@@ -89,6 +89,10 @@ export async function getWizardResume() {
         .select("id")
         .eq("tournament_edition_id", edition.id)
         .in("team_account_id", teamIds)
+        // Solo pending/approved cuentan como "ya inscripto": un equipo rechazado
+        // por no pagar en 72hs (payment_timeout) puede re-inscribirse si queda
+        // lugar. El rechazo manual del admin sí bloquea (anti-smurf).
+        .in("status", ["pending", "approved"])
         .maybeSingle();
       hasOpenRegistration = !!reg;
     }
@@ -108,6 +112,52 @@ export async function getWizardResume() {
         }
       : null,
   };
+}
+
+// ============================================================
+// Waitlist de cupo — "avisame si se libera un lugar"
+// Cuando el freno muestra cupo completo, el mail queda anotado
+// en cupo_waitlist (migración 0013) asociado a la edición.
+// ============================================================
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+export async function joinCupoWaitlist(emailRaw: string) {
+  const email = emailRaw.trim().toLowerCase();
+  if (!EMAIL_RE.test(email) || email.length > 254) {
+    return { ok: false as const, error: "Ingresá un email válido." };
+  }
+
+  try {
+    const service = getSupabaseServiceRole() as any;
+    const edition = await getEditionForRegistration(service);
+    if (!edition) {
+      return { ok: false as const, error: "No hay ninguna edición con inscripciones abiertas." };
+    }
+
+    // Solo tiene sentido anotarse si el cupo está lleno; si hay lugar, mejor inscribirse.
+    const maxTeams = edition.max_teams ?? 32;
+    const { count } = await service
+      .from("team_registration")
+      .select("id", { count: "exact", head: true })
+      .eq("tournament_edition_id", edition.id)
+      .in("status", ["approved", "pending"]);
+    if ((count ?? 0) < maxTeams) {
+      return { ok: false as const, error: "¡Hay lugares disponibles! Inscribite desde el wizard." };
+    }
+
+    // Upsert idempotente: anotarse dos veces no duplica ni falla.
+    const { error } = await service
+      .from("cupo_waitlist")
+      .upsert(
+        { tournament_edition_id: edition.id, email, source: "wizard_freno" },
+        { onConflict: "tournament_edition_id,email" }
+      );
+    if (error) return { ok: false as const, error: "No pudimos anotarte ahora. Intentá de nuevo en un rato." };
+    return { ok: true as const };
+  } catch {
+    return { ok: false as const, error: "No pudimos anotarte ahora. Intentá de nuevo en un rato." };
+  }
 }
 
 // ============================================================
@@ -185,6 +235,8 @@ export async function submitWizard(data: WizardData) {
         .select("id")
         .eq("tournament_edition_id", edition.id)
         .in("team_account_id", myTeamIds)
+        // Ídem resume: solo pending/approved bloquean; payment_timeout puede volver.
+        .in("status", ["pending", "approved"])
         .maybeSingle();
       if (existingReg) {
         return { ok: false as const, error: "Ya tenés un equipo inscripto en esta edición. Revisá /mi-equipo." };

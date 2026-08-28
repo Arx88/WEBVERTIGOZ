@@ -13,6 +13,7 @@ import {
   integer,
   boolean,
   jsonb,
+  bigint,
   pgEnum,
   index,
   uniqueIndex,
@@ -213,6 +214,10 @@ export const tournamentEdition = pgTable("tournament_edition", {
   maxTeams: integer("max_teams").notNull().default(32),
   civsBase: integer("civs_base").notNull().default(9),
   civsExtraFinalist: integer("civs_extra_finalist").notNull().default(3),
+  // Pago de la plaza: horas que tiene el equipo para pagar tras la aprobación
+  // (migración 0014). Vencida sin pago, el cron libera la plaza y avisa a la
+  // waitlist del wizard.
+  paymentWindowHours: integer("payment_window_hours").notNull().default(72),
   // Comodines config (admin configurable)
   comodinReroll: integer("comodin_reroll").notNull().default(2),
   comodinAnular: integer("comodin_anular").notNull().default(1),
@@ -261,6 +266,11 @@ export const teamRegistration = pgTable("team_registration", {
   // Wizard status
   status: registrationStatus("status").notNull().default("pending"),
   seed: integer("seed"), // asignado por sorteo inicial o admin
+  // Estado
+  // Motivo del rechazo: 'payment_timeout' (auto por cron) | 'rejected_by_admin' | ...
+  statusReason: varchar("status_reason", { length: 60 }),
+  // Plazo de pago: se fija al aprobar = approved_at + edition.payment_window_hours (0014)
+  paymentDeadlineAt: timestamp("payment_deadline_at", { withTimezone: true }),
   // Términos
   restreamAccepted: boolean("restream_accepted").notNull().default(false),
   handbookDownloadedAt: timestamp("handbook_downloaded_at", { withTimezone: true }),
@@ -400,6 +410,12 @@ export const matchGame = pgTable("match_game", {
   // Resultado
   winnerTeamId: uuid("winner_team_id").references(() => teamRegistration.id),
   replayUrl: varchar("replay_url", { length: 500 }),
+  // Sync con AoE2 Companion (watcher del nombre de sala — migración 0012)
+  aoe2MatchId: bigint("aoe2_match_id", { mode: "number" }),
+  aoe2SyncStatus: varchar("aoe2_sync_status", { length: 20 }).notNull().default("pending"),
+  aoe2CheckedAt: timestamp("aoe2_checked_at", { withTimezone: true }),
+  aoe2Flag: text("aoe2_flag"),
+  recStoragePath: varchar("rec_storage_path", { length: 300 }),
   // Timestamps
   startedAt: timestamp("started_at", { withTimezone: true }),
   finishedAt: timestamp("finished_at", { withTimezone: true }),
@@ -408,6 +424,20 @@ export const matchGame = pgTable("match_game", {
 }, (t) => ({
   uniqueMatchGame: uniqueIndex("match_game_unique_match_number").on(t.matchId, t.gameNumber),
 }));
+
+/**
+ * Análisis post-partida de AoE2 Companion (migración 0012).
+ * Payload curado de /matches/{id}/analysis (uptimes, eAPM, resignaciones,
+ * build order, chat) + SVG del mapa final en el bucket privado `replays`.
+ * Lectura pública, escritura solo service-role.
+ */
+export const matchGameAnalysis = pgTable("match_game_analysis", {
+  matchGameId: uuid("match_game_id").primaryKey().references(() => matchGame.id, { onDelete: "cascade" }),
+  aoe2MatchId: bigint("aoe2_match_id", { mode: "number" }),
+  payload: jsonb("payload").notNull().default({}),
+  svgStoragePath: varchar("svg_storage_path", { length: 300 }),
+  fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 // ============================================================
 // SORTEO (commit-reveal fairness)
@@ -593,6 +623,29 @@ export const tournamentConfig = pgTable("tournament_config", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
   uniqueConfig: uniqueIndex("tournament_config_unique").on(t.tournamentEditionId, t.key),
+}));
+
+// ============================================================
+// WAITLIST DE CUPO (migración 0013)
+// ============================================================
+
+/**
+ * "Avisame si se libera un lugar" — emails anotados desde el freno del
+ * wizard cuando el cupo de la edición está lleno. Upsert idempotente por
+ * (tournament_edition_id, email). Escritura solo vía server actions con
+ * service role: RLS activado sin policies. `notified_at` queda para el
+ * futuro job que avise cuando el staff libere lugares.
+ */
+export const cupoWaitlist = pgTable("cupo_waitlist", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tournamentEditionId: uuid("tournament_edition_id").notNull().references(() => tournamentEdition.id, { onDelete: "cascade" }),
+  email: varchar("email", { length: 255 }).notNull(),
+  source: varchar("source", { length: 30 }).notNull().default("wizard_freno"),
+  notifiedAt: timestamp("notified_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  uniqueEditionEmail: uniqueIndex("cupo_waitlist_unique_edition_email").on(t.tournamentEditionId, t.email),
+  editionIdx: index("cupo_waitlist_edition_idx").on(t.tournamentEditionId, t.createdAt),
 }));
 
 // ============================================================

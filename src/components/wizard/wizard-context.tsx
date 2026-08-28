@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
+import { playSound } from "@/lib/sounds";
 
 export interface PlayerDraft {
   aoe2ProfileId: number | null;
@@ -67,9 +68,19 @@ const DEFAULT_CONFIG: TournamentConfig = {
   handbookUrl: null,
 };
 
+interface TournamentSlots {
+  maxTeams: number;
+  taken: number;
+  remaining: number;
+}
+
 interface WizardContextValue {
   step: number; totalSteps: number; data: WizardData;
   config: TournamentConfig;
+  /** null = aún consultando (o falló la consulta → fail-open); false = no hay edición con inscripciones abiertas. */
+  configFound: boolean | null;
+  /** Cupo público de la edición abierta (aprobados + pendientes vs max_teams). null = sin dato → no frena. */
+  slots: TournamentSlots | null;
   setStep: (step: number) => void; nextStep: () => void; prevStep: () => void;
   updateData: (patch: Partial<WizardData>) => void;
   updatePlayer: (index: number, patch: Partial<PlayerDraft>) => void;
@@ -93,6 +104,8 @@ export function WizardProvider({
     initialEmail ? { ...DEFAULT_DATA, email: initialEmail, existingAccount: true } : DEFAULT_DATA
   );
   const [config, setConfig] = useState<TournamentConfig>(DEFAULT_CONFIG);
+  const [configFound, setConfigFound] = useState<boolean | null>(null);
+  const [slots, setSlots] = useState<TournamentSlots | null>(null);
 
   // Fetch dinámico de la config del torneo (ELO cap, civs count)
   useEffect(() => {
@@ -102,7 +115,10 @@ export function WizardProvider({
         const res = await fetch("/api/tournament/config");
         if (res.ok) {
           const c = await res.json();
-          if (!cancelled && c.found) {
+          if (cancelled) return;
+          setConfigFound(c.found === true);
+          setSlots(c.slots ?? null);
+          if (c.found) {
             setConfig({
               eloCap: c.eloCap,
               eloTolerance: c.eloTolerance,
@@ -120,9 +136,9 @@ export function WizardProvider({
     return () => { cancelled = true; };
   }, []);
 
-  const setStep = useCallback((s: number) => setStepState(Math.max(1, Math.min(TOTAL, s))), []);
-  const nextStep = useCallback(() => setStepState((s) => Math.min(TOTAL, s + 1)), []);
-  const prevStep = useCallback(() => setStepState((s) => Math.max(1, s - 1)), []);
+  const setStep = useCallback((s: number) => { playSound("swipe"); setStepState(Math.max(1, Math.min(TOTAL, s))); }, []);
+  const nextStep = useCallback(() => { playSound("swipe"); setStepState((s) => Math.min(TOTAL, s + 1)); }, []);
+  const prevStep = useCallback(() => { playSound("swipe"); setStepState((s) => Math.max(1, s - 1)); }, []);
   const updateData = useCallback((patch: Partial<WizardData>) => setData((d) => ({ ...d, ...patch })), []);
   const updatePlayer = useCallback((index: number, patch: Partial<PlayerDraft>) => {
     setData((d) => {
@@ -134,7 +150,7 @@ export function WizardProvider({
   const resetWizard = useCallback(() => { setData(DEFAULT_DATA); setStepState(1); }, []);
 
   return (
-    <WizardContext.Provider value={{ step, totalSteps: TOTAL, data, config, setStep, nextStep, prevStep, updateData, updatePlayer, resetWizard }}>
+    <WizardContext.Provider value={{ step, totalSteps: TOTAL, data, config, configFound, slots, setStep, nextStep, prevStep, updateData, updatePlayer, resetWizard }}>
       {children}
     </WizardContext.Provider>
   );

@@ -130,6 +130,65 @@ export async function confirmReadyAction(
 }
 
 /**
+ * Admin: agrega minutos a la ventana READY de una llave vigente.
+ *
+ * Mueve scheduled_at_start hacia adelante; como toda la lógica de la ventana
+ * (fase open/grace, countdowns, W.O. automático) se deriva de ese timestamp,
+ * el horario mostrado y el límite de W.O. se corren juntos. Los READY ya
+ * confirmados se conservan: solo se le da tiempo al equipo que falta.
+ */
+export async function extendReadyWindowAction(formData: FormData): Promise<{ ok: boolean; error?: string }> {
+  const supabase = (await getSupabaseServer()) as any;
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "No autenticado." };
+
+  const { data: account } = (await supabase
+    .from("account")
+    .select("id, role")
+    .eq("supabase_auth_id", user.id)
+    .single()) as { data: any };
+  if (!account || !["admin", "super_admin"].includes(account.role)) {
+    return { ok: false, error: "No autorizado." };
+  }
+
+  const matchId = String(formData.get("match_id") ?? "").trim();
+  const minutes = Number(formData.get("minutes") ?? 0);
+  if (!matchId) return { ok: false, error: "Falta match_id." };
+  if (![5, 10, 15].includes(minutes)) return { ok: false, error: "Duración inválida." };
+
+  const service = getSupabaseServiceRole() as any;
+  const { data: match } = (await service
+    .from("match")
+    .select("id, status, scheduled_at_start")
+    .eq("id", matchId)
+    .single()) as { data: any };
+  if (!match) return { ok: false, error: "Match no encontrado." };
+  if (match.status !== "scheduled" || !match.scheduled_at_start) {
+    return { ok: false, error: "Solo se puede extender una llave programada con horario." };
+  }
+
+  const newStart = new Date(new Date(match.scheduled_at_start).getTime() + minutes * 60_000);
+  const { error } = await service
+    .from("match")
+    .update({ scheduled_at_start: newStart.toISOString(), updated_at: new Date().toISOString() })
+    .eq("id", matchId);
+  if (error) return { ok: false, error: `DB error: ${error.message}` };
+
+  revalidatePath(`/admin/partido/${matchId}`);
+  revalidatePath(`/partido/${matchId}`);
+  revalidatePath("/mis-partidos");
+  revalidatePath("/fixture");
+  revalidatePath("/admin/jornadas");
+  return { ok: true };
+}
+
+export async function extendReadyWindowFormAction(formData: FormData): Promise<void> {
+  "use server";
+  const r = await extendReadyWindowAction(formData);
+  if (!r.ok) throw new Error(r.error ?? "Error al extender la ventana.");
+}
+
+/**
  * Inicia la ventana de comodines después del sorteo.
  * Cambia status de "lineup" a "comodin_window" y registra el timestamp.
  */

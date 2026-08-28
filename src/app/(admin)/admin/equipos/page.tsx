@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { approveTeamAction, rejectTeamAction } from "@/server/actions/auth";
-import { toggleRequirementAction } from "@/server/actions/requirements";
-import { Shield, Check, X, Users, Star, Crown, AlertTriangle, Clock } from "lucide-react";
+import { toggleRequirementAction, setPaymentConfirmedAction } from "@/server/actions/requirements";
+import { Shield, Check, X, Users, Star, Crown, AlertTriangle, Clock, RotateCcw, CreditCard } from "lucide-react";
 import AdminHero from "@/components/shared/admin-hero";
 import { fmt } from "@/lib/format";
 
@@ -27,7 +27,7 @@ export default async function AdminEquiposPage() {
 
   const { data: registrations } = (await supabase
     .from("team_registration")
-    .select("id, status, elo_freeze_snapshot, elo_verification_status, elo_verification_reason, submitted_at, approved_at, anti_smurf_check, payment_confirmed, tutorial_watched, discord_joined, team_account:team_account_id (id, name, tagline, emblem_id), tournament_edition:tournament_edition_id (name, elo_cap, elo_tolerance)")
+    .select("id, status, status_reason, elo_freeze_snapshot, elo_verification_status, elo_verification_reason, submitted_at, approved_at, payment_deadline_at, anti_smurf_check, payment_confirmed, tutorial_watched, discord_joined, team_account:team_account_id (id, name, tagline, emblem_id), tournament_edition:tournament_edition_id (name, elo_cap, elo_tolerance)")
     .order("submitted_at", { ascending: false })) as { data: any };
 
   const regsWithPlayers = await Promise.all(
@@ -86,13 +86,27 @@ export default async function AdminEquiposPage() {
 
           <Section title="Aprobados" count={approved.length} empty="Ningún equipo aprobado todavía.">
             {approved.map((reg: any) => (
-              <TeamCard key={reg.id} reg={reg} showActions={false} />
+              <TeamCard
+                key={reg.id}
+                reg={reg}
+                showActions={false}
+                paymentAction={setPaymentConfirmedAction.bind(null, reg.id, true)}
+              />
             ))}
           </Section>
 
           <Section title="Rechazados" count={rejected.length} empty="No hay equipos rechazados.">
             {rejected.map((reg: any) => (
-              <TeamCard key={reg.id} reg={reg} showActions={false} />
+              <TeamCard
+                key={reg.id}
+                reg={reg}
+                showActions={false}
+                graceAction={
+                  reg.status_reason === "payment_timeout"
+                    ? setPaymentConfirmedAction.bind(null, reg.id, true)
+                    : undefined
+                }
+              />
             ))}
           </Section>
         </div>
@@ -137,11 +151,15 @@ function TeamCard({
   showActions,
   approveAction,
   rejectAction,
+  paymentAction,
+  graceAction,
 }: {
   reg: any;
   showActions: boolean;
   approveAction?: () => Promise<void>;
   rejectAction?: () => Promise<void>;
+  paymentAction?: () => Promise<void>;
+  graceAction?: () => Promise<void>;
 }) {
   const team = reg.team_account;
   const edition = reg.tournament_edition;
@@ -162,6 +180,16 @@ function TeamCard({
       default:
         return null;
     }
+  })();
+
+  // Plazo de pago (0014): aprobado sin pagar → chip con la cuenta regresiva;
+  // vencido, el cron /api/cron/payment-deadline libera la plaza solo.
+  const paymentChip = (() => {
+    if (reg.status !== "approved" || reg.payment_confirmed || !reg.payment_deadline_at) return null;
+    const hoursLeft = Math.ceil((new Date(reg.payment_deadline_at).getTime() - Date.now()) / 3_600_000);
+    if (hoursLeft <= 0) return { text: "Pago vencido — la plaza se libera", color: "var(--vertigo-danger)", weight: 700 };
+    if (hoursLeft <= 24) return { text: `Pago: vence en ${hoursLeft}h`, color: "#fbbf24", weight: 700 };
+    return { text: `Pago: vence en ${hoursLeft}h`, color: "var(--vertigo-muted)", weight: 600 };
   })();
 
   return (
@@ -188,6 +216,14 @@ function TeamCard({
               <span>·</span>
               <Clock style={{ width: 11, height: 11 }} />
               <span>Enviado {fmt.date(reg.submitted_at)}</span>
+              {paymentChip && (
+                <>
+                  <span>·</span>
+                  <span style={{ color: paymentChip.color, fontWeight: paymentChip.weight }}>
+                    {paymentChip.text}
+                  </span>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -221,6 +257,35 @@ function TeamCard({
           {!isEloOk && (
             <span className="vertigo-badge vertigo-badge-danger">Supera ELO cap</span>
           )}
+        </div>
+      )}
+
+      {/* Pago de la plaza: confirmación del staff con UN clic (0014).
+          - Aprobado sin pagar: botón verde que asegura la plaza (frena el cron).
+          - Expirado por no pagar: "salvar" — re-aprueba + confirma si hay lugar. */}
+      {(paymentAction || graceAction) && (
+        <div className="vertigo-action-bar mt-4 pt-4 border-t border-[var(--vertigo-line-soft)]">
+          {paymentAction && (
+            <form action={paymentAction}>
+              <button type="submit" className="vertigo-btn vertigo-btn-success">
+                <CreditCard style={{ width: 14, height: 14 }} />
+                Confirmar pago de la plaza
+              </button>
+            </form>
+          )}
+          {graceAction && (
+            <form action={graceAction}>
+              <button type="submit" className="vertigo-btn vertigo-btn-success">
+                <RotateCcw style={{ width: 14, height: 14 }} />
+                Pago recibido fuera de plazo — reactivar equipo
+              </button>
+            </form>
+          )}
+          <span className="text-[11px] text-[var(--vertigo-faint)]">
+            {paymentAction
+              ? "La plaza queda asegurada: el cron deja de contarla como impaga."
+              : "Re-aprueba la inscripción con el pago confirmado, si la edición todavía tiene lugar."}
+          </span>
         </div>
       )}
 

@@ -12,6 +12,7 @@ import {
   restoreDeviceSession,
 } from "@/lib/device-trust";
 import { refreshPlayerStatsCache } from "@/lib/aoe2/stats-cache";
+import { notifyWaitlistIfSlotsAvailable } from "@/lib/cupo";
 
 export async function logoutAction() {
   const supabase = await getSupabaseServer();
@@ -81,12 +82,15 @@ export async function approveTeamAction(registrationId: string) {
     .eq("id", registrationId)
     .maybeSingle();
   if (!reg) throw new Error("Inscripción no encontrada");
+  // Ventana de pago (migración 0014): al aprobar arranca el reloj — el equipo
+  // tiene payment_window_hours (default 72hs) para pagar su plaza o el cron
+  // libera el lugar automáticamente y avisa a la waitlist.
+  const { data: edition } = await service
+    .from("tournament_edition")
+    .select("max_teams, payment_window_hours")
+    .eq("id", reg.tournament_edition_id)
+    .maybeSingle();
   if (reg.status !== "approved") {
-    const { data: edition } = await service
-      .from("tournament_edition")
-      .select("max_teams")
-      .eq("id", reg.tournament_edition_id)
-      .maybeSingle();
     const maxTeams = edition?.max_teams ?? 32;
     const { count: approvedCount } = await service
       .from("team_registration")
@@ -99,13 +103,17 @@ export async function approveTeamAction(registrationId: string) {
       );
     }
   }
+  const windowHours = edition?.payment_window_hours ?? 72;
+  const nowIso = new Date().toISOString();
 
   const { error } = await supabase
     .from("team_registration")
     .update({
       status: "approved",
-      approved_at: new Date().toISOString(),
+      approved_at: nowIso,
       approved_by_id: account.id,
+      payment_deadline_at: new Date(Date.now() + windowHours * 3_600_000).toISOString(),
+      status_reason: null, // limpiar motivo de un rechazo anterior
     })
     .eq("id", registrationId);
 
@@ -129,7 +137,7 @@ export async function approveTeamAction(registrationId: string) {
   revalidatePath("/admin/equipos");
 }
 
-export async function rejectTeamAction(registrationId: string) {
+export async function rejectTeamAction(registrationId: string, reason?: string) {
   const supabase = (await getSupabaseServer()) as any;
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("No autenticado");
@@ -144,12 +152,34 @@ export async function rejectTeamAction(registrationId: string) {
     throw new Error("Sin permisos de administrador");
   }
 
+  const service = getSupabaseServiceRole() as any;
+  const { data: reg } = await service
+    .from("team_registration")
+    .select("id, status, tournament_edition_id")
+    .eq("id", registrationId)
+    .maybeSingle();
+  if (!reg) throw new Error("Inscripción no encontrada");
+
   const { error } = await supabase
     .from("team_registration")
-    .update({ status: "rejected" })
+    .update({
+      status: "rejected",
+      status_reason: reason ?? "rejected_by_admin",
+      payment_deadline_at: null,
+    })
     .eq("id", registrationId);
 
   if (error) throw new Error(`Error: ${error.message}`);
+
+  // Quitar un equipo aprobado libera una plaza: avisar a la waitlist del
+  // wizard (si quedó lugar libre). No es fatal si falla el envío.
+  if (reg.status === "approved") {
+    try {
+      await notifyWaitlistIfSlotsAvailable(reg.tournament_edition_id);
+    } catch (e) {
+      console.error("[rejectTeam] notificación de waitlist falló (no fatal):", e);
+    }
+  }
 
   revalidatePath("/admin/equipos");
 }

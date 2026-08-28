@@ -16,6 +16,7 @@
 
 import { Fragment, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { playSound } from "@/lib/sounds";
 import {
   Ban,
   CalendarDays,
@@ -186,10 +187,12 @@ export function EditionConfigForm({
     setPending(false);
     if (!res.ok) {
       setError(res.error ?? "Error al guardar.");
+      playSound("error");
       return;
     }
     setSaved(true);
     setDirty(false);
+    playSound("success");
     router.refresh();
     setTimeout(() => setSaved(false), 4000);
   }
@@ -341,6 +344,9 @@ export function EditionConfigForm({
           </Field>
           <Field label="Cierre">
             <VertigoDateTime name="registration_closes_at" defaultValue={toDatetimeLocal(edition.registration_closes_at)} />
+          </Field>
+          <Field label="Ventana de pago (hs)" hint="Al aprobar un equipo tiene esta ventana para pagar su plaza. Vencida, el cron libera el lugar y avisa a la lista de espera.">
+            <input name="payment_window_hours" type="number" min={1} className={inputCls} defaultValue={edition.payment_window_hours ?? 72} />
           </Field>
         </Group>
         <Group title="Torneo">
@@ -602,6 +608,7 @@ const BLANK_DEFAULTS = {
   comodin_invocar_pro: 1,
   comodin_window_minutes: 5,
   invocar_pro_minutes: 5,
+  payment_window_hours: 72,
   commit_reveal_enabled: true,
   draw_timeout_minutes: 5,
   twitch_channel: "",
@@ -647,6 +654,7 @@ export function EditionCreateForm({ templates }: { templates: any[] }) {
     }
     setNameMissing(false);
     setError(null);
+    playSound("swipe");
     setStep((s) => Math.min(CREATE_STEPS.length, s + 1));
   }
 
@@ -659,8 +667,10 @@ export function EditionCreateForm({ templates }: { templates: any[] }) {
     setPending(false);
     if (!res.ok || !res.editionId) {
       setError(res.error ?? "No se pudo crear la edición.");
+      playSound("error");
       return;
     }
+    playSound("victory");
     router.push(`/admin/torneo?edition=${res.editionId}`);
   }
 
@@ -798,6 +808,7 @@ export function EditionCreateForm({ templates }: { templates: any[] }) {
           <SummaryRow label="Plantilla" value={tpl ? tpl.name : "Empezar de cero"} />
           <SummaryRow label="Formato" value={`${d.max_teams ?? 32} equipos → ${rondas} rondas · ${d.team_size ?? 3} jugadores`} />
           <SummaryRow label="ELO" value={`Cap ${d.elo_cap ?? 3500} ±${d.elo_tolerance ?? 20} · ${d.elo_field ?? "rm_1v1_max"}`} />
+          <SummaryRow label="Pago" value={`Ventana de ${d.payment_window_hours ?? 72}hs para pagar la plaza`} />
           <SummaryRow label="Civilizaciones" value={`${d.civs_base ?? 9} base + ${d.civs_extra_finalist ?? 3} finalista`} />
           <SummaryRow
             label="Comodines"
@@ -891,6 +902,11 @@ export function EditionCreateForm({ templates }: { templates: any[] }) {
             <ComodinCard icon={Clock} label="Respuesta del pro" hint="Minutos que tiene el pro invocado para aceptar y cargarse.">
               <input name="invocar_pro_minutes" type="number" min={1} className={inputCls} defaultValue={d.invocar_pro_minutes ?? 5} />
             </ComodinCard>
+          </Group>
+          <Group title="Pago de plazas" cols="sm:grid-cols-2">
+            <Field label="Ventana de pago (hs)" hint="Al aprobar un equipo tiene esta ventana para pagar su plaza. Vencida, el cron libera el lugar y avisa a la lista de espera.">
+              <input name="payment_window_hours" type="number" min={1} className={inputCls} defaultValue={d.payment_window_hours ?? 72} />
+            </Field>
           </Group>
           <Group title="Canales de transmisión" cols="sm:grid-cols-3">
             <Field label="Canal Twitch">

@@ -15,7 +15,7 @@ import { revalidatePath } from "next/cache";
 import { getSupabaseServer, getSupabaseServiceRole } from "@/lib/supabase/server";
 import { startDrawAction, rerollDrawPhaseAction, rerollDrawPhaseInternal } from "./tournament";
 
-async function requireAdminAccount() {
+export async function requireAdminAccount() {
   const supabase = (await getSupabaseServer()) as any;
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("No autenticado.");
@@ -502,29 +502,28 @@ export async function closeComodinWindowAction(matchId: string): Promise<{ ok: b
 }
 
 /**
- * Admin reporta el ganador de UNA partida (game).
- * Lógica BO3 automática:
+ * Núcleo del reporte de resultado de UNA partida (game), compartido por
+ * el formulario del admin (reportGameResultAction) y el watcher de AoE2
+ * Companion (match-sync). Lógica BO3 automática:
  *  - BO1: terminar el match directamente.
  *  - BO3 2-0: terminar el match.
  *  - BO3 1-1: no terminar; queda pendiente la partida decisiva (P3), que el admin
  *    sorteará de nuevo (sin fase LLAVE).
  */
-export async function reportGameResultAction(formData: FormData): Promise<{ ok: boolean; error?: string }> {
-  const { account } = await requireAdminAccount();
-  const matchGameId = String(formData.get("match_game_id") ?? "").trim();
-  const winnerTeamId = String(formData.get("winner_team_id") ?? "").trim();
-  const replayUrl = String(formData.get("replay_url") ?? "").trim() || null;
-  if (!matchGameId || !winnerTeamId) return { ok: false, error: "Faltan campos." };
-
-  const service = getSupabaseServiceRole() as any;
+export async function reportGameResultInternal(
+  service: any,
+  params: { matchGameId: string; winnerTeamId: string; replayUrl?: string | null }
+): Promise<{ ok: boolean; error?: string }> {
+  const { matchGameId, winnerTeamId, replayUrl = null } = params;
 
   const { data: game } = (await service
     .from("match_game")
-    .select("id, match_id, game_number, status, match:match_id(team_a_id, team_b_id, format, score_a, score_b, status)")
+    .select("id, match_id, game_number, status, match:match_id(id, team_a_id, team_b_id, format, score_a, score_b, status)")
     .eq("id", matchGameId).single()) as { data: any };
   if (!game) return { ok: false, error: "Partida no encontrada." };
   const match = game.match;
   if (!match) return { ok: false, error: "Match padre no encontrado." };
+  if (game.status === "finished") return { ok: false, error: "Esta partida ya tiene resultado cargado." };
   if (winnerTeamId !== match.team_a_id && winnerTeamId !== match.team_b_id) {
     return { ok: false, error: "El ganador debe ser uno de los dos equipos del match." };
   }
@@ -540,7 +539,8 @@ export async function reportGameResultAction(formData: FormData): Promise<{ ok: 
   const isA = winnerTeamId === match.team_a_id;
   const newScoreA = match.score_a + (isA ? 1 : 0);
   const newScoreB = match.score_b + (isA ? 0 : 1);
-  await service.from("match").update({ score_a: newScoreA, score_b: newScoreB, updated_at: new Date().toISOString() }).eq("id", match.id);
+  const { error: scoreErr } = await service.from("match").update({ score_a: newScoreA, score_b: newScoreB, updated_at: new Date().toISOString() }).eq("id", match.id);
+  if (scoreErr) return { ok: false, error: `No se pudo actualizar el score: ${scoreErr.message}` };
 
   // Decidir si el match terminó
   const format = match.format ?? "BO1";
@@ -549,18 +549,20 @@ export async function reportGameResultAction(formData: FormData): Promise<{ ok: 
 
   if (matchFinished) {
     const winnerTeam = newScoreA > newScoreB ? match.team_a_id : match.team_b_id;
-    await service.from("match").update({
+    const { error: finErr } = await service.from("match").update({
       status: "finished",
       winner_team_id: winnerTeam,
       finished_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }).eq("id", match.id);
+    if (finErr) return { ok: false, error: `No se pudo finalizar el match: ${finErr.message}` };
     // El trigger propagate_match_winner (DB) se encarga de avanzar el ganador.
   } else {
     // 1-1 en BO3: crear la partida decisiva (P3) en pending, lista para sortear
     const { data: existing } = (await service.from("match_game").select("id").eq("match_id", match.id).eq("game_number", game.game_number + 1).maybeSingle()) as { data: any };
     if (!existing) {
-      await service.from("match_game").insert({ match_id: match.id, game_number: game.game_number + 1, status: "pending" });
+      const { error: insErr } = await service.from("match_game").insert({ match_id: match.id, game_number: game.game_number + 1, status: "pending" });
+      if (insErr) return { ok: false, error: `No se pudo crear la próxima partida: ${insErr.message}` };
     }
     // El match se queda en "in_progress" esperando el próximo sorteo
     await service.from("match").update({ status: "in_progress", updated_at: new Date().toISOString() }).eq("id", match.id);
@@ -571,6 +573,21 @@ export async function reportGameResultAction(formData: FormData): Promise<{ ok: 
   revalidatePath("/admin/bracket");
   revalidatePath("/bracket");
   return { ok: true };
+}
+
+/**
+ * Admin reporta el ganador de UNA partida (game) vía formulario.
+ * Wrapper de auth + formData sobre reportGameResultInternal.
+ */
+export async function reportGameResultAction(formData: FormData): Promise<{ ok: boolean; error?: string }> {
+  await requireAdminAccount();
+  const matchGameId = String(formData.get("match_game_id") ?? "").trim();
+  const winnerTeamId = String(formData.get("winner_team_id") ?? "").trim();
+  const replayUrl = String(formData.get("replay_url") ?? "").trim() || null;
+  if (!matchGameId || !winnerTeamId) return { ok: false, error: "Faltan campos." };
+
+  const service = getSupabaseServiceRole() as any;
+  return reportGameResultInternal(service, { matchGameId, winnerTeamId, replayUrl });
 }
 
 /** Admin: marcar forfeit por ausencia (ambos no confirmaron, o un equipo no se presentó). */
