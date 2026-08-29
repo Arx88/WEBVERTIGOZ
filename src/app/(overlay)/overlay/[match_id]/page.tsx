@@ -10,6 +10,10 @@ export const dynamic = "force-dynamic";
  * Sin nav ni chrome del sitio: escena completa con los dos escudos, el
  * estado de READY de cada equipo y la cuenta de la ventana. El admin la
  * abre desde el centro de operaciones del partido y la captura en OBS.
+ *
+ * El admin ve un botón "INICIAR SORTEO" (solo si tiene sesión): el sorteo
+ * arranca DESDE la stream, no desde el panel. OBS no tiene sesión, así que
+ * el botón nunca aparece en la captura.
  */
 export default async function OverlayMatchPage({
   params,
@@ -37,13 +41,46 @@ export default async function OverlayMatchPage({
   // Partidas 2/3 de un BO3: el match queda "in_progress" pero la partida
   // activa vuelve a "drawing" para el re-sorteo. La stream debe mostrar la
   // ruleta igual, así que se expone el estado de la partida más reciente.
-  const { data: activeGame } = (await supabase
+  const { data: games } = (await supabase
     .from("match_game")
-    .select("status")
+    .select("game_number, status")
     .eq("match_id", match_id)
-    .order("game_number", { ascending: false })
-    .limit(1)
-    .maybeSingle()) as { data: any };
+    .order("game_number", { ascending: true })) as { data: any[] };
+
+  const activeGame = games?.length ? games[games.length - 1] : null;
+
+  // Próxima partida a sortear (la dispara el admin desde la propia stream):
+  //  - P1 cuando no hay sorteo todavía (scheduled/open y la P1 sigue pending).
+  //  - P2/P3 cuando el BO3 quedó 1-1 y la siguiente partida sigue "pending".
+  const firstGame = games?.find((g: any) => g.game_number === 1) ?? null;
+  const firstDrawable =
+    (match.status === "scheduled" || match.status === "open") &&
+    (!firstGame || firstGame.status === "pending");
+  const nextPending = games?.find(
+    (g: any) => g.game_number > 1 && g.status === "pending"
+  ) ?? null;
+  const nextDrawGameNumber = firstDrawable
+    ? 1
+    : match.status === "in_progress" && nextPending
+    ? nextPending.game_number
+    : null;
+
+  // ¿El viewer es admin? Solo el admin ve el botón INICIAR SORTEO en la
+  // stream. OBS (sin sesión) nunca lo ve.
+  let isAdmin = false;
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: account } = (await supabase
+        .from("account")
+        .select("role")
+        .eq("supabase_auth_id", user.id)
+        .maybeSingle()) as { data: any };
+      isAdmin = !!account && ["admin", "super_admin"].includes(account.role);
+    }
+  } catch {
+    // Sin sesión o Supabase caído: el viewer ve la stream igual (sin botón).
+  }
 
   const data: StreamMatchData = {
     id: match.id,
@@ -74,5 +111,11 @@ export default async function OverlayMatchPage({
       : null,
   };
 
-  return <StreamScreen match={data} />;
+  return (
+    <StreamScreen
+      match={data}
+      isAdmin={isAdmin}
+      nextDrawGameNumber={nextDrawGameNumber}
+    />
+  );
 }

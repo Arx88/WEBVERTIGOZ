@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { civName } from "@/lib/constants/civs";
-import LiveDrawRoulette from "@/components/ruleta/live-draw-roulette";
 import MatchHero from "@/components/shared/match-hero";
 import { artForMode, artForMap, ART_FALLBACK } from "@/lib/art";
 import { CaptainMatchPanel, type CaptainPanelContext } from "@/components/captain/captain-match-panel";
@@ -234,15 +233,9 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
 
   return (
     <div className="flex flex-col gap-6">
-      {/* RULETA EN VIVO — overlay fullscreen cuando el server dispara el sorteo
-          (partida 1: match.status=drawing; partidas 2/3 del BO3: match queda
-          in_progress pero la partida activa pasa a drawing) */}
-      {(match.status === "drawing" || match.activeGame?.status === "drawing") && (
-        <LiveDrawRoulette
-          matchId={matchId}
-          onDone={() => void refresh()}
-        />
-      )}
+      {/* La ruleta EN VIVO no vive en la página pública: es un visual de la
+          stream (/overlay/[match_id]). Acá el espectador ve ya el resultado
+          sorteado (mapa, modo, civs, sala) en las secciones de abajo. */}
 
       {/* VOLVER ATRÁS — flecha de historial del navegador, arriba del hero */}
       <button
@@ -576,7 +569,7 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
           <div className="apu-fold-body">
             <div className="flex flex-col gap-4">
               {match.games.map((g, i) => (
-                <GameCard key={g.id} game={g} teamAName={match.teamA?.name ?? "A"} teamBName={match.teamB?.name ?? "B"} teamAId={match.teamA?.id} teamBId={match.teamB?.id} defaultOpen={i === featuredGameIdx || !(g.status === "finished" && g.aoe2?.hasAnalysis)} />
+                <GameCard key={g.id} game={g} teamAName={match.teamA?.name ?? "A"} teamBName={match.teamB?.name ?? "B"} teamAId={match.teamA?.id} teamBId={match.teamB?.id} teamAEmblem={match.teamA?.emblemUrl ?? null} teamBEmblem={match.teamB?.emblemUrl ?? null} defaultOpen={i === featuredGameIdx || !(g.status === "finished" && g.aoe2?.hasAnalysis)} />
               ))}
             </div>
           </div>
@@ -782,6 +775,8 @@ function GameCard({
   teamBName,
   teamAId,
   teamBId,
+  teamAEmblem,
+  teamBEmblem,
   defaultOpen = false,
 }: {
   game: GameView;
@@ -789,6 +784,9 @@ function GameCard({
   teamBName: string;
   teamAId?: string;
   teamBId?: string;
+  /** Escudos de equipo para el informe post-partida. */
+  teamAEmblem?: string | null;
+  teamBEmblem?: string | null;
   /** Cada partida se puede plegar: abre por defecto sólo la destacada. */
   defaultOpen?: boolean;
 }) {
@@ -967,7 +965,13 @@ function GameCard({
             El link "Replay" manual convive en la banda. */}
         {game.status === "finished" && game.aoe2?.hasAnalysis && (
           <div style={{ marginTop: 20 }}>
-            <GameAnalysisCard gameId={game.id} teamAName={teamAName} teamBName={teamBName} />
+            <GameAnalysisCard
+              gameId={game.id}
+              teamAName={teamAName}
+              teamBName={teamBName}
+              teamAEmblem={teamAEmblem}
+              teamBEmblem={teamBEmblem}
+            />
           </div>
         )}
         </div>

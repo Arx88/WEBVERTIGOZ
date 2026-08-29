@@ -47,6 +47,13 @@ export interface RouletteProps {
    */
   startPhase?: Phase;
   /**
+   * Muestra el botón "NUEVO SORTEO" en la pantalla de resultados.
+   * Solo tiene sentido en demo/tutorial (re-girar a mano). En vivo
+   * (LiveDrawRoulette) el resultado lo decide el server y NO se puede
+   * re-sortear desde la ruleta, así que LiveDrawRoulette lo apaga.
+   */
+  showResetCta?: boolean;
+  /**
    * Override de la config de la ruleta (preset del server).
    * Si viene, reemplaza el useConfig/localStorage — la ruleta usa la config
    * del torneo, no la del navegador. Garantiza que todos los viewers ven
@@ -614,6 +621,9 @@ export function Roulette(props: RouletteProps = {}) {
       if(s.current.spinningH||s.current.spinningV) return;
       const N=activeModes.length;
       if(N===0) return;
+      // Viewers no interactúan: la animación en vivo la drivea el server
+      // (autoStart + forced). Solo los modos libres (interactive) giran a mano.
+      if(props.interactive===false) return;
       if(e.key===" "){e.preventDefault();handleSpinClick();}
       else if(e.key==="ArrowRight"&&!isVLayer){e.preventDefault();animateH(Math.round(s.current.hPos)+1,650);}
       else if(e.key==="ArrowLeft"&&!isVLayer){e.preventDefault();animateH(Math.round(s.current.hPos)-1,650);}
@@ -680,6 +690,7 @@ export function Roulette(props: RouletteProps = {}) {
             {(phase==="spinning-game-mode"||phase==="spinning-player-mode-after-antimeta"||(dynPhase&&!dynIsV))&&ringModes.map((m,i)=>(
               <div key={`${m.id}~${i}`} ref={el=>{if(el)cardElsRef.current[i]=el;}} className="card h-card" style={{"--ac":m.color,"--ac-soft":hexToRgba(m.color,0.35)} as React.CSSProperties}
                 onClick={()=>{
+                  if(props.interactive===false) return;
                   if(s.current.spinningH) return;
                   if(i===activeH()) handleSpinClick();
                   else {
@@ -700,6 +711,7 @@ export function Roulette(props: RouletteProps = {}) {
             {(phase==="spinning-antimeta-mode"||phase==="spinning-player-mode-direct"||(dynPhase&&dynIsV))&&ringModes.map((m,i)=>(
               <div key={`${m.id}~${i}`} ref={el=>{if(el)vCardElsRef.current[i]=el;}} className="card v-card" style={{"--ac":m.color,"--ac-soft":hexToRgba(m.color,0.35),opacity:vFade} as React.CSSProperties}
                 onClick={()=>{
+                  if(props.interactive===false) return;
                   if(s.current.spinningV) return;
                   if(i===activeV()) handleSpinClick();
                   else {
@@ -754,7 +766,7 @@ export function Roulette(props: RouletteProps = {}) {
               </article>
             ))}
           </div>
-          {downloadReady&&(
+          {downloadReady&&props.showResetCta!==false&&(
             <div className="results-cta">
               <button onClick={handleReset} className="btn-ghost">NUEVO SORTEO</button>
             </div>

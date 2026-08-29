@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Shield, CheckCircle2 } from "lucide-react";
+import { Shield, CheckCircle2, Dices } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import LiveDrawRoulette from "@/components/ruleta/live-draw-roulette";
 import { useReadyWindow } from "@/components/shared/ready-deadline-timer";
 import { deriveTeamPalette } from "@/components/team/team-banner-bg";
+import { startDrawFormAction } from "@/server/actions/match-day";
 import { fmt } from "@/lib/format";
 
 export interface StreamTeam {
@@ -51,8 +52,20 @@ function fmtHMS(ms: number): string {
  * cuenta de la ventana abajo. Se actualiza sola por Realtime: cuando un
  * capitán confirma, su READY se prende sin recargar.
  */
-export default function StreamScreen({ match }: { match: StreamMatchData }) {
+export default function StreamScreen({
+  match,
+  isAdmin,
+  nextDrawGameNumber,
+}: {
+  match: StreamMatchData;
+  /** El viewer tiene sesión de admin: ve el botón INICIAR SORTEO. OBS no. */
+  isAdmin: boolean;
+  /** Próxima partida a sortear (1 para la P1, 2/3 para el re-sorteo BO3). */
+  nextDrawGameNumber: number | null;
+}) {
   const router = useRouter();
+  const [starting, setStarting] = useState(false);
+  const [drawError, setDrawError] = useState<string | null>(null);
   const { phase, msToOpen, msToDeadline } = useReadyWindow(match.scheduledAtStart, match.status);
 
   // Refresco en vivo: cambios en el match → re-render del server.
@@ -88,6 +101,40 @@ export default function StreamScreen({ match }: { match: StreamMatchData }) {
   // La ruleta sale cuando el match está en sorteo (P1) o cuando la partida
   // más reciente está en sorteo (re-giro de la partida 2/3 de un BO3).
   const showRoulette = match.status === "drawing" || match.activeGameDrawing;
+
+  // Botón INICIAR SORTEO (solo admin): el sorteo arranca desde la propia
+  // stream. La P1 exige fecha + READY de ambos; las partidas 2/3 de un BO3
+  // 1-1 ya están en curso y no requieren más precondiciones.
+  const drawDisabledReason =
+    nextDrawGameNumber == null
+      ? null
+      : nextDrawGameNumber === 1
+      ? !match.scheduledAtStart
+        ? "La llave no tiene fecha y horario asignados."
+        : !match.readyAAt || !match.readyBAt
+        ? "Ambos equipos deben confirmar READY primero."
+        : null
+      : null;
+  const canStartDraw = nextDrawGameNumber != null && drawDisabledReason == null;
+
+  const startDraw = async () => {
+    if (!canStartDraw || starting) return;
+    setStarting(true);
+    setDrawError(null);
+    try {
+      const fd = new FormData();
+      fd.set("match_id", match.id);
+      fd.set("game_number", String(nextDrawGameNumber));
+      await startDrawFormAction(fd);
+      // El status pasa a "drawing": el refresh por realtime muestra la ruleta acá mismo.
+    } catch (e) {
+      setDrawError(
+        e instanceof Error ? e.message : "No se pudo iniciar el sorteo."
+      );
+    } finally {
+      setStarting(false);
+    }
+  };
 
   const preMatch = match.status === "scheduled" || match.status === "open";
   const inGame = match.status === "in_progress";
@@ -188,6 +235,44 @@ export default function StreamScreen({ match }: { match: StreamMatchData }) {
           <VsMedallion />
           <TeamSide team={match.teamB} readyAt={match.readyBAt} preMatch={preMatch} />
         </section>
+
+        {/* INICIAR SORTEO — SOLO visible para el admin (OBS no tiene sesión,
+            así que nunca se captura). El sorteo arranca desde la stream. */}
+        {isAdmin && !showRoulette && nextDrawGameNumber != null && (
+          <div style={{
+            position: "fixed", right: "clamp(16px, 2vw, 32px)", bottom: "clamp(16px, 2vh, 28px)",
+            zIndex: 50, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8,
+          }}>
+            <button
+              type="button"
+              onClick={() => void startDraw()}
+              disabled={!canStartDraw || starting}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 10,
+                padding: "13px 24px", borderRadius: 999, cursor: canStartDraw && !starting ? "pointer" : "not-allowed",
+                border: `1.5px solid ${canStartDraw ? "rgba(212,175,55,0.7)" : "rgba(207,200,221,0.25)"}`,
+                background: canStartDraw ? "rgba(20,14,8,0.92)" : "rgba(10,6,17,0.85)",
+                boxShadow: canStartDraw ? "0 0 26px rgba(212,175,55,0.25)" : "none",
+                fontSize: "clamp(11px, 0.95vw, 15px)", fontWeight: 800, letterSpacing: "2.5px",
+                textTransform: "uppercase",
+                color: canStartDraw ? "#e9d18a" : "rgba(207,200,221,0.4)",
+              }}
+            >
+              <Dices style={{ width: 16, height: 16 }} />
+              {starting ? "Iniciando…" : `Iniciar sorteo · Partida ${nextDrawGameNumber}`}
+            </button>
+            {drawDisabledReason && (
+              <span style={{ fontSize: 11, color: "rgba(207,200,221,0.6)", maxWidth: 320, textAlign: "right", lineHeight: 1.4 }}>
+                {drawDisabledReason}
+              </span>
+            )}
+            {drawError && (
+              <span style={{ fontSize: 11, color: "#fb7185", maxWidth: 320, textAlign: "right", lineHeight: 1.4 }}>
+                {drawError}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Franja inferior: ventana de READY, estado o marcador */}
         <footer style={{ textAlign: "center", minHeight: "16vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>

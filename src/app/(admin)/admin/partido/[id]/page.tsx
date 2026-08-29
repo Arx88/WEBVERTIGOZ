@@ -2,8 +2,6 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import {
-  startDrawFormAction,
-  rerollDrawPhaseFormAction,
   reportGameResultFormAction,
   markForfeitFormAction,
   executeComodinFormAction,
@@ -30,7 +28,7 @@ import MatchLiveRefresher from "@/components/admin/match-live-refresher";
 import LobbyNameCard from "@/components/shared/lobby-name-card";
 import Aoe2SyncIndicator from "@/components/admin/aoe2-sync-indicator";
 import AdminHero from "@/components/shared/admin-hero";
-import LiveDrawRoulette from "@/components/ruleta/live-draw-roulette";
+import RerollPhaseForm from "@/components/admin/reroll-phase-form";
 import { civName } from "@/lib/constants/civs";
 import { fmt } from "@/lib/format";
 import { lobbyNameForGame } from "@/lib/aoe2/lobby-name";
@@ -123,23 +121,14 @@ export default async function AdminPartidoPage({
   const isFinished = match.status === "finished";
   const isScheduled = match.status === "scheduled";
 
-  // Próxima partida a sortear (el admin la dispara desde acá).
-  //  - P1 cuando no hay sorteo todavía (scheduled/open/drawing de la P1).
+  // Próxima partida a sortear. El sorteo ya NO se dispara desde el panel:
+  // el botón abre el modo stream y el sorteo arranca DESDE la stream
+  // (botón INICIAR SORTEO que ve el admin en /overlay/[id]).
+  //  - P1 cuando no hay sorteo todavía (scheduled/open).
   //  - P2/P3 cuando el BO3 quedó 1-1 y la siguiente partida sigue "pending".
   const nextDrawingGame = games.find((g: any) => g.status === "pending" && g.game_number > 1) ?? null;
-  const firstGame = games.find((g: any) => g.game_number === 1) ?? null;
   const hasDate = !!match.scheduled_at_start;
-  const canStartFirstDraw =
-    (isScheduled || match.status === "open") &&
-    hasDate &&
-    !!match.ready_a_at && !!match.ready_b_at &&
-    (!firstGame || firstGame.status === "pending");
   const canStartNextGameDraw = match.status === "in_progress" && !!nextDrawingGame;
-  const drawBlockReason = !hasDate
-    ? "Primero asignale fecha y hora a la llave"
-    : !match.ready_a_at || !match.ready_b_at
-    ? "Ambos equipos deben confirmar READY primero"
-    : "Decidir resultado en server y reproducir la ruleta en vivo";
 
   // Partida activa con sorteo hecho → nombre de sala AoE2 (derivación pura,
   // misma que usa el watcher para descubrir el resultado en Companion).
@@ -164,12 +153,8 @@ export default async function AdminPartidoPage({
           ventana se reflejan sin tener que refrescar a mano. */}
       <MatchLiveRefresher matchId={match.id} />
 
-      {/* RULETA EN VIVO — fullscreen cuando el sorteo está en curso.
-          El admin dispara el sorteo desde acá y la ve girar igual que
-          la página pública, el overlay OBS y los capitanes. */}
-      {match.status === "drawing" && (
-        <LiveDrawRoulette matchId={match.id} isAdmin />
-      )}
+      {/* El sorteo NO se reproduce acá: se ve en el modo stream
+          (/overlay/[id]), que el admin abre con el botón de abajo. */}
 
       {/* Header cinematográfico (patrón del panel): título = enfrentamiento,
           stats de vidrio con lo esencial, "volver" integrado en el hero. */}
@@ -432,53 +417,52 @@ export default async function AdminPartidoPage({
             <div>
               <div className="vertigo-zone-label">Acción</div>
               <div className="flex flex-col gap-4">
-                {/* INICIAR SORTEO P1 — habilitado con fecha + ambos ready (scheduled u open) */}
+                {/* SORTEO P1 — abre el modo stream; el sorteo arranca DESDE ahí */}
                 {(isScheduled || match.status === "open") && (
                   <div className="flex flex-col gap-2">
-                    <form action={startDrawFormAction}>
-                      <input type="hidden" name="match_id" value={match.id} />
-                      <input type="hidden" name="game_number" value="1" />
-                      <button
-                        type="submit"
-                        className="vertigo-btn vertigo-btn-primary"
-                        disabled={!canStartFirstDraw}
-                        title={drawBlockReason}
-                      >
-                        <Dices style={{ width: 14, height: 14 }} />
-                        Iniciar sorteo (Partida 1)
-                      </button>
-                    </form>
+                    <a
+                      href={`/overlay/${match.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="vertigo-btn vertigo-btn-primary"
+                      style={{ textDecoration: "none" }}
+                    >
+                      <Dices style={{ width: 14, height: 14 }} />
+                      Abrir modo stream para sortear
+                    </a>
                     <p className="text-[11px] text-[var(--vertigo-faint)] leading-snug">
                       {!hasDate
                         ? "⚠ La llave no tiene fecha: programala arriba para habilitar el READY y el sorteo."
                         : match.ready_a_at && match.ready_b_at
-                        ? "Ambos equipos confirmaron. El sorteo decide en server y se reproduce en vivo (admin, capitanes y overlay ven lo mismo)."
+                        ? "Se abre la stream en otra pestaña: el sorteo arranca desde ahí con el botón INICIAR SORTEO (solo lo ve el admin, nunca la captura de OBS)."
                         : "Esperando READY #1 de ambos equipos para habilitar el sorteo."}
                     </p>
                   </div>
                 )}
 
-                {/* SORTEAR PARTIDA 2/3 — BO3 salió 1-1 y la siguiente partida espera */}
+                {/* SORTEO PARTIDA 2/3 — BO3 1-1: abre la stream para el re-sorteo */}
                 {canStartNextGameDraw && nextDrawingGame && (
                   <div className="flex flex-col gap-2">
-                    <form action={startDrawFormAction}>
-                      <input type="hidden" name="match_id" value={match.id} />
-                      <input type="hidden" name="game_number" value={String(nextDrawingGame.game_number)} />
-                      <button type="submit" className="vertigo-btn vertigo-btn-primary">
-                        <Dices style={{ width: 14, height: 14 }} />
-                        Sortear partida {nextDrawingGame.game_number} (decisiva)
-                      </button>
-                    </form>
+                    <a
+                      href={`/overlay/${match.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="vertigo-btn vertigo-btn-primary"
+                      style={{ textDecoration: "none" }}
+                    >
+                      <Dices style={{ width: 14, height: 14 }} />
+                      Abrir modo stream · partida {nextDrawingGame.game_number}
+                    </a>
                     <p className="text-[11px] text-[var(--vertigo-faint)] leading-snug">
-                      Serie 1-1: la ruleta gira de nuevo (sin fase LLAVE) para la partida decisiva.
+                      Serie 1-1: abrí la stream; el re-sorteo de la partida decisiva arranca desde ahí.
                     </p>
                   </div>
                 )}
 
                 {match.status === "drawing" && (
                   <p className="text-sm text-[var(--vertigo-muted)]">
-                    ◆ Sorteo en curso. La ruleta está reproduciéndose en la página pública del partido, en el overlay OBS
-                    y en las pantallas de ambos capitanes (sincronizado por Realtime).
+                    ◆ Sorteo en curso. La ruleta se está viendo en la pestaña de modo stream que abriste
+                    (este panel no la reproduce). El resultado se refleja acá abajo al publicarlo.
                   </p>
                 )}
 
@@ -574,14 +558,11 @@ export default async function AdminPartidoPage({
                     <div className="text-[10px] uppercase tracking-widest text-[var(--vertigo-faint)] mb-3">Re-girar una fase del sorteo (admin / comodín Re-girar)</div>
                     <div className="flex flex-wrap gap-2">
                       {(["MODO","ANTIMETA","FORMATO","MAPA","LLAVE","CIVS"] as const).map((phase) => (
-                        <form key={phase} action={rerollDrawPhaseFormAction}>
-                          <input type="hidden" name="match_id" value={match.id} />
-                          <input type="hidden" name="game_number" value={g.game_number} />
-                          <input type="hidden" name="phase" value={phase} />
+                        <RerollPhaseForm key={phase} matchId={match.id} gameNumber={g.game_number} phase={phase}>
                           <button type="submit" className="vertigo-btn vertigo-btn-ghost" style={{ padding: "8px 14px", fontSize: 11 }}>
                             <Shuffle style={{ width: 12, height: 12 }} /> {phase}
                           </button>
-                        </form>
+                        </RerollPhaseForm>
                       ))}
                     </div>
                   </div>

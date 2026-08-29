@@ -115,8 +115,16 @@ export default function LiveDrawRoulette({ matchId, onDone, isAdmin }: LiveDrawR
         <Roulette
           forced={forced}
           configOverride={state.kind === "ready" ? state.preset : undefined}
-          interactive={isAdmin}
+          // Reproducción automática: todos los viewers ven la MISMA animación
+          // que cae en el resultado del server. Nadie (salvo un futuro admin con
+          // isAdmin=true) dispara el giro a mano; `interactive` está desactivado
+          // para que nadie pueda girar la ruleta.
+          autoStart
+          interactive={isAdmin === true}
           onResult={handleResult}
+          // En vivo el resultado lo decide el server: el botón "NUEVO SORTEO"
+          // (re-girar a mano) solo existe para demo/tutorial.
+          showResetCta={false}
         />
       </ConfigProvider>
     </div>
