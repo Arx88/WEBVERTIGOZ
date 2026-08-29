@@ -19,7 +19,12 @@ export async function GET(req: NextRequest) {
 
   try {
     const profiles = await searchProfiles(q);
-    return NextResponse.json({ profiles });
+    // Los resultados de búsqueda son estables en minutos: cache en browser +
+    // edge para no golpear el rate limit (16 req/10s) de Companion con cada
+    // tecla tipeada de N usuarios simultáneos.
+    return NextResponse.json({ profiles }, {
+      headers: { "Cache-Control": "public, max-age=120, stale-while-revalidate=600" },
+    });
   } catch (err) {
     console.error("[aoe2/search] error:", err);
     return NextResponse.json(

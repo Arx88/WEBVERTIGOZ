@@ -60,17 +60,69 @@ const BRAND_ART: Record<string, string> = {
   "mina-de-oro": "/brand/mina-de-oro.webp",
 };
 
-/** Devuelve la imagen de arte para un id de modo/mapa/formato/llave. */
+/**
+ * Alias por TÍTULO normalizado → id de asset. El sorteo guarda títulos
+ * ("GUERRAS IMPERIALES", "3 VS 3", "CRESTA MONTAÑOSA") pero los mapas
+ * de arte están indexados por id ("gm-guerras", "pm-3vs3"). Sin esto,
+ * el <img> de la card de partida queda sin src (caja vacía).
+ */
+// Claves en formato normalizeKey (minúsculas, sin acentos, espacios → "-").
+const MODE_TITLE_ALIASES: Record<string, string> = {
+  "antimeta": "gm-antimeta",
+  "guerras-imperiales": "gm-guerras",
+  "muerte-subita": "gm-muerte",
+  "regicida": "gm-regicida",
+  // antimeta sub-variantes
+  "500-pop": "am-500pop",
+  "barcos": "am-barcos",
+  "feudal": "am-feudal",
+  "mesoamerica": "am-meso",
+  "rey-de-la-colina": "am-rey",
+  "unidades-unicas": "am-unicas",
+};
+
+const MAP_TITLE_ALIASES: Record<string, string> = {
+  "arabia": "map-arabia",
+  "arena": "map-arena",
+  "atacama": "map-atacama",
+  "crater": "map-crater",
+  "crater-lake": "map-crater",
+  "cresta-montanosa": "map-cresta",
+  "cuatro-lagos": "map-cuatro-lagos",
+  "cuenca-del-oro": "map-cuenca-oro",
+  "migracion": "map-migracion",
+  "tormenta-de-polvo": "map-tormenta",
+};
+
+const PLAYER_TITLE_ALIASES: Record<string, string> = {
+  "1-vs-1": "pm-1vs1",
+  "2-vs-2": "pm-2vs2",
+  "3-vs-3": "pm-3vs3",
+  "team": "pm-team",
+};
+
+/** Devuelve la imagen de arte para un id o título de modo (incluye antimeta y modo de jugadores). */
 export function artForMode(idOrTitle: string | null | undefined): string | null {
   if (!idOrTitle) return null;
   const key = normalizeKey(idOrTitle);
-  return MODE_ART[key] ?? MAP_ART[key] ?? PLAYER_ART[key] ?? LLAVE_ART[key] ?? BRAND_ART[key] ?? null;
+  const byId = MODE_ART[key] ?? MAP_ART[key] ?? PLAYER_ART[key] ?? LLAVE_ART[key] ?? BRAND_ART[key];
+  if (byId) return byId;
+  const alias = MODE_TITLE_ALIASES[key] ?? PLAYER_TITLE_ALIASES[key];
+  return alias ? artForMode(alias) : null;
 }
 
-/** Devuelve la imagen de arte para un mapa. */
+/** Devuelve la imagen de arte para un mapa (acepta id o título). */
 export function artForMap(idOrTitle: string | null | undefined): string | null {
   if (!idOrTitle) return null;
-  return MAP_ART[normalizeKey(idOrTitle)] ?? null;
+  const key = normalizeKey(idOrTitle);
+  return MAP_ART[key] ?? (MAP_TITLE_ALIASES[key] ? MAP_ART[MAP_TITLE_ALIASES[key]] : null);
+}
+
+/** Devuelve la imagen de arte para un modo de jugadores ("3 VS 3" → pm-3vs3). */
+export function artForPlayerMode(idOrTitle: string | null | undefined): string | null {
+  if (!idOrTitle) return null;
+  const key = normalizeKey(idOrTitle);
+  return PLAYER_ART[key] ?? (PLAYER_TITLE_ALIASES[key] ? PLAYER_ART[PLAYER_TITLE_ALIASES[key]] : null);
 }
 
 /** Devuelve la imagen de cinemática de branding. */

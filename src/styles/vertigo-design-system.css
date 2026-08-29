@@ -1977,6 +1977,134 @@ html:has(.vertigo-page) {
   text-shadow: 0 0 10px rgba(167, 139, 250, 0.4);
 }
 
+/* ============================================================
+   INFORME DE PARTIDA — micro-detalles (GameAnalysisCard)
+   ============================================================ */
+
+/* Chips de galardón (ga-chip) y tags informativos (ga-chip-soft):
+   micro-elevación y brillo al hover, nunca abruptos. */
+.ga-chip,
+.ga-chip-soft {
+  transition:
+    transform 0.18s var(--vertigo-ease),
+    background 0.18s var(--vertigo-ease),
+    border-color 0.18s var(--vertigo-ease),
+    box-shadow 0.18s var(--vertigo-ease);
+}
+
+.ga-chip:hover {
+  transform: translateY(-1px);
+  border-color: rgba(212, 175, 55, 0.55) !important;
+  background: rgba(212, 175, 55, 0.09) !important;
+  box-shadow: 0 4px 14px rgba(212, 175, 55, 0.12);
+}
+
+.ga-chip-soft:hover {
+  background: rgba(255, 255, 255, 0.055) !important;
+}
+
+/* Tarjeta de jugador del informe: superficie propia con aire,
+   micro-respuesta al hover. La tarjeta del ganador lleva tinte dorado. */
+.ga-player-card {
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--vertigo-line-soft);
+  transition:
+    background 0.2s var(--vertigo-ease),
+    border-color 0.2s var(--vertigo-ease),
+    transform 0.2s var(--vertigo-ease);
+}
+
+.ga-player-card:hover {
+  background: rgba(255, 255, 255, 0.035);
+  border-color: var(--vertigo-line);
+}
+
+.ga-player-card[data-winner="true"] {
+  background: linear-gradient(180deg, rgba(212, 175, 55, 0.06) 0%, rgba(212, 175, 55, 0.02) 100%);
+  border-color: rgba(212, 175, 55, 0.3);
+}
+
+.ga-player-card[data-winner="true"]:hover {
+  border-color: rgba(212, 175, 55, 0.5);
+}
+
+/* Entrada escalonada de los chips de la galería */
+.ga-stagger > * {
+  animation: vertigoFadeUp 0.5s var(--vertigo-ease) both;
+}
+.ga-stagger > *:nth-child(1) { animation-delay: 0.04s; }
+.ga-stagger > *:nth-child(2) { animation-delay: 0.09s; }
+.ga-stagger > *:nth-child(3) { animation-delay: 0.14s; }
+.ga-stagger > *:nth-child(4) { animation-delay: 0.19s; }
+.ga-stagger > *:nth-child(5) { animation-delay: 0.24s; }
+.ga-stagger > *:nth-child(6) { animation-delay: 0.29s; }
+.ga-stagger > *:nth-child(7) { animation-delay: 0.34s; }
+.ga-stagger > *:nth-child(8) { animation-delay: 0.39s; }
+
+/* Barra de edades: los segmentos crecen de izquierda a derecha al entrar */
+@keyframes gaSegGrow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+.ga-seg {
+  transform-origin: left center;
+  animation: gaSegGrow 0.55s var(--vertigo-ease) both;
+}
+.ga-seg:nth-child(2) { animation-delay: 0.06s; }
+.ga-seg:nth-child(3) { animation-delay: 0.12s; }
+.ga-seg:nth-child(4) { animation-delay: 0.18s; }
+.ga-seg:nth-child(5) { animation-delay: 0.24s; }
+
+@keyframes gaTickIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Marcas de tiempo de la barra: aparecen recién cuando la barra terminó */
+.ga-tick {
+  animation: gaTickIn 0.4s ease-out 0.5s both;
+}
+
+/* Medallón VS: respiración muy sutil de las espadas */
+@keyframes gaMedallionBreath {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.ga-medallion-swords {
+  animation: gaMedallionBreath 3.4s ease-in-out infinite;
+}
+
+/* Nombre del equipo ganador: glow dorado que respira */
+@keyframes gaGoldBreath {
+  0%, 100% { text-shadow: 0 0 14px rgba(212, 175, 55, 0.25); }
+  50% { text-shadow: 0 0 24px rgba(212, 175, 55, 0.55); }
+}
+
+.ga-gold-breath {
+  animation: gaGoldBreath 3s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ga-stagger > *,
+  .ga-seg,
+  .ga-tick,
+  .ga-medallion-swords,
+  .ga-gold-breath {
+    animation: none !important;
+  }
+  .ga-chip,
+  .ga-chip-soft,
+  .ga-row {
+    transition: none !important;
+  }
+  .ga-chip:hover {
+    transform: none;
+  }
+}
+
 /* Grid de 2 columnas para pares de info */
 .vertigo-grid-2 {
   display: grid;
@@ -2123,6 +2251,610 @@ html:has(.vertigo-page) {
 .vertigo-state-btn--ghost:hover {
   border-color: var(--vertigo-purple);
   color: var(--vertigo-text);
+}
+
+/* ============================================================
+   ADMIN — INSCRIPCIONES (/admin/equipos)
+   Tarjetas con zonas grilla fijas: franja de estado / escudo /
+   identidad | ELO | jugadores | requisitos | acciones.
+   Cada bloque vive en su fila — nada flota ni se superpone.
+   ============================================================ */
+
+.ad-section { margin-bottom: 40px; }
+
+/* ── Cabecera de sección ──────────────────────────────────── */
+.ad-section-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.ad-section-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  border: 1px solid var(--vertigo-line);
+  background: rgba(124, 58, 237, 0.1);
+  color: var(--vertigo-purple-soft);
+  flex: none;
+}
+
+.ad-section-title {
+  font-family: Cinzel, serif;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--vertigo-text);
+  margin: 0;
+}
+
+.ad-section-count {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 3px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--vertigo-line);
+  background: rgba(13, 9, 19, 0.6);
+  color: var(--vertigo-muted);
+}
+
+.ad-section-count.pendientes {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.4);
+  background: rgba(251, 191, 36, 0.08);
+}
+
+.ad-section-count.aprobados {
+  color: var(--vertigo-success);
+  border-color: rgba(34, 197, 94, 0.4);
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.ad-section-count.rechazados {
+  color: var(--vertigo-danger);
+  border-color: rgba(251, 113, 133, 0.4);
+  background: rgba(251, 113, 133, 0.08);
+}
+
+.ad-section-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--vertigo-line), transparent);
+}
+
+.ad-empty {
+  padding: 26px 28px;
+  border: 1px dashed var(--vertigo-line);
+  border-radius: 14px;
+  background: rgba(13, 9, 19, 0.4);
+  font-size: 13px;
+  color: var(--vertigo-faint);
+}
+
+.ad-team-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ── Tarjeta de equipo ────────────────────────────────────── */
+.ad-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 22px 26px 20px 30px;
+  background: rgba(13, 9, 19, 0.85);
+  border: 1px solid var(--vertigo-line-soft);
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  transition: border-color 0.25s var(--vertigo-ease), box-shadow 0.25s var(--vertigo-ease);
+}
+
+.ad-card:hover {
+  border-color: var(--vertigo-line);
+  box-shadow: var(--shadow-md);
+}
+
+/* Franja lateral de estado */
+.ad-card-rail {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--vertigo-line);
+}
+
+.ad-card-pending .ad-card-rail { background: linear-gradient(180deg, #fbbf24, rgba(251, 191, 36, 0.25)); }
+.ad-card-approved .ad-card-rail { background: linear-gradient(180deg, var(--vertigo-success), rgba(34, 197, 94, 0.25)); }
+.ad-card-rejected .ad-card-rail { background: linear-gradient(180deg, var(--vertigo-danger), rgba(251, 113, 133, 0.2)); }
+
+.ad-card-pending { border-color: rgba(251, 191, 36, 0.18); }
+.ad-card-approved { border-color: rgba(34, 197, 94, 0.14); }
+.ad-card-rejected { opacity: 0.82; }
+
+/* ── Cabecera: escudo + identidad | ELO ──────────────────── */
+.ad-card-head {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: center;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--vertigo-line-soft);
+}
+
+.ad-crest {
+  width: 64px;
+  height: 64px;
+  border-radius: 14px;
+  border: 1px solid var(--vertigo-line);
+  background: rgba(7, 3, 16, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex: none;
+  box-shadow: 0 0 18px rgba(124, 58, 237, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.ad-crest img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 8px;
+}
+
+.ad-crest-fallback {
+  font-family: Cinzel, serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--vertigo-purple-soft);
+}
+
+.ad-id {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ad-id-top {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+}
+
+.ad-name {
+  font-family: Cinzel, serif;
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--vertigo-text);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 340px;
+}
+
+.ad-tagline {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--vertigo-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.ad-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 11.5px;
+  color: var(--vertigo-faint);
+}
+
+.ad-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ad-meta-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--vertigo-line);
+  flex: none;
+}
+
+.ad-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+}
+
+.ad-chip-bad { color: var(--vertigo-danger); background: rgba(251, 113, 133, 0.1); border: 1px solid rgba(251, 113, 133, 0.3); }
+.ad-chip-warn { color: #fbbf24; background: rgba(251, 191, 36, 0.08); border: 1px solid rgba(251, 191, 36, 0.3); }
+.ad-chip-muted { color: var(--vertigo-muted); background: rgba(255, 255, 255, 0.03); border: 1px solid var(--vertigo-line); }
+
+.ad-flags {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+.ad-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.ad-flag-ok { color: var(--vertigo-success); background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.3); }
+.ad-flag-warn { color: #fbbf24; background: rgba(251, 191, 36, 0.08); border: 1px solid rgba(251, 191, 36, 0.3); }
+.ad-flag-bad { color: var(--vertigo-danger); background: rgba(251, 113, 133, 0.1); border: 1px solid rgba(251, 113, 133, 0.35); }
+
+/* Bloque ELO — columna compacta a la derecha de la cabecera */
+.ad-elo {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: baseline;
+  column-gap: 8px;
+  padding: 12px 18px;
+  border-radius: 12px;
+  border: 1px solid var(--vertigo-line-soft);
+  background: rgba(7, 3, 16, 0.55);
+  flex: none;
+}
+
+.ad-elo-label {
+  grid-column: 1 / -1;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--vertigo-faint);
+}
+
+.ad-elo-value {
+  font-family: Cinzel, serif;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--vertigo-purple-pale);
+}
+
+.ad-elo-cap {
+  font-size: 12px;
+  color: var(--vertigo-faint);
+}
+
+.ad-elo-bar {
+  grid-column: 1 / -1;
+  display: block;
+  height: 4px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.ad-elo-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--vertigo-primary), var(--vertigo-purple-soft));
+}
+
+.ad-elo-over .ad-elo-value { color: var(--vertigo-danger); }
+.ad-elo-over .ad-elo-bar i { background: linear-gradient(90deg, #fb7185, #e11d48); }
+
+/* ── Cuerpo: jugadores + requisitos ───────────────────────── */
+.ad-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 18px 0 4px;
+}
+
+.ad-body-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2.2px;
+  text-transform: uppercase;
+  color: var(--vertigo-faint);
+  margin: 0 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ad-body-count {
+  font-size: 10px;
+  color: var(--vertigo-purple-soft);
+  border: 1px solid rgba(124, 58, 237, 0.35);
+  background: rgba(124, 58, 237, 0.08);
+  padding: 1px 8px;
+  border-radius: 999px;
+  letter-spacing: 0.5px;
+}
+
+.ad-players {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 10px;
+}
+
+.ad-player {
+  position: relative;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--vertigo-line-soft);
+  border-radius: 12px;
+  background: rgba(7, 3, 16, 0.45);
+  transition: border-color 0.2s var(--vertigo-ease);
+}
+
+.ad-player:hover { border-color: var(--vertigo-line); }
+
+.ad-player-captain {
+  border-color: rgba(124, 58, 237, 0.45);
+  background: linear-gradient(160deg, rgba(124, 58, 237, 0.12), rgba(124, 58, 237, 0.04));
+}
+
+/* Chip de capitán — inline antes del nombre, nunca flotando encima */
+.ad-cap-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--vertigo-gold);
+  background: rgba(212, 175, 55, 0.12);
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  flex: none;
+  white-space: nowrap;
+}
+
+.ad-cap-chip svg { color: var(--vertigo-gold); }
+
+.ad-player-nm {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.ad-player-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: Cinzel, serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--vertigo-muted);
+  border: 1px solid var(--vertigo-line);
+  background: rgba(255, 255, 255, 0.02);
+  flex: none;
+}
+
+.ad-player-captain .ad-player-avatar {
+  color: var(--vertigo-purple-pale);
+  border-color: rgba(124, 58, 237, 0.5);
+  background: rgba(124, 58, 237, 0.12);
+}
+
+.ad-player-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ad-player-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--vertigo-text);
+  min-width: 0;
+}
+
+.ad-player-sub {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--vertigo-faint);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.ad-player-elo {
+  text-align: right;
+  font-family: Cinzel, serif;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--vertigo-purple-soft);
+  line-height: 1;
+  flex: none;
+}
+
+.ad-player-elo em {
+  display: block;
+  font-family: Inter, system-ui, sans-serif;
+  font-style: normal;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--vertigo-faint);
+  margin-top: 3px;
+}
+
+/* ── Requisitos: franja propia con progreso ───────────────── */
+.ad-reqs {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  border: 1px solid var(--vertigo-line-soft);
+  border-radius: 12px;
+  background: rgba(7, 3, 16, 0.35);
+}
+
+.ad-reqs-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 150px;
+}
+
+.ad-reqs-head .ad-body-label { margin: 0; }
+
+.ad-reqs-progress {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--vertigo-muted);
+  letter-spacing: 0.5px;
+}
+
+.ad-reqs-progress.full { color: var(--vertigo-success); }
+
+.ad-reqs-bar {
+  width: 70px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.ad-reqs-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--vertigo-primary), var(--vertigo-purple-soft));
+  transition: width 0.4s var(--vertigo-ease);
+}
+
+.ad-reqs-progress.full + .ad-reqs-bar i { background: linear-gradient(90deg, var(--vertigo-success), #4ade80); }
+
+.ad-req-toggles {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.ad-req {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--vertigo-line);
+  background: transparent;
+  color: var(--vertigo-faint);
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s var(--vertigo-ease);
+}
+
+.ad-req:hover { border-color: var(--vertigo-purple); color: var(--vertigo-muted); }
+
+.ad-req.on {
+  color: var(--vertigo-success);
+  border-color: rgba(34, 197, 94, 0.4);
+  background: rgba(34, 197, 94, 0.07);
+}
+
+/* ── Pie: acciones alineadas a la derecha ─────────────────── */
+.ad-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--vertigo-line-soft);
+}
+
+.ad-foot-hint {
+  font-size: 11px;
+  color: var(--vertigo-faint);
+  min-width: 0;
+}
+
+.ad-foot-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.ad-btn {
+  padding: 10px 20px;
+  font-size: 11px;
+}
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media (max-width: 860px) {
+  .ad-card-head {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+  .ad-elo {
+    grid-column: 1 / -1;
+    grid-template-columns: auto auto 1fr;
+  }
+  .ad-elo-bar { grid-column: 1 / -1; }
+  .ad-players { grid-template-columns: 1fr; }
+  .ad-name { max-width: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ad-card, .ad-player, .ad-req { transition: none; }
 }
 
 /* ============================================================

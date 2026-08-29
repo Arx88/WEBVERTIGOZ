@@ -6,22 +6,20 @@ import { useRouter } from "next/navigation";
 import {
   Clock,
   Calendar,
-  Swords,
   Trophy,
   Gamepad2,
   Sparkles,
   Youtube,
   Twitch,
-  Layers,
-  Users,
   ChevronDown,
   ArrowLeft,
+  Crown,
 } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { civName } from "@/lib/constants/civs";
 import LiveDrawRoulette from "@/components/ruleta/live-draw-roulette";
 import MatchHero from "@/components/shared/match-hero";
-import { artForMode, artForMap } from "@/lib/art";
+import { artForMode, artForMap, ART_FALLBACK } from "@/lib/art";
 import { CaptainMatchPanel, type CaptainPanelContext } from "@/components/captain/captain-match-panel";
 import BetPanel, { type BetPanelContext } from "@/components/apuestas/bet-panel";
 import ReadyDeadlineTimer from "@/components/shared/ready-deadline-timer";
@@ -81,10 +79,43 @@ function formatCountdown(ms: number): string {
   return `${pad(h)}:${pad(m)}:${pad(s)}`;
 }
 
+/**
+ * Countdown + tolerancia W.O. de una llave programada, aislados en un
+ * componente hoja: es el ÚNICO que se re-renderiza cada segundo. Antes el
+ * tick de 1s vivía en el wrapper raíz y re-pintaba la página entera
+ * (hero, apuestas, panel del capitán, todas las partidas) 60 veces por minuto.
+ */
+function ScheduledTimers({ scheduledAtStart, status }: { scheduledAtStart: string | null; status: string }) {
+  const now = useNow(1000);
+  const start = scheduledAtStart ? new Date(scheduledAtStart).getTime() : null;
+  if (status !== "scheduled" || start === null) return null;
+  const countdown = start - now;
+  return (
+    <>
+      {countdown > 0 && (
+        <div className="vertigo-stat" style={{ textAlign: "center", margin: "20px 28px 4px" }}>
+          <div className="vertigo-stat-label">Comienza en</div>
+          <div className="vertigo-stat-value">
+            <Clock
+              style={{ width: 22, height: 22, display: "inline", marginRight: 10, verticalAlign: "middle" }}
+              strokeWidth={1.25}
+            />
+            {formatCountdown(countdown)}
+          </div>
+        </div>
+      )}
+      {now >= start && (
+        <div style={{ margin: "16px 28px 4px" }}>
+          <ReadyDeadlineTimer scheduledAtStart={scheduledAtStart} status={status} variant="block" />
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function MatchRealtimeWrapper({ matchId, initialMatch, captainContext, spectatorContext }: Props) {
   const router = useRouter();
   const [match, setMatch] = useState<MatchData | null>(initialMatch);
-  const now = useNow(1000);
 
   // Sincronizar cuando el server re-renderiza con datos frescos (p.ej. tras un
   // form action con revalidatePath): useState ignora el nuevo prop por sí solo,
@@ -150,8 +181,6 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
   }
 
   const statusMeta = MATCH_STATUS_META[match.status] ?? MATCH_STATUS_META.scheduled;
-  const start = match.scheduledAtStart ? new Date(match.scheduledAtStart).getTime() : null;
-  const countdown = start ? start - now : null;
   const isFinished = match.status === "finished";
   const winnerSide =
     match.winnerTeamId && match.teamA && match.winnerTeamId === match.teamA.id
@@ -172,6 +201,19 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
     match.games[match.games.length - 1] ??
     match.games[0] ??
     null;
+
+  // Partida "destacada" que abre desplegada por defecto: la que está en juego;
+  // si ninguna, la última con informe archivado (la más fresca). Las partidas
+  // SIN análisis se dejan abiertas (su cuerpo es solo civs, liviano). El resto
+  // se pliega: cada informe es pesado y un BO3 completo necesita aire.
+  const featuredGameIdx = (() => {
+    const liveIdx = match.games.findIndex((g) => g.status === "in_progress" || g.status === "drawing");
+    if (liveIdx >= 0) return liveIdx;
+    for (let i = match.games.length - 1; i >= 0; i--) {
+      if (match.games[i].status === "finished" && match.games[i].aoe2?.hasAnalysis) return i;
+    }
+    return -1;
+  })();
 
   // Antes del primer sorteo la partida existe pero no tiene mapa/modo: el hero
   // solo diría "Modo por sortear" y no aporta nada. En ese caso manda al VERSUS
@@ -228,8 +270,10 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
 
       {/* HERO cinematográfico del partido (modo + mapa, fondo con arte del sorteo).
           Muestra la partida ACTIVA: en BO3 1-1 es la partida 2/3, no la 1.
-          Antes del primer sorteo no se renderiza (solo diría "Modo por sortear"). */}
-      {hasDrawnGame && (
+          Antes del primer sorteo no se renderiza (solo diría "Modo por sortear").
+          Cuando el partido TERMINÓ se oculta: repetiría lo que ya cuentan
+          las cards por partida, y el protagonismo pasa al resultado. */}
+      {hasDrawnGame && !isFinished && (
         <MatchHero
           mapName={heroGame?.map ?? null}
           gameModeName={heroGame?.gameMode ?? null}
@@ -471,27 +515,8 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
           )}
         </div>
 
-        {/* Countdown */}
-        {countdown !== null && countdown > 0 && match.status === "scheduled" && (
-          <div className="vertigo-stat" style={{ textAlign: "center", margin: "20px 28px 4px" }}>
-            <div className="vertigo-stat-label">Comienza en</div>
-            <div className="vertigo-stat-value">
-              <Clock
-                style={{ width: 22, height: 22, display: "inline", marginRight: 10, verticalAlign: "middle" }}
-                strokeWidth={1.25}
-              />
-              {formatCountdown(countdown)}
-            </div>
-          </div>
-        )}
-
-        {/* Tolerancia W.O.: desde la hora de la llave corre el timer de 15 min.
-            El equipo que no confirmó READY pierde la llave al agotarse. */}
-        {start !== null && now >= start && match.status === "scheduled" && (
-          <div style={{ margin: "16px 28px 4px" }}>
-            <ReadyDeadlineTimer scheduledAtStart={match.scheduledAtStart} status={match.status} variant="block" />
-          </div>
-        )}
+        {/* Countdown + tolerancia W.O. (timer aislado: solo él se re-renderiza cada segundo) */}
+        <ScheduledTimers scheduledAtStart={match.scheduledAtStart} status={match.status} />
 
         {/* Stream link */}
         {match.streamEmbedEnabled && match.streamCaster && (
@@ -534,7 +559,7 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
       {/* GAMES BO3 — plegados por defecto para espectadores: son specs del sorteo,
           relevantes sobre todo para capitanes. El panel de apuestas queda protagonista. */}
       {match.games.length > 0 && (
-        <details className="apu-fold" open={!!captainContext || match.games.length <= 1}>
+        <details className="apu-fold" open={!!captainContext || match.games.length <= 1 || isFinished}>
           <summary>
             <Gamepad2 style={{ width: 13, height: 13, color: "var(--vertigo-purple-soft)", flexShrink: 0 }} />
             Partidas del sorteo ({match.games.length})
@@ -543,15 +568,15 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
                 className="font-normal normal-case"
                 style={{ fontSize: 11, letterSpacing: "0.5px", color: "var(--vertigo-faint)" }}
               >
-                · detalles técnicos del sorteo
+                · {isFinished ? "resultado y análisis por partida" : "detalles técnicos del sorteo"}
               </span>
             )}
             <ChevronDown className="apu-chev" style={{ width: 14, height: 14 }} />
           </summary>
           <div className="apu-fold-body">
             <div className="flex flex-col gap-4">
-              {match.games.map((g) => (
-                <GameCard key={g.id} game={g} teamAName={match.teamA?.name ?? "A"} teamBName={match.teamB?.name ?? "B"} teamAId={match.teamA?.id} teamBId={match.teamB?.id} />
+              {match.games.map((g, i) => (
+                <GameCard key={g.id} game={g} teamAName={match.teamA?.name ?? "A"} teamBName={match.teamB?.name ?? "B"} teamAId={match.teamA?.id} teamBId={match.teamB?.id} defaultOpen={i === featuredGameIdx || !(g.status === "finished" && g.aoe2?.hasAnalysis)} />
               ))}
             </div>
           </div>
@@ -691,22 +716,88 @@ function TeamBlock({
   return <div className="flex flex-col items-center text-center min-w-0">{inner}</div>;
 }
 
+/** Numeración romana para el título de cada partida (BO1..BO7). */
+const GAME_ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII"];
+
+/** Fila de civs por equipo: escudos grandes con nombre, oro si ganó. */
+function CivRow({
+  name,
+  civs,
+  winner,
+  showWinner,
+  color,
+}: {
+  name: string;
+  civs: string[];
+  winner: boolean;
+  showWinner: boolean;
+  color: string;
+}) {
+  const gold = showWinner && winner;
+  return (
+    <div className="min-w-0">
+      <div className="flex items-center gap-2" style={{ marginBottom: 8 }}>
+        <span className="flex-none" style={{ width: 8, height: 8, transform: "rotate(45deg)", background: gold ? "#D4AF37" : color }} />
+        <span
+          className="text-[10px] font-bold uppercase truncate"
+          style={{ letterSpacing: "1.8px", color: gold ? "#D4AF37" : "var(--vertigo-muted)" }}
+        >
+          {name}
+        </span>
+        {gold && <Crown style={{ width: 11, height: 11, color: "#D4AF37", flexShrink: 0 }} />}
+      </div>
+      <div className="flex flex-wrap gap-2.5">
+        {civs.length === 0 ? (
+          <span className="text-[12px] text-[var(--vertigo-faint)]">Sin sortear</span>
+        ) : (
+          civs.map((c) => (
+            <div key={c} className="flex flex-col items-center gap-1.5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`/civs/${c}.webp`}
+                alt={civName(c)}
+                title={civName(c)}
+                loading="lazy"
+                style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: 10,
+                  objectFit: "cover",
+                  border: gold ? "1.5px solid rgba(212,175,55,0.55)" : "1.5px solid var(--vertigo-line)",
+                  boxShadow: gold ? "0 0 14px rgba(212,175,55,0.18)" : "none",
+                }}
+              />
+              <span className="text-[9px] text-[var(--vertigo-faint)]">{civName(c)}</span>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
 function GameCard({
   game,
   teamAName,
   teamBName,
   teamAId,
   teamBId,
+  defaultOpen = false,
 }: {
   game: GameView;
   teamAName: string;
   teamBName: string;
   teamAId?: string;
   teamBId?: string;
+  /** Cada partida se puede plegar: abre por defecto sólo la destacada. */
+  defaultOpen?: boolean;
 }) {
+  const [open, setOpen] = useState(defaultOpen);
   const statusMeta = MATCH_STATUS_META[game.status] ?? MATCH_STATUS_META.scheduled;
-  const isAWinner = game.winnerTeamId && teamAId && game.winnerTeamId === teamAId;
-  const isBWinner = game.winnerTeamId && teamBId && game.winnerTeamId === teamBId;
+  const isAWinner = !!(game.winnerTeamId && teamAId && game.winnerTeamId === teamAId);
+  const isBWinner = !!(game.winnerTeamId && teamBId && game.winnerTeamId === teamBId);
+  const winnerName = isAWinner ? teamAName : isBWinner ? teamBName : null;
+  const isLive = game.status === "in_progress";
 
   const draw = game.drawResult;
   const gameMode = draw?.gameMode ?? game.gameMode;
@@ -716,136 +807,173 @@ function GameCard({
   const civsA = draw?.civsA ?? game.civsA ?? [];
   const civsB = draw?.civsB ?? game.civsB ?? [];
 
-  // Imágenes del modo y del mapa sorteados (para mostrar arte, no solo texto)
-  const gameModeArt = gameMode ? artForMode(gameMode) : null;
-  const mapArt = map ? artForMap(map) : null;
+  // Fondo: arte del MAPA sorteado (protagonista visual); fallback modo/vortex.
+  const bgArt = artForMap(map) ?? artForMode(gameMode) ?? ART_FALLBACK;
 
   return (
-    <div className="vertigo-card">
-      <div className="vertigo-card-header">
-        <div className="vertigo-card-title">
-          <Layers style={{ width: 14, height: 14, display: "inline", marginRight: 8, color: "var(--vertigo-purple-soft)" }} />
-          Partida {game.gameNumber}
+    <div style={{ borderRadius: 14, overflow: "hidden", border: "1px solid var(--vertigo-line-soft)", background: "#0b0713" }}>
+      {/* ═══ BANDA: sólo el título vive sobre el arte del mapa ═══ */}
+      <div style={{ position: "relative" }}>
+        <div style={{ position: "absolute", inset: 0 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={bgArt}
+            alt=""
+            loading="lazy"
+            style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 25%", opacity: 0.45 }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "linear-gradient(90deg, rgba(10,7,17,0.92) 0%, rgba(10,7,17,0.55) 55%, rgba(10,7,17,0.35) 100%), linear-gradient(0deg, rgba(10,7,17,0.95) 0%, rgba(10,7,17,0.25) 100%)",
+            }}
+          />
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent, rgba(212,175,55,0.45), transparent)" }} />
         </div>
-        <span className={`vertigo-badge ${statusMeta.cls}`}>{statusMeta.label}</span>
-      </div>
 
-      {/* Sorteo */}
-      <div className="vertigo-subtitle">
-        <Swords style={{ width: 12, height: 12, color: "var(--vertigo-purple-soft)" }} />
-        Sorteo
-      </div>
-      <div
-        className="grid gap-2 mb-4"
-        style={{ gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))" }}
-      >
-        {/* Modo con imagen */}
-        {gameMode && (
-          <div className="vertigo-info-card" style={{ padding: 0, overflow: "hidden", border: "1px solid rgba(124,58,237,0.25)", minHeight: 90 }}>
-            <div style={{ height: 56, overflow: "hidden", position: "relative", borderRadius: "10px 10px 0 0" }}>
-              <img src={gameModeArt ?? undefined} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.8 }} />
-              <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 40%, rgba(13,9,19,0.85) 100%)" }} />
+        <div
+          onClick={() => setOpen((o) => !o)}
+          style={{ position: "relative", zIndex: 2, padding: "16px 24px 14px", cursor: "pointer" }}
+        >
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="min-w-0">
+              <div
+                className="text-[9.5px] font-bold uppercase text-[var(--vertigo-faint)]"
+                style={{ letterSpacing: "2.2px", marginBottom: 4 }}
+              >
+                PARTIDA {GAME_ROMAN[game.gameNumber - 1] ?? game.gameNumber}
+                {gameMode ? ` · ${gameMode.toUpperCase()}` : ""}
+                {playerMode ? ` · ${playerMode.toUpperCase()}` : ""}
+              </div>
+              <div
+                className="font-[Cinzel,serif] font-bold uppercase text-[var(--vertigo-text)] truncate"
+                style={{ fontSize: "clamp(19px, 2.4vw, 26px)", letterSpacing: "0.5px", lineHeight: 1.1, textShadow: "0 2px 18px rgba(0,0,0,0.85)" }}
+              >
+                {map ?? "Esperando el sorteo"}
+              </div>
             </div>
-            <div style={{ padding: "8px 12px" }}>
-              <div className="vertigo-info-card-label" style={{ marginBottom: 2, fontSize: 9 }}>Modo</div>
-              <div className="vertigo-info-card-value" style={{ fontSize: 13, lineHeight: 1.2 }}>{gameMode}</div>
-            </div>
-          </div>
-        )}
-        {antimetaMode && (
-          <div className="vertigo-info-card">
-            <div className="vertigo-info-card-label">Antimeta</div>
-            <div className="vertigo-info-card-value" style={{ fontSize: 13 }}>{antimetaMode}</div>
-          </div>
-        )}
-        {playerMode && (
-          <div className="vertigo-info-card">
-            <div className="vertigo-info-card-label">
-              <Users style={{ width: 11, height: 11 }} />
-              Jugadores
-            </div>
-            <div className="vertigo-info-card-value" style={{ fontSize: 13 }}>{playerMode}</div>
-          </div>
-        )}
-        {/* Mapa con imagen */}
-        {map && (
-          <div className="vertigo-info-card" style={{ padding: 0, overflow: "hidden", border: "1px solid rgba(124,58,237,0.25)", minHeight: 90 }}>
-            <div style={{ height: 56, overflow: "hidden", position: "relative", borderRadius: "10px 10px 0 0" }}>
-              <img src={mapArt ?? undefined} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.8 }} />
-              <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 40%, rgba(13,9,19,0.85) 100%)" }} />
-            </div>
-            <div style={{ padding: "8px 12px" }}>
-              <div className="vertigo-info-card-label" style={{ marginBottom: 2, fontSize: 9 }}>Mapa</div>
-              <div className="vertigo-info-card-value" style={{ fontSize: 13, lineHeight: 1.2 }}>{map}</div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Civs */}
-      {(civsA.length > 0 || civsB.length > 0) && (
-        <div className="grid gap-4 mb-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
-          <div>
-            <div className="vertigo-info-card-label" style={{ marginBottom: 8, color: "var(--vertigo-purple-soft)" }}>
-              {teamAName}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {civsA.length === 0 ? (
-                <span className="text-[12px] text-[var(--vertigo-faint)]">Sin sortear</span>
-              ) : (
-                civsA.map((c) => (
-                  <span key={c} className={`inline-flex items-center gap-1.5 vertigo-badge ${isAWinner ? "vertigo-badge-success" : "vertigo-badge-purple"}`} style={{ paddingLeft: 6 }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={`/civs/${c}.webp`} alt="" style={{ width: 16, height: 16, borderRadius: 3, objectFit: "cover" }} />
-                    {civName(c)}
-                  </span>
-                ))
+            <div className="flex items-center gap-2 flex-wrap justify-end flex-none">
+              {isLive && (
+                <span
+                  className="inline-flex items-center gap-1.5 text-[9px] font-bold uppercase rounded-full"
+                  style={{
+                    padding: "3px 10px",
+                    letterSpacing: "1.5px",
+                    color: "var(--vertigo-success)",
+                    border: "1px solid rgba(34,197,94,0.35)",
+                    background: "rgba(34,197,94,0.12)",
+                    animation: "vcup-pulse 1.6s ease-in-out infinite",
+                  }}
+                >
+                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: "currentColor" }} />
+                  En juego
+                </span>
+              )}
+              {winnerName && (
+                <span
+                  className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase rounded-full"
+                  style={{
+                    padding: "3px 11px",
+                    letterSpacing: "1px",
+                    color: "#D4AF37",
+                    border: "1px solid rgba(212,175,55,0.4)",
+                    background: "rgba(212,175,55,0.08)",
+                  }}
+                >
+                  <Crown style={{ width: 11, height: 11 }} />
+                  {winnerName}
+                </span>
+              )}
+              <span className={`vertigo-badge ${statusMeta.cls}`}>{statusMeta.label}</span>
+              {!open && game.status === "finished" && game.aoe2?.hasAnalysis && (
+                <span
+                  className="inline-flex items-center gap-1 text-[9px] font-bold uppercase rounded-full"
+                  style={{
+                    padding: "3px 10px",
+                    letterSpacing: "1.2px",
+                    color: "#D4AF37",
+                    border: "1px solid rgba(212,175,55,0.35)",
+                    background: "rgba(212,175,55,0.07)",
+                  }}
+                >
+                  <Sparkles style={{ width: 10, height: 10 }} />
+                  Informe listo
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOpen((o) => !o);
+                }}
+                aria-expanded={open}
+                aria-controls={`game-detail-${game.id}`}
+                title={open ? "Plegar partida" : "Desplegar partida"}
+                className="vertigo-btn vertigo-btn-ghost"
+                style={{ padding: "5px 12px", fontSize: 10.5, gap: 6 }}
+              >
+                <ChevronDown
+                  style={{
+                    width: 12,
+                    height: 12,
+                    transform: open ? "rotate(180deg)" : "none",
+                    transition: "transform 0.25s var(--vertigo-ease)",
+                  }}
+                />
+                {open ? "Ocultar" : "Detalle"}
+              </button>
+              {game.replayUrl && (
+                <a
+                  href={game.replayUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="vertigo-btn vertigo-btn-ghost"
+                  style={{ padding: "5px 12px", fontSize: 10.5 }}
+                >
+                  <Youtube style={{ width: 12, height: 12 }} />
+                  Replay
+                </a>
               )}
             </div>
           </div>
-          <div>
-            <div className="vertigo-info-card-label" style={{ marginBottom: 8, color: "#fda4af" }}>
-              {teamBName}
+          {antimetaMode && (
+            <div className="text-[10.5px] font-semibold uppercase mt-1.5" style={{ letterSpacing: "1.2px", color: "var(--vertigo-purple-soft)" }}>
+              Antimeta: {antimetaMode}
             </div>
-            <div className="flex flex-wrap gap-2">
-              {civsB.length === 0 ? (
-                <span className="text-[12px] text-[var(--vertigo-faint)]">Sin sortear</span>
-              ) : (
-                civsB.map((c) => (
-                  <span key={c} className="inline-flex items-center gap-1.5 vertigo-badge vertigo-badge-purple" style={{ paddingLeft: 6 }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={`/civs/${c}.webp`} alt="" style={{ width: 16, height: 16, borderRadius: 3, objectFit: "cover" }} />
-                    {civName(c)}
-                  </span>
-                ))
-              )}
-            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ═══ CUERPO SÓLIDO: la información NUNCA sobre una imagen.
+          Plegable por partida: cada informe es pesado y un BO3 completo
+          con todo abierto no da aire. El header sigue visible. ═══ */}
+      {open && (
+        <div
+          id={`game-detail-${game.id}`}
+          className="vertigo-fade-in"
+          style={{ padding: "18px 24px 22px", borderTop: "1px solid var(--vertigo-line-soft)" }}
+        >
+        {/* Civs: escudos grandes por equipo, oro para el ganador */}
+        {(civsA.length > 0 || civsB.length > 0) && (
+          <div className="grid gap-x-10 gap-y-3 sm:grid-cols-2">
+            <CivRow name={teamAName} civs={civsA} winner={isAWinner} showWinner={!!winnerName} color="#a78bfa" />
+            <CivRow name={teamBName} civs={civsB} winner={isBWinner} showWinner={!!winnerName} color="#fda4af" />
           </div>
+        )}
+
+        {/* Análisis post-partida (AoE2 Companion) — solo si terminó y fue archivada.
+            El link "Replay" manual convive en la banda. */}
+        {game.status === "finished" && game.aoe2?.hasAnalysis && (
+          <div style={{ marginTop: 20 }}>
+            <GameAnalysisCard gameId={game.id} teamAName={teamAName} teamBName={teamBName} />
+          </div>
+        )}
         </div>
       )}
 
-      {/* Análisis post-partida (AoE2 Companion) — solo si terminó y fue archivada.
-          El link manual "Ver replay" de abajo sigue intacto y convive con esto. */}
-      {game.status === "finished" && game.aoe2?.hasAnalysis && (
-        <div className="mb-4">
-          <GameAnalysisCard gameId={game.id} teamAName={teamAName} teamBName={teamBName} />
-        </div>
-      )}
-
-      {/* Replay */}
-      {game.replayUrl && (
-        <div className="vertigo-action-bar">
-          <a
-            href={game.replayUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="vertigo-btn vertigo-btn-ghost"
-          >
-            <Youtube style={{ width: 14, height: 14 }} />
-            Ver replay
-          </a>
-        </div>
-      )}
+      <style>{`@keyframes vcup-pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.55;transform:scale(.92)}}`}</style>
     </div>
   );
 }

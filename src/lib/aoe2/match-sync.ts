@@ -35,7 +35,7 @@ import {
 } from "./index";
 import { lobbyNameForGame, lobbyNameMatches } from "./lobby-name";
 import { checkMatchConfig } from "./game-config";
-import { analyzeStrategy } from "./strategy";
+import { analyzeStrategy, productionCounts } from "./strategy";
 import { reportGameResultInternal } from "@/server/actions/match-day";
 
 /** Mínimo entre consultas a Companion por partida. */
@@ -494,6 +494,70 @@ async function resolveLineupProfiles(
 // Persistencia del análisis
 // ============================================================
 
+// ============================================================
+// Backfill: análisis que no se archivó a tiempo
+// ============================================================
+
+/**
+ * Companion genera el análisis de forma async: si el sync corrió apenas
+ * terminó la partida, el fetch de /analysis puede llegar antes de que
+ * exista y el game queda `synced` SIN análisis. El backfill lo re-archivo
+ * (y aprovecha para completar el .aoe2record si también faltó). Tiene
+ * cooldown in-memory para que N viewers no dispare N re-fetches de ~2 MB.
+ */
+const backfillCooldown = new Map<string, number>();
+const BACKFILL_COOLDOWN_MS = 5 * 60_000;
+
+export async function backfillAnalysis(
+  service: any,
+  game: { id: string; aoe2_match_id: number | null; rec_storage_path?: string | null }
+): Promise<{ ok: boolean; error?: string }> {
+  if (!game.aoe2_match_id) return { ok: false, error: "El game no tiene match de Companion vinculado" };
+
+  const last = backfillCooldown.get(game.id);
+  if (last && Date.now() - last < BACKFILL_COOLDOWN_MS) {
+    return { ok: false, error: "backfill en cooldown" };
+  }
+  backfillCooldown.set(game.id, Date.now());
+
+  try {
+    const cand = await fetchLiveMatch(game.aoe2_match_id);
+    if (!cand) return { ok: false, error: `El match ${game.aoe2_match_id} ya no está disponible en Companion` };
+
+    await archiveAnalysis(service, game.id, cand);
+
+    // Aprovechar para completar el rec si tampoco se archivó
+    if (!game.rec_storage_path) {
+      try {
+        const anyPlayer = (cand.teams ?? []).flatMap((t) => t.players ?? [])[0];
+        if (anyPlayer) {
+          const buf = await downloadReplayFile(cand.matchId, anyPlayer.profileId);
+          if (buf) {
+            const path = `recs/${game.id}.aoe2record`;
+            const { error } = await service.storage.from("replays").upload(path, buf, {
+              upsert: true,
+              contentType: "application/octet-stream",
+              cacheControl: "3600",
+            });
+            if (!error) {
+              await service
+                .from("match_game")
+                .update({ rec_storage_path: path, updated_at: new Date().toISOString() })
+                .eq("id", game.id);
+            }
+          }
+        }
+      } catch {
+        // el rec es un plus
+      }
+    }
+
+    return { ok: true };
+  } catch (e: any) {
+    return { ok: false, error: e?.message ?? "Error inesperado en el backfill" };
+  }
+}
+
 async function archiveAnalysis(service: any, matchGameId: string, cand: Aoe2MatchSummary) {
   const analysis = await getMatchAnalysis(cand.matchId);
   const payload = curateAnalysis(analysis, cand);
@@ -538,6 +602,16 @@ export function parseHmsToSeconds(hms: string | null | undefined): number | null
 }
 
 /**
+ * Versión del formato del payload. Cuando cambia la curación (nuevos
+ * campos/correcciones), subir la versión hace que los payloads viejos
+ * se re-archiven solos vía backfill.
+ *
+ * v3: contadores de producción por jugador (villagersTrained,
+ * militaryTrained, fishingShips) para los superlativos de la partida.
+ */
+export const ANALYSIS_PAYLOAD_VERSION = 3;
+
+/**
  * Reduce el análisis crudo (~2 MB con gaia/tiles/objects) al resumen
  * que se persiste en match_game_analysis.payload.
  */
@@ -549,6 +623,7 @@ export function curateAnalysis(analysis: any, cand: Aoe2MatchSummary): Record<st
     for (const p of t.players ?? []) teamOf.set(p.profileId, i);
   });
   return {
+    v: ANALYSIS_PAYLOAD_VERSION,
     source: "aoe2companion",
     aoe2MatchId: cand.matchId,
     lobbyName: cand.name ?? null,
@@ -564,6 +639,15 @@ export function curateAnalysis(analysis: any, cand: Aoe2MatchSummary): Record<st
         at: u.timestamp ?? null,
         seconds: parseHmsToSeconds(u.timestamp),
       }));
+      // eapmPerMinute viene como { "0": 44, "1": 67, ... } — el pico cuenta
+      // la historia de la partida mejor que el promedio.
+      const eapmSeries = p.eapmPerMinute;
+      const eapmValues =
+        eapmSeries && typeof eapmSeries === "object" && !Array.isArray(eapmSeries)
+          ? Object.values(eapmSeries).map((v) => Number(v)).filter((v) => Number.isFinite(v))
+          : [];
+      const eapmPeak = eapmValues.length > 0 ? Math.max(...eapmValues) : null;
+      const production = productionCounts(buildOrder);
       return {
         profileId: p.profileId ?? null,
         name: p.name ?? null,
@@ -573,6 +657,10 @@ export function curateAnalysis(analysis: any, cand: Aoe2MatchSummary): Record<st
         color: p.color ?? null,
         colorHex: p.colorHex ?? null,
         eapm: p.eapm ?? null,
+        eapmPeak,
+        villagersTrained: production.villagers,
+        militaryTrained: production.military,
+        fishingShips: production.fishingShips,
         winner: p.winner ?? false,
         resignedAt: p.resignation?.timestamp ?? null,
         resignedSeconds: parseHmsToSeconds(p.resignation?.timestamp),

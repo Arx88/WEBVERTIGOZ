@@ -3,14 +3,14 @@
  *
  * Convierte la secuencia cruda de acciones (unidades, tecnologías y
  * edificios en orden cronológico) en una lectura estratégica legible:
- * apertura (fast castle, scout rush, MAA rush…), composición del
- * ejército (caballería, arqueros, artillería, unidad única…) y
- * economía (pesca, boom). Cada tag lleva un icono (nombre de lucide)
- * para presentarlo en la UI.
+ * apertura (fast castle, scout rush, MAA rush, archer rush, "abrió
+ * monjes/arqueros/caballería…"), composición del ejército (caballería,
+ * arqueros, artillería, unidad única…) y economía (pesca, boom).
  *
  * Es una función pura: recibe el build order completo + uptimes y
  * devuelve tags. Se corre del lado del servidor al curar el análisis,
- * de modo que el payload guardado ya trae la lectura hecha.
+ * de modo que el payload guardado ya trae la lectura hecha. También
+ * corre client-side como fallback para payloads viejos.
  */
 
 export interface StrategyTag {
@@ -116,6 +116,34 @@ function classifyUnit(name: string): "econ" | "uu" | string {
   return NAME_TO_CLASS.get(n) ?? "uu";
 }
 
+export interface ProductionCounts {
+  villagers: number;
+  military: number;
+  fishingShips: number;
+  tradeCarts: number;
+}
+
+/**
+ * Conteo de producción por tipo desde el build order crudo. Lo consume
+ * la curación del análisis (match-sync) para persistir los totales por
+ * jugador y alimentar los superlativos de la partida (chips).
+ */
+export function productionCounts(buildOrder: { kind: string; name: string }[]): ProductionCounts {
+  let villagers = 0;
+  let military = 0;
+  let fishingShips = 0;
+  let tradeCarts = 0;
+  for (const b of buildOrder) {
+    if (b.kind !== "unit") continue;
+    const n = norm(b.name);
+    if (n === "villager") villagers++;
+    else if (n === "fishing ship") fishingShips++;
+    else if (n === "trade cart" || n === "trade cog") tradeCarts++;
+    if (classifyUnit(n) !== "econ") military++;
+  }
+  return { villagers, military, fishingShips, tradeCarts };
+}
+
 function fmtClock(seconds: number | null | undefined): string {
   if (seconds == null || !Number.isFinite(seconds)) return "—";
   const s = Math.max(0, Math.round(seconds));
@@ -127,11 +155,17 @@ function fmtClock(seconds: number | null | undefined): string {
     : `${m}:${String(ss).padStart(2, "0")}`;
 }
 
+/** "Rattan Archer" → "Rattan archer" para mostrar el nombre de la UU. */
+function prettyUnit(name: string): string {
+  const n = name.replace(/_/g, " ").trim();
+  return n.charAt(0).toUpperCase() + n.slice(1);
+}
+
 /**
  * Analiza el build order de un jugador y devuelve tags estratégicos.
  *
  * @param buildOrder secuencia completa de acciones (sin truncar).
- * @param uptimes    tiempos de avance de edad (feudal/castle/imperial).
+ * @param uptimes    tiempos de avance de edad (feudal/castillos/imperial).
  */
 export function analyzeStrategy(buildOrder: OrderItem[], uptimes: UptimeLike[]): StrategyTag[] {
   const tags: StrategyTag[] = [];
@@ -144,7 +178,6 @@ export function analyzeStrategy(buildOrder: OrderItem[], uptimes: UptimeLike[]):
   let fishingCount = 0;
   let scoutCount = 0;
   let firstScoutAt: number | null = null;
-  let militiaBeforeFeudal = 0;
 
   const buildingCount = new Map<string, number>();
 
@@ -159,9 +192,6 @@ export function analyzeStrategy(buildOrder: OrderItem[], uptimes: UptimeLike[]):
         if (firstScoutAt == null) firstScoutAt = b.seconds;
       }
       const cls = classifyUnit(b.name);
-      if (cls === "militia") {
-        // se cuenta aparte para detectar MAA rush (antes de feudal)
-      }
       if (cls !== "econ" && cls !== "uu") classCount.set(cls, (classCount.get(cls) ?? 0) + 1);
       if (cls === "uu") uuCount.set(b.name, (uuCount.get(b.name) ?? 0) + 1);
     } else if (b.kind === "building") {
@@ -176,14 +206,7 @@ export function analyzeStrategy(buildOrder: OrderItem[], uptimes: UptimeLike[]):
   const feudal = ageAt.get("feudal_age") ?? null;
   const castle = ageAt.get("castle_age") ?? null;
 
-  // MAA rush: milicias producidas antes de avanzar a feudal.
-  if (feudal != null) {
-    for (const b of buildOrder) {
-      if (b.kind !== "unit") continue;
-      if (classifyUnit(b.name) !== "militia") continue;
-      if (b.seconds < feudal) militiaBeforeFeudal++;
-    }
-  }
+  const beforeCastle = (seconds: number) => castle == null || seconds < castle;
 
   // ════════════ APERTURA ════════════
   const opening: StrategyTag[] = [];
@@ -193,18 +216,67 @@ export function analyzeStrategy(buildOrder: OrderItem[], uptimes: UptimeLike[]):
     opening.push({ icon: "Castle", label: "Fast Castle", detail: fmtClock(castle), kind: "opening" });
   }
 
-  // Scout rush: scouts producidos en feudal (antes de castillos).
-  const scoutInFeudal = firstScoutAt != null && (castle == null || firstScoutAt < castle);
-  if (scoutCount >= 10 && scoutInFeudal) {
-    opening.push({ icon: "Zap", label: "Scout rush", detail: `×${scoutCount}`, kind: "opening" });
+  // Unidades militares antes de castillos: ahí viven los rushes.
+  let scoutsBeforeCastle = 0;
+  let archerLineBeforeCastle = 0; // archer/crossbow/arbalest (sin skirm)
+  let militiaBeforeCastle = 0;
+  let firstMilitiaAt: number | null = null;
+  for (const b of buildOrder) {
+    if (b.kind !== "unit") continue;
+    if (!beforeCastle(b.seconds)) continue;
+    const n = norm(b.name);
+    if (n === "scout cavalry") scoutsBeforeCastle++;
+    if (["archer", "crossbowman", "arbalest", "arbalester"].includes(n)) archerLineBeforeCastle++;
+    if (CLASS_MEMBERS.militia.includes(n)) {
+      militiaBeforeCastle++;
+      if (firstMilitiaAt == null) firstMilitiaAt = b.seconds;
+    }
   }
 
-  // MAA rush: milicias en edad oscura (antes de feudal).
-  if (militiaBeforeFeudal >= 3) {
-    opening.push({ icon: "Flame", label: "MAA rush", detail: `×${militiaBeforeFeudal}`, kind: "opening" });
+  const rushTags: StrategyTag[] = [];
+  if (scoutCount >= 8 && (firstScoutAt == null || beforeCastle(firstScoutAt))) {
+    rushTags.push({ icon: "Zap", label: "Scout rush", detail: `×${scoutCount}`, kind: "opening" });
+  }
+  if (militiaBeforeCastle >= 4) {
+    const isDrush = feudal != null && firstMilitiaAt != null && firstMilitiaAt < feudal;
+    rushTags.push({
+      icon: "Flame",
+      label: isDrush ? "Drush + MAA" : "MAA rush",
+      detail: `×${militiaBeforeCastle}`,
+      kind: "opening",
+    });
+  }
+  if (archerLineBeforeCastle >= 6) {
+    rushTags.push({ icon: "Target", label: "Archer rush", detail: `×${archerLineBeforeCastle}`, kind: "opening" });
+  }
+  opening.push(...rushTags);
+
+  // Sin rush identificable: la apertura es la PRIMERA unidad militar del
+  // jugador (aunque sea después de un Fast Castle — "abrió monjes",
+  // "abrió rattan archer", "abrió mangonel"…).
+  if (rushTags.length === 0) {
+    const firstMilitary = buildOrder.find((b) => b.kind === "unit" && classifyUnit(b.name) !== "econ");
+    if (firstMilitary) {
+      const cls = classifyUnit(firstMilitary.name);
+      if (cls === "uu") {
+        opening.push({
+          icon: "Sparkles",
+          label: `Abrió ${prettyUnit(firstMilitary.name)}`,
+          detail: fmtClock(firstMilitary.seconds),
+          kind: "opening",
+        });
+      } else if (CLASS_META[cls]) {
+        opening.push({
+          icon: CLASS_META[cls].icon,
+          label: `Abrió ${CLASS_META[cls].label.toLowerCase()}`,
+          detail: fmtClock(firstMilitary.seconds),
+          kind: "opening",
+        });
+      }
+    }
   }
 
-  tags.push(...opening.slice(0, 2));
+  tags.push(...opening.slice(0, 3));
 
   // ════════════ EJÉRCITO ════════════
   const army: StrategyTag[] = [];

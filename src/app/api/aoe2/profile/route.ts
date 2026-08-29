@@ -18,19 +18,23 @@ export async function GET(req: NextRequest) {
     const profile = await getProfile(profileId, "stats,ratings");
     const result = getMaxRatingFromProfile(profile);
 
-    return NextResponse.json({
-      profileId: profile.profileId ?? profileId,
-      name: profile.name ?? null,
-      steamId: profile.steamId ?? null,
-      country: profile.country ?? null,
-      clan: profile.clan ?? null,
-      platform: profile.platform ?? null,
-      verified: profile.verified ?? false,
-      maxRating: result.maxRating,
-      currentRating: result.currentRating,
-      rank: result.rank,
-      verificationStatus: result.verificationStatus,
-    });
+    // Ratings cambian lento: cache corta en browser + stale-while-revalidate.
+    return NextResponse.json(
+      {
+        profileId: profile.profileId ?? profileId,
+        name: profile.name ?? null,
+        steamId: profile.steamId ?? null,
+        country: profile.country ?? null,
+        clan: profile.clan ?? null,
+        platform: profile.platform ?? null,
+        verified: profile.verified ?? false,
+        maxRating: result.maxRating,
+        currentRating: result.currentRating,
+        rank: result.rank,
+        verificationStatus: result.verificationStatus,
+      },
+      { headers: { "Cache-Control": "public, max-age=300, stale-while-revalidate=600" } }
+    );
   } catch (err) {
     console.error("[aoe2/profile] error:", err);
     return NextResponse.json(

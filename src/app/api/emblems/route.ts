@@ -22,5 +22,9 @@ export async function GET() {
   if (error) {
     return NextResponse.json({ emblems: [], error: error.message }, { status: 200 });
   }
-  return NextResponse.json({ emblems: data ?? [] });
+  // Catálogo casi estático: cache agresiva en browser + edge. Si se agregan
+  // emblemas, el stale-while-revalidate los propaga en segundos/minutos.
+  return NextResponse.json({ emblems: data ?? [] }, {
+    headers: { "Cache-Control": "public, max-age=300, stale-while-revalidate=3600" },
+  });
 }

@@ -40,6 +40,7 @@ export async function GET(req: NextRequest) {
           "User-Agent": USER_AGENT,
           "Accept": "application/json",
         },
+        signal: AbortSignal.timeout(8_000),
         next: { revalidate: 1800 }, // 30 min cache
       });
 
@@ -83,19 +84,24 @@ export async function GET(req: NextRequest) {
       // Si falla el fetch extendido, devolvemos solo ELO
     }
 
-    return NextResponse.json({
-      profileId,
-      name: playerName,
-      country,
-      clan,
-      maxRating: eloResult.maxRating,
-      currentRating: eloResult.currentRating,
-      rank: eloResult.rank,
-      steamId: undefined,
-      verificationStatus: eloResult.verificationStatus,
-      civStats,
-      mapStats,
-    });
+    // Perfil + stats cambian lento: cache corta en browser y stale-while-
+    // revalidate en edge para que re-abrir un perfil sea instantáneo.
+    return NextResponse.json(
+      {
+        profileId,
+        name: playerName,
+        country,
+        clan,
+        maxRating: eloResult.maxRating,
+        currentRating: eloResult.currentRating,
+        rank: eloResult.rank,
+        steamId: undefined,
+        verificationStatus: eloResult.verificationStatus,
+        civStats,
+        mapStats,
+      },
+      { headers: { "Cache-Control": "public, max-age=300, stale-while-revalidate=600" } }
+    );
   } catch (err) {
     console.error("[aoe2/profile-full] error:", err);
     return NextResponse.json(

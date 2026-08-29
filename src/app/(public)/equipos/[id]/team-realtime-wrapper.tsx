@@ -63,9 +63,33 @@ function formatCountdown(ms: number): string {
   return `${pad(h)}:${pad(m)}:${pad(s)}`;
 }
 
+/**
+ * Countdown de la próxima partida, aislado en un componente hoja: es el
+ * ÚNICO que se re-renderiza cada segundo (antes el tick vivía en el
+ * wrapper raíz y re-pintaba toda la página del equipo 60 veces por minuto).
+ */
+function CountdownBlock({ scheduledAtStart, status }: { scheduledAtStart: string | null; status: string }) {
+  const now = useNow(1000);
+  const start = scheduledAtStart ? new Date(scheduledAtStart).getTime() : null;
+  if (status !== "scheduled" || start === null) return null;
+  const countdown = start - now;
+  if (countdown <= 0) return null;
+  return (
+    <div className="vertigo-stat" style={{ textAlign: "center", marginBottom: 16 }}>
+      <div className="vertigo-stat-label">Comienza en</div>
+      <div className="vertigo-stat-value">
+        <Clock
+          style={{ width: 22, height: 22, display: "inline", marginRight: 10, verticalAlign: "middle" }}
+          strokeWidth={1.25}
+        />
+        {formatCountdown(countdown)}
+      </div>
+    </div>
+  );
+}
+
 export default function TeamRealtimeWrapper({ teamRegistrationId, initialNextMatch }: Props) {
   const [nextMatch, setNextMatch] = useState<NextMatchData | null>(initialNextMatch);
-  const now = useNow(1000);
 
   useEffect(() => {
     const supabase = getSupabaseBrowser();
@@ -255,8 +279,6 @@ export default function TeamRealtimeWrapper({ teamRegistrationId, initialNextMat
   }
 
   const statusMeta = STATUS_META[nextMatch.status] ?? STATUS_META.scheduled;
-  const start = nextMatch.scheduledAtStart ? new Date(nextMatch.scheduledAtStart).getTime() : null;
-  const countdown = start ? start - now : null;
 
   const draw = nextMatch.drawResult;
 
@@ -341,19 +363,8 @@ export default function TeamRealtimeWrapper({ teamRegistrationId, initialNextMat
         )}
       </div>
 
-      {/* Countdown */}
-      {countdown !== null && countdown > 0 && nextMatch.status === "scheduled" && (
-        <div className="vertigo-stat" style={{ textAlign: "center", marginBottom: 16 }}>
-          <div className="vertigo-stat-label">Comienza en</div>
-          <div className="vertigo-stat-value">
-            <Clock
-              style={{ width: 22, height: 22, display: "inline", marginRight: 10, verticalAlign: "middle" }}
-              strokeWidth={1.25}
-            />
-            {formatCountdown(countdown)}
-          </div>
-        </div>
-      )}
+      {/* Countdown (timer aislado: solo él se re-renderiza cada segundo) */}
+      <CountdownBlock scheduledAtStart={nextMatch.scheduledAtStart} status={nextMatch.status} />
 
       {/* Resultado del sorteo */}
       {draw && (

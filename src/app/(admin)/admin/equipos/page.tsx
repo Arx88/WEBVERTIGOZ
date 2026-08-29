@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { approveTeamAction, rejectTeamAction } from "@/server/actions/auth";
 import { toggleRequirementAction, setPaymentConfirmedAction } from "@/server/actions/requirements";
-import { Shield, Check, X, Users, Star, Crown, AlertTriangle, Clock, RotateCcw, CreditCard } from "lucide-react";
+import { Check, X, Users, Crown, AlertTriangle, Clock, RotateCcw, CreditCard, Hourglass, ShieldCheck, Ban } from "lucide-react";
 import AdminHero from "@/components/shared/admin-hero";
 import { fmt } from "@/lib/format";
 
@@ -16,6 +16,8 @@ const REQUIREMENTS = [
   { field: "discord_joined", label: "Discord" },
 ] as const;
 
+type Reg = any;
+
 export default async function AdminEquiposPage() {
   const supabase = (await getSupabaseServer()) as any;
   const { data: { user } } = await supabase.auth.getUser();
@@ -27,10 +29,10 @@ export default async function AdminEquiposPage() {
 
   const { data: registrations } = (await supabase
     .from("team_registration")
-    .select("id, status, status_reason, elo_freeze_snapshot, elo_verification_status, elo_verification_reason, submitted_at, approved_at, payment_deadline_at, anti_smurf_check, payment_confirmed, tutorial_watched, discord_joined, team_account:team_account_id (id, name, tagline, emblem_id), tournament_edition:tournament_edition_id (name, elo_cap, elo_tolerance)")
+    .select("id, status, status_reason, elo_freeze_snapshot, elo_verification_status, elo_verification_reason, submitted_at, approved_at, payment_deadline_at, anti_smurf_check, payment_confirmed, tutorial_watched, discord_joined, team_account:team_account_id (id, name, tagline, emblem_id, emblem:emblem_id (image_url)), tournament_edition:tournament_edition_id (name, elo_cap, elo_tolerance)")
     .order("submitted_at", { ascending: false })) as { data: any };
 
-  const regsWithPlayers = await Promise.all(
+  const regsWithPlayers: Reg[] = await Promise.all(
     (registrations ?? []).map(async (reg: any) => {
       const { data: players } = (await supabase
         .from("player_registration")
@@ -40,13 +42,14 @@ export default async function AdminEquiposPage() {
     })
   );
 
-  const pending = regsWithPlayers.filter((r: any) => r.status === "pending");
-  const approved = regsWithPlayers.filter((r: any) => r.status === "approved");
-  const rejected = regsWithPlayers.filter((r: any) => r.status === "rejected");
+  const pending = regsWithPlayers.filter((r: Reg) => r.status === "pending");
+  const approved = regsWithPlayers.filter((r: Reg) => r.status === "approved");
+  const rejected = regsWithPlayers.filter((r: Reg) => r.status === "rejected");
 
   return (
     <div className="vertigo-fade-in">
       <AdminHero
+        compact
         kicker="INSCRIPCIONES"
         title="Equipos"
         desc="Revisá y aprobá cada inscripción. Verificá ELO cap, perfiles de AoE2 Companion y datos del equipo antes de confirmar."
@@ -68,12 +71,8 @@ export default async function AdminEquiposPage() {
         </div>
       ) : (
         <div className="flex flex-col gap-10">
-          <Section
-            title="Pendientes de aprobación"
-            count={pending.length}
-            empty="No hay equipos pendientes — todo al día."
-          >
-            {pending.map((reg: any) => (
+          <Section id="pendientes" icon={<Hourglass style={{ width: 13, height: 13 }} />} title="Pendientes de aprobación" count={pending.length} empty="No hay equipos pendientes — todo al día.">
+            {pending.map((reg: Reg) => (
               <TeamCard
                 key={reg.id}
                 reg={reg}
@@ -84,8 +83,8 @@ export default async function AdminEquiposPage() {
             ))}
           </Section>
 
-          <Section title="Aprobados" count={approved.length} empty="Ningún equipo aprobado todavía.">
-            {approved.map((reg: any) => (
+          <Section id="aprobados" icon={<ShieldCheck style={{ width: 13, height: 13 }} />} title="Aprobados" count={approved.length} empty="Ningún equipo aprobado todavía.">
+            {approved.map((reg: Reg) => (
               <TeamCard
                 key={reg.id}
                 reg={reg}
@@ -95,8 +94,8 @@ export default async function AdminEquiposPage() {
             ))}
           </Section>
 
-          <Section title="Rechazados" count={rejected.length} empty="No hay equipos rechazados.">
-            {rejected.map((reg: any) => (
+          <Section id="rechazados" icon={<Ban style={{ width: 13, height: 13 }} />} title="Rechazados" count={rejected.length} empty="No hay equipos rechazados.">
+            {rejected.map((reg: Reg) => (
               <TeamCard
                 key={reg.id}
                 reg={reg}
@@ -116,36 +115,41 @@ export default async function AdminEquiposPage() {
 }
 
 function Section({
+  id,
+  icon,
   title,
   count,
   empty,
   children,
 }: {
+  id: string;
+  icon: React.ReactNode;
   title: string;
   count: number;
   empty: string;
   children: React.ReactNode;
 }) {
   return (
-    <section>
-      <div className="vertigo-subtitle">
-        {title}
-        <span className="vertigo-badge vertigo-badge-purple ml-2">{count}</span>
+    <section id={`sec-${id}`} className="ad-section">
+      <div className="ad-section-head">
+        <span className="ad-section-icon">{icon}</span>
+        <h2 className="ad-section-title">{title}</h2>
+        <span className={`ad-section-count ${id}`}>{count}</span>
+        <span className="ad-section-line" />
       </div>
       {count === 0 ? (
-        <div className="vertigo-card">
-          <div className="vertigo-empty">
-            <div className="vertigo-empty-title">Vacío</div>
-            <p className="vertigo-empty-desc">{empty}</p>
-          </div>
-        </div>
+        <div className="ad-empty">{empty}</div>
       ) : (
-        <div className="flex flex-col gap-3">{children}</div>
+        <div className="ad-team-list">{children}</div>
       )}
     </section>
   );
 }
 
+// ─────────────────────────────────────────────────────────────
+// Tarjeta de equipo — grilla de zonas fijas: franja de estado +
+// escudo + identidad | ELO | jugadores. Nada flota ni se pisa.
+// ─────────────────────────────────────────────────────────────
 function TeamCard({
   reg,
   showActions,
@@ -154,7 +158,7 @@ function TeamCard({
   paymentAction,
   graceAction,
 }: {
-  reg: any;
+  reg: Reg;
   showActions: boolean;
   approveAction?: () => Promise<void>;
   rejectAction?: () => Promise<void>;
@@ -163,20 +167,23 @@ function TeamCard({
 }) {
   const team = reg.team_account;
   const edition = reg.tournament_edition;
-  const players = reg.players ?? [];
+  const players: any[] = reg.players ?? [];
   const eloCap = (edition?.elo_cap ?? 3500) + (edition?.elo_tolerance ?? 20);
-  const isEloOk = !reg.elo_freeze_snapshot || reg.elo_freeze_snapshot <= eloCap;
+  const elo = reg.elo_freeze_snapshot;
+  const isEloOk = !elo || elo <= eloCap;
+  const eloPct = elo ? Math.min(100, Math.round((elo / eloCap) * 100)) : 0;
+  const doneCount = REQUIREMENTS.filter((r) => !!reg[r.field]).length;
 
   const eloVerificationBadge = (() => {
     switch (reg.elo_verification_status) {
       case "verified":
-        return { cls: "vertigo-badge-success", label: "ELO verificado" };
+        return { cls: "ok", label: "ELO verificado" };
       case "pending":
-        return { cls: "vertigo-badge-warning", label: "ELO pendiente" };
+        return { cls: "warn", label: "ELO pendiente" };
       case "hidden":
-        return { cls: "vertigo-badge-warning", label: "Perfil oculto" };
+        return { cls: "warn", label: "Perfil oculto" };
       case "failed":
-        return { cls: "vertigo-badge-danger", label: "ELO falló" };
+        return { cls: "bad", label: "ELO falló" };
       default:
         return null;
     }
@@ -187,190 +194,195 @@ function TeamCard({
   const paymentChip = (() => {
     if (reg.status !== "approved" || reg.payment_confirmed || !reg.payment_deadline_at) return null;
     const hoursLeft = Math.ceil((new Date(reg.payment_deadline_at).getTime() - Date.now()) / 3_600_000);
-    if (hoursLeft <= 0) return { text: "Pago vencido — la plaza se libera", color: "var(--vertigo-danger)", weight: 700 };
-    if (hoursLeft <= 24) return { text: `Pago: vence en ${hoursLeft}h`, color: "#fbbf24", weight: 700 };
-    return { text: `Pago: vence en ${hoursLeft}h`, color: "var(--vertigo-muted)", weight: 600 };
+    if (hoursLeft <= 0) return { text: "Pago vencido — la plaza se libera", tone: "bad" as const };
+    if (hoursLeft <= 24) return { text: `Pago vence en ${hoursLeft}h`, tone: "warn" as const };
+    return { text: `Pago vence en ${hoursLeft}h`, tone: "muted" as const };
   })();
 
+  const status = reg.status as "pending" | "approved" | "rejected";
+
   return (
-    <div className="vertigo-card">
-      <div className="vertigo-card-header">
-        <div className="flex items-center gap-4 min-w-0">
-          <div
-            className="flex items-center justify-center rounded-full border border-[var(--vertigo-purple)] text-[var(--vertigo-purple-soft)] flex-none"
-            style={{ width: 44, height: 44 }}
-          >
-            <Shield style={{ width: 20, height: 20 }} strokeWidth={1.25} />
+    <article className={`ad-card ad-card-${status}`}>
+      {/* Franja de estado */}
+      <span className="ad-card-rail" aria-hidden />
+
+      {/* ── Cabecera: escudo + identidad | ELO ─────────────────── */}
+      <header className="ad-card-head">
+        <div className="ad-crest">
+          {team?.emblem?.image_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={team.emblem.image_url} alt="" loading="lazy" decoding="async" />
+          ) : (
+            <span className="ad-crest-fallback">{(team?.name ?? "?").charAt(0).toUpperCase()}</span>
+          )}
+        </div>
+
+        <div className="ad-id">
+          <div className="ad-id-top">
+            <h3 className="ad-name" title={team?.name ?? undefined}>{team?.name ?? "—"}</h3>
+            {team?.tagline && <span className="ad-tagline" title={team.tagline}>&ldquo;{team.tagline}&rdquo;</span>}
           </div>
-          <div className="min-w-0">
-            <div className="font-cinzel text-lg font-semibold text-[var(--vertigo-text)] truncate">
-              {team?.name ?? "—"}
-            </div>
-            {team?.tagline && (
-              <div className="text-xs italic text-[var(--vertigo-muted)] truncate">
-                &ldquo;{team.tagline}&rdquo;
-              </div>
+          <div className="ad-meta">
+            <span className="ad-meta-item">{edition?.name ?? "—"}</span>
+            <span className="ad-meta-dot" />
+            <span className="ad-meta-item">
+              <Clock style={{ width: 11, height: 11, flex: "none" }} />
+              {fmt.date(reg.submitted_at)}
+            </span>
+            {paymentChip && (
+              <>
+                <span className="ad-meta-dot" />
+                <span className={`ad-chip ad-chip-${paymentChip.tone}`}>{paymentChip.text}</span>
+              </>
             )}
-            <div className="text-[11px] text-[var(--vertigo-faint)] mt-1 flex items-center gap-2 flex-wrap">
-              <span>{edition?.name ?? "—"}</span>
-              <span>·</span>
-              <Clock style={{ width: 11, height: 11 }} />
-              <span>Enviado {fmt.date(reg.submitted_at)}</span>
-              {paymentChip && (
-                <>
-                  <span>·</span>
-                  <span style={{ color: paymentChip.color, fontWeight: paymentChip.weight }}>
-                    {paymentChip.text}
-                  </span>
-                </>
+          </div>
+          {/* Badges de verificación de ELO — fila propia, nunca sobre el título */}
+          {(eloVerificationBadge || !isEloOk) && (
+            <div className="ad-flags">
+              {eloVerificationBadge && (
+                <span className={`ad-flag ad-flag-${eloVerificationBadge.cls}`}>
+                  {eloVerificationBadge.cls === "bad" ? <AlertTriangle style={{ width: 10, height: 10 }} /> : null}
+                  {eloVerificationBadge.label}
+                </span>
+              )}
+              {!isEloOk && (
+                <span className="ad-flag ad-flag-bad">
+                  <AlertTriangle style={{ width: 10, height: 10 }} />
+                  Supera ELO cap
+                </span>
               )}
             </div>
-          </div>
-        </div>
-
-        <div className="vertigo-info-card flex-none text-right">
-          <div className="vertigo-info-card-label justify-end">ELO Total</div>
-          <div
-            className="font-cinzel text-2xl font-bold leading-tight"
-            style={{ color: isEloOk ? "var(--vertigo-purple-pale)" : "var(--vertigo-danger)" }}
-          >
-            {reg.elo_freeze_snapshot ?? "—"}
-          </div>
-          <div className="text-[11px] text-[var(--vertigo-faint)]">/ {eloCap}</div>
-        </div>
-      </div>
-
-      {eloVerificationBadge && (
-        <div className="flex flex-wrap gap-2 mb-4">
-          <span className={`vertigo-badge ${eloVerificationBadge.cls}`}>{eloVerificationBadge.label}</span>
-          {reg.elo_verification_status === "pending" && (
-            <span className="vertigo-badge vertigo-badge-warning">
-              <AlertTriangle style={{ width: 11, height: 11 }} />
-              Jugador con perfil oculto
-            </span>
-          )}
-          {reg.elo_verification_status === "failed" && reg.elo_verification_reason && (
-            <span className="vertigo-badge vertigo-badge-danger">
-              {reg.elo_verification_reason}
-            </span>
-          )}
-          {!isEloOk && (
-            <span className="vertigo-badge vertigo-badge-danger">Supera ELO cap</span>
           )}
         </div>
-      )}
 
-      {/* Pago de la plaza: confirmación del staff con UN clic (0014).
-          - Aprobado sin pagar: botón verde que asegura la plaza (frena el cron).
-          - Expirado por no pagar: "salvar" — re-aprueba + confirma si hay lugar. */}
-      {(paymentAction || graceAction) && (
-        <div className="vertigo-action-bar mt-4 pt-4 border-t border-[var(--vertigo-line-soft)]">
-          {paymentAction && (
-            <form action={paymentAction}>
-              <button type="submit" className="vertigo-btn vertigo-btn-success">
-                <CreditCard style={{ width: 14, height: 14 }} />
-                Confirmar pago de la plaza
-              </button>
-            </form>
-          )}
-          {graceAction && (
-            <form action={graceAction}>
-              <button type="submit" className="vertigo-btn vertigo-btn-success">
-                <RotateCcw style={{ width: 14, height: 14 }} />
-                Pago recibido fuera de plazo — reactivar equipo
-              </button>
-            </form>
-          )}
-          <span className="text-[11px] text-[var(--vertigo-faint)]">
-            {paymentAction
-              ? "La plaza queda asegurada: el cron deja de contarla como impaga."
-              : "Re-aprueba la inscripción con el pago confirmado, si la edición todavía tiene lugar."}
+        {/* ELO — bloque compacto alineado a la derecha de la cabecera */}
+        <div className={`ad-elo ${!isEloOk ? "ad-elo-over" : ""}`}>
+          <span className="ad-elo-label">ELO total</span>
+          <span className="ad-elo-value">{elo ?? "—"}</span>
+          <span className="ad-elo-cap">/ {eloCap}</span>
+          <span className="ad-elo-bar" aria-hidden>
+            <i style={{ width: `${eloPct}%` }} />
           </span>
         </div>
-      )}
+      </header>
 
-      <div className="vertigo-subtitle">Jugadores</div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
-        {players.map((p: any) => (
-          <div key={p.id} className="vertigo-info-card">
-            <div className="vertigo-info-card-label">
-              {p.is_captain ? (
-                <>
-                  <Crown style={{ width: 11, height: 11, color: "var(--vertigo-purple-soft)" }} />
-                  Capitán
-                </>
-              ) : (
-                <>
-                  <Star style={{ width: 11, height: 11 }} />
-                  Jugador
-                </>
-              )}
+      {/* ── Cuerpo: jugadores ──────────────────────────────────── */}
+      <div className="ad-card-body">
+        <div className="ad-body-label">
+          Jugadores
+          <span className="ad-body-count">{players.length}/3</span>
+        </div>        <div className="ad-players">
+          {[...players]
+            .sort((a: any, b: any) =>
+              (b.is_captain ? 1 : 0) - (a.is_captain ? 1 : 0) ||
+              (b.max_rating_rm_1v1 ?? 0) - (a.max_rating_rm_1v1 ?? 0)
+            )
+            .map((p: any) => (
+            <div key={p.id} className={`ad-player ${p.is_captain ? "ad-player-captain" : ""}`}>
+              <span className="ad-player-avatar">{(p.display_name ?? "?").charAt(0).toUpperCase()}</span>
+              <span className="ad-player-main">
+                <span className="ad-player-name" title={p.display_name}>
+                  {p.is_captain && (
+                    <span className="ad-cap-chip">
+                      <Crown style={{ width: 9, height: 9 }} />
+                      Capitán
+                    </span>
+                  )}
+                  <span className="ad-player-nm" title={p.display_name}>{p.display_name}</span>
+                  {p.is_verified && <Check style={{ width: 12, height: 12, color: "var(--vertigo-success)", flex: "none" }} strokeWidth={2.5} />}
+                </span>
+                <span className="ad-player-sub">
+                  {p.country ?? "—"} · #{p.aoe2_profile_id}
+                </span>
+              </span>
+              <span className="ad-player-elo">
+                {p.max_rating_rm_1v1 !== null && p.max_rating_rm_1v1 !== undefined ? p.max_rating_rm_1v1.toLocaleString() : "—"}
+                <em>ELO</em>
+              </span>
             </div>
-            <div className="vertigo-info-card-value flex items-center gap-2">
-              {p.display_name}
-              {p.is_verified && (
-                <Check style={{ width: 13, height: 13, color: "var(--vertigo-success)" }} strokeWidth={2.5} />
-              )}
-            </div>
-            <div className="text-[11px] text-[var(--vertigo-faint)] mt-1">
-              {p.country ?? "—"} · #{p.aoe2_profile_id}
-              {p.max_rating_rm_1v1 !== null && (
-                <span className="text-[var(--vertigo-purple-soft)] ml-2">ELO: {p.max_rating_rm_1v1}</span>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Requisitos: un clic marca/desmarca; tutorial y Discord también se
-          autogestionan desde /mi-equipo */}
-      <div className="flex flex-wrap items-center gap-2 mt-4">
-        <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-[var(--vertigo-faint)] mr-1">
-          Requisitos
-        </span>
-        {REQUIREMENTS.map((r) => {
-          const done = !!reg[r.field];
-          return (
-            <form key={r.field} action={toggleRequirementAction}>
-              <input type="hidden" name="registrationId" value={reg.id} />
-              <input type="hidden" name="field" value={r.field} />
-              <button
-                type="submit"
-                className="vertigo-btn vertigo-btn-ghost"
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: 5,
-                  padding: "5px 12px", fontSize: 10,
-                  color: done ? "var(--vertigo-success)" : "var(--vertigo-faint)",
-                  borderColor: done ? "rgba(34,197,94,0.4)" : "var(--vertigo-line)",
-                }}
-                title={done ? `Clic para desmarcar "${r.label}"` : `Clic para marcar "${r.label}"`}
-              >
-                {done
-                  ? <Check style={{ width: 11, height: 11 }} strokeWidth={2.5} />
-                  : <X style={{ width: 11, height: 11 }} />}
-                {r.label}
-              </button>
-            </form>
-          );
-        })}
-      </div>
-
-      {showActions && (
-        <div className="vertigo-action-bar mt-5 pt-4 border-t border-[var(--vertigo-line-soft)]">
-          <form action={approveAction!}>
-            <button type="submit" className="vertigo-btn vertigo-btn-success">
-              <Check style={{ width: 14, height: 14 }} />
-              Aprobar
-            </button>
-          </form>
-          <form action={rejectAction!}>
-            <button type="submit" className="vertigo-btn vertigo-btn-danger">
-              <X style={{ width: 14, height: 14 }} />
-              Rechazar
-            </button>
-          </form>
+          ))}
+          {players.length === 0 && <div className="ad-empty" style={{ gridColumn: "1 / -1", margin: 0 }}>Sin jugadores cargados</div>}
         </div>
+
+        {/* ── Requisitos: fila de toggles + progreso, en franja propia ── */}
+        <div className="ad-reqs">
+          <div className="ad-reqs-head">
+            <span className="ad-body-label" style={{ margin: 0 }}>Requisitos</span>
+            <span className={`ad-reqs-progress ${doneCount === REQUIREMENTS.length ? "full" : ""}`}>
+              {doneCount}/{REQUIREMENTS.length}
+            </span>
+            <span className="ad-reqs-bar" aria-hidden>
+              <i style={{ width: `${(doneCount / REQUIREMENTS.length) * 100}%` }} />
+            </span>
+          </div>
+          <div className="ad-req-toggles">
+            {REQUIREMENTS.map((r) => {
+              const done = !!reg[r.field];
+              return (
+                <form key={r.field} action={toggleRequirementAction}>
+                  <input type="hidden" name="registrationId" value={reg.id} />
+                  <input type="hidden" name="field" value={r.field} />
+                  <button
+                    type="submit"
+                    className={`ad-req ${done ? "on" : ""}`}
+                    title={done ? `Clic para desmarcar "${r.label}"` : `Clic para marcar "${r.label}"`}
+                  >
+                    {done ? <Check style={{ width: 11, height: 11 }} strokeWidth={2.5} /> : <X style={{ width: 11, height: 11 }} />}
+                    {r.label}
+                  </button>
+                </form>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Pie: acciones — una sola fila, alineadas a la derecha ── */}
+      {(showActions || paymentAction || graceAction) && (
+        <footer className="ad-card-foot">
+          {!showActions && (
+            <span className="ad-foot-hint">
+              {paymentAction
+                ? "La plaza queda asegurada: el cron deja de contarla como impaga."
+                : "Re-aprueba la inscripción con el pago confirmado, si la edición todavía tiene lugar."}
+            </span>
+          )}
+          <div className="ad-foot-actions">
+            {paymentAction && (
+              <form action={paymentAction}>
+                <button type="submit" className="vertigo-btn vertigo-btn-success ad-btn">
+                  <CreditCard style={{ width: 13, height: 13 }} />
+                  Confirmar pago de la plaza
+                </button>
+              </form>
+            )}
+            {graceAction && (
+              <form action={graceAction}>
+                <button type="submit" className="vertigo-btn vertigo-btn-success ad-btn">
+                  <RotateCcw style={{ width: 13, height: 13 }} />
+                  Pago fuera de plazo — reactivar
+                </button>
+              </form>
+            )}
+            {showActions && (
+              <>
+                <form action={rejectAction!}>
+                  <button type="submit" className="vertigo-btn vertigo-btn-danger ad-btn">
+                    <X style={{ width: 13, height: 13 }} />
+                    Rechazar
+                  </button>
+                </form>
+                <form action={approveAction!}>
+                  <button type="submit" className="vertigo-btn vertigo-btn-success ad-btn">
+                    <Check style={{ width: 13, height: 13 }} />
+                    Aprobar
+                  </button>
+                </form>
+              </>
+            )}
+          </div>
+        </footer>
       )}
-    </div>
+    </article>
   );
 }

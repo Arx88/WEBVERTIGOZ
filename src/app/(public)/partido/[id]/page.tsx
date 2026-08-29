@@ -26,28 +26,15 @@ export default async function PartidoPage({
   }
 
   const supabase = await getSupabaseServer();
-  let initialMatch = null;
-  try {
-    initialMatch = await loadMatch(supabase, id);
-  } catch {
-    initialMatch = null;
-  }
 
-  // Contexto del capitán: ¿el usuario logueado es capitán de un equipo de este match?
-  let captainContext: import("@/components/captain/captain-match-panel").CaptainPanelContext | null = null;
-  try {
-    captainContext = await resolveCaptainContext(supabase as any, id);
-  } catch {
-    captainContext = null;
-  }
-
-  // Contexto del espectador: saldo, apuesta propia y agregados del pozo (para el BetPanel)
-  let spectatorContext: import("@/components/apuestas/bet-panel").BetPanelContext | null = null;
-  try {
-    spectatorContext = await resolveSpectatorContext(supabase as any, id);
-  } catch {
-    spectatorContext = null;
-  }
+  // Datos del partido + contexto del capitán + contexto del espectador
+  // corren EN PARALELO (antes: 3 bloques en serie — cada uno con varias
+  // queries de Supabase dentro, todo sumando latencia al TTFB).
+  const [initialMatch, captainContext, spectatorContext] = await Promise.all([
+    loadMatch(supabase, id).catch(() => null),
+    resolveCaptainContext(supabase as any, id).catch(() => null),
+    resolveSpectatorContext(supabase as any, id).catch(() => null),
+  ]);
 
   if (!initialMatch) {
     // Si no encontramos el match, mostramos un estado "no encontrado" con el diseño.

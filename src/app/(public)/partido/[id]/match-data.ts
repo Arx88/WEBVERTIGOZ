@@ -105,114 +105,136 @@ export async function loadMatch(supabase: any, matchId: string): Promise<MatchDa
 
   if (!match) return null;
 
-  // Team A
-  let teamA: MatchData["teamA"] = null;
-  if (match.team_a_id) {
-    const { data: ta } = (await supabase
-      .from("team_registration")
-      .select("id, seed, team_account:team_account_id ( name, emblem_id, emblem:emblem_id ( image_url ) )")
-      .eq("id", match.team_a_id)
-      .maybeSingle()) as { data: any };
-    if (ta) {
-      teamA = {
-        id: ta.id,
-        name: ta.team_account?.name ?? "—",
-        seed: ta.seed ?? null,
-        emblemUrl: ta.team_account?.emblem?.image_url ?? null,
-      };
-    }
-  }
+  // ─────────────────────────────────────────────────────────────
+  // Tanda 1 EN PARALELO: equipos, ronda, caster, games y comodines.
+  // Antes corrían en serie (6 round-trips secuenciales a Supabase) y
+  // cada uno sumaba su latencia al TTFB de la página de partido.
+  // ─────────────────────────────────────────────────────────────
+  const [teamARow, teamBRow, roundRow, casterRow, gamesRaw, comodinRaw] = (await Promise.all([
+    match.team_a_id
+      ? supabase
+          .from("team_registration")
+          .select("id, seed, team_account:team_account_id ( name, emblem_id, emblem:emblem_id ( image_url ) )")
+          .eq("id", match.team_a_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    match.team_b_id
+      ? supabase
+          .from("team_registration")
+          .select("id, seed, team_account:team_account_id ( name, emblem_id, emblem:emblem_id ( image_url ) )")
+          .eq("id", match.team_b_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    match.round_id
+      ? supabase.from("round").select("name").eq("id", match.round_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    match.stream_caster_id
+      ? supabase
+          .from("caster")
+          .select("display_name, twitch_channel, youtube_channel, kick_channel")
+          .eq("id", match.stream_caster_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    supabase
+      .from("match_game")
+      .select("id, game_number, status, game_mode, antimeta_mode, player_mode, map, civs_a, civs_b, winner_team_id, replay_url, started_at, finished_at, draw_id, aoe2_match_id, aoe2_sync_status, rec_storage_path")
+      .eq("match_id", matchId)
+      .order("game_number", { ascending: true }),
+    supabase
+      .from("comodin_usage")
+      .select("id, comodin_type, status, notes, comodin_inventory_id")
+      .eq("match_id", matchId)
+      .order("requested_at", { ascending: true }),
+  ])) as { data: any }[];
 
-  // Team B
-  let teamB: MatchData["teamB"] = null;
-  if (match.team_b_id) {
-    const { data: tb } = (await supabase
-      .from("team_registration")
-      .select("id, seed, team_account:team_account_id ( name, emblem_id, emblem:emblem_id ( image_url ) )")
-      .eq("id", match.team_b_id)
-      .maybeSingle()) as { data: any };
-    if (tb) {
-      teamB = {
-        id: tb.id,
-        name: tb.team_account?.name ?? "—",
-        seed: tb.seed ?? null,
-        emblemUrl: tb.team_account?.emblem?.image_url ?? null,
-      };
-    }
-  }
+  const teamOf = (row: any): MatchData["teamA"] =>
+    row
+      ? {
+          id: row.id,
+          name: row.team_account?.name ?? "—",
+          seed: row.seed ?? null,
+          emblemUrl: row.team_account?.emblem?.image_url ?? null,
+        }
+      : null;
+  const teamA = teamOf(teamARow?.data);
+  const teamB = teamOf(teamBRow?.data);
+  const roundName: string | null = roundRow?.data?.name ?? null;
+  const streamCaster: MatchData["streamCaster"] = casterRow?.data
+    ? {
+        displayName: casterRow.data.display_name ?? "—",
+        twitchChannel: casterRow.data.twitch_channel ?? null,
+        youtubeChannel: casterRow.data.youtube_channel ?? null,
+        kickChannel: casterRow.data.kick_channel ?? null,
+      }
+    : null;
 
-  // Round
-  let roundName: string | null = null;
-  if (match.round_id) {
-    const { data: round } = (await supabase
-      .from("round")
-      .select("name")
-      .eq("id", match.round_id)
-      .maybeSingle()) as { data: any };
-    if (round) roundName = round.name;
-  }
+  // ─────────────────────────────────────────────────────────────
+  // Tanda 2 EN PARALELO: análisis por game (tabla de lectura pública,
+  // funciona igual con el cliente anon del browser) e inventario de
+  // comodines. Ambas dependen solo de la tanda 1.
+  // ─────────────────────────────────────────────────────────────
+  const gameIds: string[] = (gamesRaw?.data ?? []).map((g: any) => g.id);
+  const invIds: string[] = (comodinRaw?.data ?? [])
+    .map((c: any) => c.comodin_inventory_id)
+    .filter(Boolean);
+  const [analysisRows, invs] = (await Promise.all([
+    gameIds.length > 0
+      ? supabase.from("match_game_analysis").select("match_game_id").in("match_game_id", gameIds)
+      : Promise.resolve({ data: null }),
+    invIds.length > 0
+      ? supabase.from("comodin_inventory").select("id, team_registration_id").in("id", invIds)
+      : Promise.resolve({ data: null }),
+  ])) as { data: any }[];
 
-  // Caster
-  let streamCaster: MatchData["streamCaster"] = null;
-  if (match.stream_caster_id) {
-    const { data: caster } = (await supabase
-      .from("caster")
-      .select("display_name, twitch_channel, youtube_channel, kick_channel")
-      .eq("id", match.stream_caster_id)
-      .maybeSingle()) as { data: any };
-    if (caster) {
-      streamCaster = {
-        displayName: caster.display_name ?? "—",
-        twitchChannel: caster.twitch_channel ?? null,
-        youtubeChannel: caster.youtube_channel ?? null,
-        kickChannel: caster.kick_channel ?? null,
-      };
-    }
-  }
-
-  // Games
-  const { data: gamesRaw } = (await supabase
-    .from("match_game")
-    .select("id, game_number, status, game_mode, antimeta_mode, player_mode, map, civs_a, civs_b, winner_team_id, replay_url, started_at, finished_at, draw_id, aoe2_match_id, aoe2_sync_status, rec_storage_path")
-    .eq("match_id", matchId)
-    .order("game_number", { ascending: true })) as { data: any };
-
-  // Qué games tienen análisis archivado (tabla con política de lectura pública,
-  // así que esta query funciona igual con el cliente anon del browser).
-  const gameIds: string[] = (gamesRaw ?? []).map((g: any) => g.id);
   const analysisSet = new Set<string>();
-  if (gameIds.length > 0) {
-    const { data: analysisRows } = (await supabase
-      .from("match_game_analysis")
-      .select("match_game_id")
-      .in("match_game_id", gameIds)) as { data: any };
-    for (const r of analysisRows ?? []) analysisSet.add(r.match_game_id);
+  for (const r of analysisRows?.data ?? []) analysisSet.add(r.match_game_id);
+
+  const regIds: string[] = (invs?.data ?? []).map((i: any) => i.team_registration_id).filter(Boolean);
+  const drawIds: string[] = (gamesRaw?.data ?? []).map((g: any) => g.draw_id).filter(Boolean);
+
+  // ─────────────────────────────────────────────────────────────
+  // Tanda 3 EN PARALELO: nombres de equipos de comodines + resultados
+  // de sorteos. Los draws van en UNA query `in` (antes: una query por
+  // partida, en serie dentro del loop).
+  // ─────────────────────────────────────────────────────────────
+  const [regs, draws] = (await Promise.all([
+    regIds.length > 0
+      ? supabase.from("team_registration").select("id, team_account:team_account_id ( name )").in("id", regIds)
+      : Promise.resolve({ data: null }),
+    drawIds.length > 0
+      ? supabase.from("roulette_draw").select("id, result, status").in("id", drawIds)
+      : Promise.resolve({ data: null }),
+  ])) as { data: any }[];
+
+  const regToName: Record<string, string> = {};
+  for (const r of regs?.data ?? []) {
+    regToName[r.id] = r.team_account?.name ?? "—";
   }
+  const invToTeam: Record<string, string> = {};
+  for (const i of invs?.data ?? []) {
+    invToTeam[i.id] = regToName[i.team_registration_id] ?? "—";
+  }
+  const drawById = new Map<string, any>();
+  for (const d of draws?.data ?? []) drawById.set(d.id, d);
 
   const games: GameView[] = [];
-  for (const g of gamesRaw ?? []) {
+  for (const g of gamesRaw?.data ?? []) {
     let drawResult: GameView["drawResult"] = null;
-    if (g.draw_id) {
-      const { data: draw } = (await supabase
-        .from("roulette_draw")
-        .select("result, status")
-        .eq("id", g.draw_id)
-        .maybeSingle()) as { data: any };
-      if (draw && draw.result) {
-        const r = draw.result as any;
-        // El result guarda cada fase como objeto PresetMode completo
-        // ({ id, title, … }); el GameView espera el título para display.
-        const title = (v: any): string | undefined =>
-          v == null ? undefined : typeof v === "object" ? v.title ?? undefined : String(v);
-        drawResult = {
-          gameMode: title(r.gameMode),
-          antimetaMode: title(r.antimetaMode),
-          playerMode: title(r.playerMode),
-          map: title(r.map),
-          civsA: r.civsA,
-          civsB: r.civsB,
-        };
-      }
+    const draw = g.draw_id ? drawById.get(g.draw_id) : null;
+    if (draw && draw.result) {
+      const r = draw.result as any;
+      // El result guarda cada fase como objeto PresetMode completo
+      // ({ id, title, … }); el GameView espera el título para display.
+      const title = (v: any): string | undefined =>
+        v == null ? undefined : typeof v === "object" ? v.title ?? undefined : String(v);
+      drawResult = {
+        gameMode: title(r.gameMode),
+        antimetaMode: title(r.antimetaMode),
+        playerMode: title(r.playerMode),
+        map: title(r.map),
+        civsA: r.civsA,
+        civsB: r.civsB,
+      };
     }
     games.push({
       id: g.id,
@@ -238,40 +260,7 @@ export async function loadMatch(supabase: any, matchId: string): Promise<MatchDa
     });
   }
 
-  // Comodín usages
-  const { data: comodinRaw } = (await supabase
-    .from("comodin_usage")
-    .select("id, comodin_type, status, notes, comodin_inventory_id")
-    .eq("match_id", matchId)
-    .order("requested_at", { ascending: true })) as { data: any };
-
-  // Para cada uso, traer el team name (via comodin_inventory)
-  const invIds: string[] = (comodinRaw ?? [])
-    .map((c: any) => c.comodin_inventory_id)
-    .filter(Boolean);
-  let invToTeam: Record<string, string> = {};
-  if (invIds.length > 0) {
-    const { data: invs } = (await supabase
-      .from("comodin_inventory")
-      .select("id, team_registration_id")
-      .in("id", invIds)) as { data: any };
-    const regIds: string[] = (invs ?? []).map((i: any) => i.team_registration_id).filter(Boolean);
-    let regToName: Record<string, string> = {};
-    if (regIds.length > 0) {
-      const { data: regs } = (await supabase
-        .from("team_registration")
-        .select("id, team_account:team_account_id ( name )")
-        .in("id", regIds)) as { data: any };
-      for (const r of regs ?? []) {
-        regToName[r.id] = r.team_account?.name ?? "—";
-      }
-    }
-    for (const i of invs ?? []) {
-      invToTeam[i.id] = regToName[i.team_registration_id] ?? "—";
-    }
-  }
-
-  const comodinUsages: MatchData["comodinUsages"] = (comodinRaw ?? []).map((c: any) => ({
+  const comodinUsages: MatchData["comodinUsages"] = (comodinRaw?.data ?? []).map((c: any) => ({
     id: c.id,
     comodinType: c.comodin_type,
     status: c.status,

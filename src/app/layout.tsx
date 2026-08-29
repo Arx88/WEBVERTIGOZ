@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Cinzel, Anton, Inter, Rajdhani } from "next/font/google";
 import { Toaster } from "@/components/ui/toaster";
 import SoundProvider from "@/components/shared/sound-provider";
+import VideoAutopause from "@/components/shared/video-autopause";
 import "./globals.css";
 
 const cinzel = Cinzel({
@@ -66,6 +67,7 @@ export default function RootLayout({
         {children}
         <Toaster />
         <SoundProvider />
+        <VideoAutopause />
       </body>
     </html>
   );

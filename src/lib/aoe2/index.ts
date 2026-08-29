@@ -32,6 +32,10 @@ async function throttle() {
   requestCount++;
 }
 
+// Timeout por request: Companion caído o lento NO puede colgar la
+// serverless function (Vercel corta a los 10-60s y cobra el tiempo).
+const FETCH_TIMEOUT_MS = 8_000;
+
 async function fetchApi<T>(path: string): Promise<T> {
   await throttle();
   const url = `${API_URL}${path}`;
@@ -40,6 +44,7 @@ async function fetchApi<T>(path: string): Promise<T> {
       "User-Agent": USER_AGENT,
       "Accept": "application/json",
     },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     next: { revalidate: 1800 }, // 30 min cache
   });
   if (!res.ok) {
@@ -60,6 +65,7 @@ async function fetchLive<T>(path: string): Promise<T> {
       "User-Agent": USER_AGENT,
       "Accept": "application/json",
     },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     cache: "no-store",
   });
   if (!res.ok) {
