@@ -4,23 +4,25 @@
  * VÉRTIGO Cup — GameAnalysisCard ("Informe de partida")
  *
  * Informe post-partida con el análisis archivado desde AoE2 Companion.
- * Composición:
+ * El informe ES una comparación entre dos equipos: se estructura como un
+ * scoreboard de transmisión — filas compactas de jugadores sobre UN EJE
+ * DE TIEMPO COMPARTIDO, no tarjetas gigantes apiladas.
  *
- *   1. BANDA VS: un solo frasco horizontal — los dos equipos frente a
- *      frente con el medallón central (⚔ VS ⚔ + duración). El lado
- *      ganador se pinta dorado.
+ *   1. BANDA VS: los dos equipos frente a frente con el medallón central
+ *      (⚔ VS ⚔ + duración). El lado ganador se pinta dorado.
  *   2. LA GALERÍA DE LA PARTIDA: chips de superlativo — War Machine,
  *      Population Beast, eAPM GOD, Speedrunner, Último en caer — cada
- *      uno con el jugador que se lo ganó. Los mismos chips aparecen
- *      en miniatura sobre la tarjeta de cada jugador.
- *   3. CAMPO DE BATALLA: UNA TARJETA POR JUGADOR — dos columnas de
- *      equipo (A izquierda, B derecha), cada jugador en su propia
- *      tarjeta con aire de sobra: escudo, nombre, galardones, stats a
- *      la derecha, barra de edades y lectura estratégica. La tarjeta
- *      del ganador lleva tinte dorado. En mobile se apila A → B.
- *   4. EL CAMPO FINAL: mapa final + chat a lo ancho, bajo el campo de
- *      batalla (en xl comparten fila: mapa + chat).
- *   5. ACCIONES: descargar .aoe2record / ver en Companion.
+ *      uno con el jugador que se lo ganó.
+ *   3. LA PARTIDA EN UNA MIRADA (box score): UNA FILA COMPACTA POR
+ *      JUGADOR — avatar de civ, nombre, galardones, edades como bandas
+ *      sobre el eje de tiempo compartido con retícula de minutos, y
+ *      columnas de stats alineadas (eAPM · aldeanos · militar). Equipo A
+ *      arriba, equipo B debajo, MISMO EJE: las diferencias de timing
+ *      entre equipos se leen de un vistazo.
+ *   4. LECTURA DE LA PARTIDA: la estrategia de cada jugador en chips
+ *      legibles, en dos paneles espejados por equipo.
+ *   5. EL CAMPO FINAL: mapa final + chat.
+ *   6. ACCIONES: descargar .aoe2record / ver en Companion.
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -79,6 +81,7 @@ interface AnalysisPlayer {
   /** Conteos curados desde v3 del payload (client-side caen a buildOrder). */
   villagersTrained?: number | null;
   militaryTrained?: number | null;
+  fishingShips?: number | null;
   winner: boolean;
   resignedAt: string | null;
   resignedSeconds: number | null;
@@ -135,6 +138,17 @@ const SEG_COLORS: Record<string, string> = {
 
 const TEAM_COLORS = ["#a78bfa", "#fda4af"];
 const GOLD = "#D4AF37";
+const RED_SOFT = "#fb7185";
+
+const AWARD_GOLD_TEXT = "rgba(212,175,55,0.92)";
+const AWARD_BORDER = "1px solid rgba(212,175,55,0.30)";
+const AWARD_BG = "rgba(212,175,55,0.05)";
+
+/** Columnas fijas del box score: identidad | eje de edades | stats. */
+const IDENTITY_W = 190;
+const STATS_W = 170;
+const COL_GAP = 16;
+const ROW_PX = 12;
 
 /** Iconos de los tags estratégicos (los nombres los pone strategy.ts). */
 const TAG_ICONS: Record<string, React.ComponentType<{ style?: React.CSSProperties }>> = {
@@ -169,6 +183,13 @@ const TAG_KIND_COLOR: Record<StrategyTag["kind"], string> = {
   economy: "#34d399",
 };
 
+/** Tinte de fondo por tipo de tag: apertura dorada, ejército púrpura, economía verde. */
+const TAG_KIND_BG: Record<StrategyTag["kind"], string> = {
+  opening: "rgba(212,175,55,0.06)",
+  army: "rgba(124,58,237,0.10)",
+  economy: "rgba(52,211,153,0.07)",
+};
+
 // Companion devuelve el slug en singular/minúsculas a veces; el catálogo y los .webp usan otra forma
 const CIV_SLUG_ALIASES: Record<string, string> = {
   muisca: "muiscas",
@@ -189,6 +210,20 @@ function fmtClock(seconds: number | null | undefined): string {
   return h > 0
     ? `${h}:${String(m).padStart(2, "0")}:${String(ss).padStart(2, "0")}`
     : `${m}:${String(ss).padStart(2, "0")}`;
+}
+
+/** Fin del eje compartido: la duración real de la partida. */
+function axisTotal(durationSeconds: number | null | undefined, latestAgeSec: number): number {
+  if (durationSeconds && durationSeconds > 0) return durationSeconds;
+  return Math.max(latestAgeSec * 1.12, 300);
+}
+
+/** Retícula de minutos: cada 2/5/10 min según la duración total. */
+function gridlinesFor(total: number): number[] {
+  const step = total <= 900 ? 120 : total <= 2700 ? 300 : 600;
+  const out: number[] = [];
+  for (let t = step; t < total - step * 0.15; t += step) out.push(t);
+  return out;
 }
 
 /* ============================================================
@@ -212,8 +247,20 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Barra de edades proporcional, fina y sin texto interno. */
-function AgeTrack({ uptimes, durationSeconds }: { uptimes: Uptime[]; durationSeconds: number | null }) {
+/**
+ * Track de edades de UNA fila del box score: bandas horizontales finas
+ * alineadas al eje compartido, marcas de tiempo por edad y el marcador
+ * rojo de renuncia sobre el eje si el jugador renunció.
+ */
+function AgeTrack({
+  uptimes,
+  total,
+  resignedSeconds,
+}: {
+  uptimes: Uptime[];
+  total: number;
+  resignedSeconds: number | null;
+}) {
   const at = new Map<string, number>();
   for (const u of uptimes) if (u.age && u.seconds != null) at.set(u.age, u.seconds);
   const feudal = at.get("feudal_age");
@@ -226,19 +273,22 @@ function AgeTrack({ uptimes, durationSeconds }: { uptimes: Uptime[]; durationSec
   if (castle != null) bounds.push({ age: "castle_age", t: castle });
   if (imperial != null) bounds.push({ age: "imperial_age", t: imperial });
   const last = bounds[bounds.length - 1].t;
-  const total = durationSeconds && durationSeconds > last ? durationSeconds : Math.max(last * 1.15, 1);
+  const axisEnd = Math.max(total, last * 1.02);
 
   const segs: { age: string; from: number; to: number }[] = [];
   for (let i = 0; i < bounds.length - 1; i++) {
     segs.push({ age: bounds[i].age, from: bounds[i].t, to: bounds[i + 1].t });
   }
-  segs.push({ age: bounds[bounds.length - 1].age, from: last, to: total });
+  segs.push({ age: bounds[bounds.length - 1].age, from: last, to: axisEnd });
+
+  const resigned =
+    resignedSeconds != null && resignedSeconds > 0 && resignedSeconds <= axisEnd ? resignedSeconds : null;
 
   return (
-    <div className="mt-4" aria-label="Progresión de edades">
-      <div className="flex h-[6px] w-full overflow-hidden rounded-full" style={{ background: "#0d0915" }}>
+    <div aria-label="Progresión de edades" className="min-w-0">
+      <div className="flex h-[7px] w-full overflow-hidden rounded-full" style={{ background: "#0d0915" }}>
         {segs.map((s, i) => {
-          const w = ((s.to - s.from) / total) * 100;
+          const w = ((s.to - s.from) / axisEnd) * 100;
           if (w <= 0) return null;
           return (
             <div
@@ -254,13 +304,13 @@ function AgeTrack({ uptimes, durationSeconds }: { uptimes: Uptime[]; durationSec
           );
         })}
       </div>
-      <div className="relative h-[12px] mt-[2px]">
+      <div className="relative h-[13px] mt-[3px]">
         {bounds.slice(1).map((b, i) => (
           <span
             key={i}
             className="ga-tick absolute font-mono text-[8.5px] text-[var(--vertigo-faint)]"
             style={{
-              left: `${Math.min(96, Math.max(3, (b.t / total) * 100))}%`,
+              left: `${Math.min(97, Math.max(3, (b.t / axisEnd) * 100))}%`,
               transform: "translateX(-50%)",
               fontVariantNumeric: "tabular-nums",
             }}
@@ -268,15 +318,29 @@ function AgeTrack({ uptimes, durationSeconds }: { uptimes: Uptime[]; durationSec
             {fmtClock(b.t)}
           </span>
         ))}
+        {resigned != null && (
+          <span
+            className="ga-tick absolute font-mono text-[8.5px] font-bold"
+            style={{
+              left: `${Math.min(97, Math.max(3, (resigned / axisEnd) * 100))}%`,
+              transform: "translateX(-50%)",
+              color: RED_SOFT,
+              fontVariantNumeric: "tabular-nums",
+            }}
+            title={`Renunció a los ${fmtClock(resigned)}`}
+          >
+            ▼ {fmtClock(resigned)}
+          </span>
+        )}
       </div>
     </div>
   );
 }
 
 /**
- * Lectura estratégica del jugador: apertura, composición y economía.
- * Reemplaza el listado crudo de acciones del build order: lo que importa
- * es "¿abrió arqueros? ¿scout rush? ¿fast castle y después qué?".
+ * Lectura estratégica del jugador: apertura, composición y economía en
+ * chips legibles con icono. Es lo que reemplaza al listado crudo de
+ * acciones del build order.
  */
 function StrategyChips({ pl }: { pl: AnalysisPlayer }) {
   const tags =
@@ -285,7 +349,7 @@ function StrategyChips({ pl }: { pl: AnalysisPlayer }) {
       : analyzeStrategy(pl.buildOrder ?? [], pl.uptimes);
   if (tags.length === 0) return null;
   return (
-    <div className="flex flex-wrap items-center gap-1.5 mt-3.5">
+    <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
       {tags.map((t, i) => {
         const Icon = TAG_ICONS[t.icon];
         const color = TAG_KIND_COLOR[t.kind] ?? "#a78bfa";
@@ -294,9 +358,9 @@ function StrategyChips({ pl }: { pl: AnalysisPlayer }) {
             key={i}
             className="inline-flex items-center gap-1.5 rounded-full ga-chip-soft"
             style={{
-              padding: "3.5px 10px",
-              background: "rgba(255,255,255,0.03)",
-              border: `1px solid ${color}33`,
+              padding: "3px 9px",
+              background: TAG_KIND_BG[t.kind] ?? "rgba(255,255,255,0.03)",
+              border: `1px solid ${color}38`,
             }}
             title={t.kind === "opening" ? "Apertura" : t.kind === "army" ? "Composición del ejército" : "Economía"}
           >
@@ -317,15 +381,10 @@ function StrategyChips({ pl }: { pl: AnalysisPlayer }) {
 }
 
 /* ============================================================
-   Superlativos: chip grande (galería) y mini (tarjeta del jugador).
+   Superlativos: chip grande (galería) y mini (fila del jugador).
    Lenguaje visual ÚNICO: oro = prestigio. El color por premio vive
    solo en el icono, para no pelear con los colores de los equipos.
-   Jerarquía adentro del chip: primero QUIÉN lo ganó, después el dato.
    ============================================================ */
-
-const AWARD_GOLD_TEXT = "rgba(212,175,55,0.92)";
-const AWARD_BORDER = "1px solid rgba(212,175,55,0.30)";
-const AWARD_BG = "rgba(212,175,55,0.05)";
 
 function SuperlativeChipBig({ chip, playerName }: { chip: Superlative; playerName: string | null }) {
   const Icon = SUPERLATIVE_ICONS[chip.icon];
@@ -368,250 +427,17 @@ function SuperlativeChipMini({ chip }: { chip: Superlative }) {
     <span
       className="inline-flex items-center gap-1 rounded-full flex-none ga-chip"
       style={{
-        padding: "2.5px 9px",
+        padding: "2px 8px",
         background: AWARD_BG,
         border: AWARD_BORDER,
       }}
       title={`${chip.label} de la partida · ${chip.detail}`}
     >
       {Icon && <Icon style={{ width: 10, height: 10, color: chip.color, flexShrink: 0 }} />}
-      <span className="text-[8.5px] font-bold uppercase" style={{ color: AWARD_GOLD_TEXT, letterSpacing: "0.9px" }}>
+      <span className="text-[8px] font-bold uppercase" style={{ color: AWARD_GOLD_TEXT, letterSpacing: "0.8px" }}>
         {chip.label}
       </span>
     </span>
-  );
-}
-
-/* ============================================================
-   Tarjeta de jugador — UNA tarjeta por jugador, con aire.
-   ============================================================ */
-
-function PlayerCard({
-  pl,
-  durationSeconds,
-  badges,
-}: {
-  pl: AnalysisPlayer;
-  durationSeconds: number | null;
-  badges: Superlative[];
-}) {
-  const civSlug = normalizeCivSlug(pl.civ);
-  const winner = pl.winner;
-  const awardIds = new Set(badges.map((b) => b.id));
-  const hasEapmGod = awardIds.has("eapm_god");
-  const hasLastStand = awardIds.has("last_stand");
-  // Deduplicación: lo que la tarjeta ya muestra como stat (eAPM, resignación)
-  // no se repite como mini chapa de galardón.
-  const rowBadges = badges.filter((b) => b.id !== "eapm_god" && b.id !== "last_stand");
-
-  return (
-    <article className="ga-player-card" data-winner={winner ? "true" : undefined} style={{ padding: "17px 20px 19px" }}>
-      <div className="flex items-start gap-4">
-        {/* Escudo de civ con el color de la partida; corona flotante si ganó */}
-        <div className="relative flex-none" style={{ width: 52, height: 52 }}>
-          {civSlug ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={`/civs/${civSlug}.webp`}
-              alt={civName(civSlug)}
-              loading="lazy"
-              decoding="async"
-              className="rounded-[12px]"
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                border: `2px solid ${pl.colorHex ?? "var(--vertigo-line)"}`,
-                boxShadow: winner ? "0 0 16px rgba(212,175,55,0.25)" : "none",
-              }}
-            />
-          ) : (
-            <div
-              className="rounded-[12px]"
-              style={{ width: "100%", height: "100%", background: "var(--vertigo-line-soft)", border: `2px solid ${pl.colorHex ?? "var(--vertigo-line)"}` }}
-            />
-          )}
-          {winner && (
-            <span
-              className="absolute flex items-center justify-center rounded-full"
-              style={{
-                top: -8,
-                right: -8,
-                width: 22,
-                height: 22,
-                background: "#0b0713",
-                border: "1.5px solid rgba(212,175,55,0.6)",
-              }}
-              title="Ganador"
-            >
-              <Crown style={{ width: 12, height: 12, color: GOLD }} />
-            </span>
-          )}
-        </div>
-
-        {/* Nombre + galardones + civ */}
-        <div className="flex-1 min-w-0" style={{ paddingTop: 3 }}>
-          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
-            <span className="text-[15px] font-semibold text-[var(--vertigo-text)] truncate max-w-full">
-              {pl.name ?? "—"}
-            </span>
-            {rowBadges.map((b) => (
-              <SuperlativeChipMini key={b.id} chip={b} />
-            ))}
-          </div>
-          <div className="text-[12px] text-[var(--vertigo-faint)] truncate flex items-center gap-1.5" style={{ marginTop: 5 }}>
-            {civSlug ? civName(civSlug) : "Civ desconocida"}
-            {pl.colorHex && (
-              <span
-                className="inline-block w-[7px] h-[7px] rounded-full flex-none"
-                style={{ background: pl.colorHex }}
-                title="Color en la partida"
-              />
-            )}
-          </div>
-        </div>
-
-        {/* Stats: columna derecha, alineadas y sin pelear con el nombre */}
-        {(pl.eapm != null || winner || pl.resignedSeconds != null) && (
-          <div className="flex-none flex flex-col items-end gap-1.5" style={{ paddingTop: 1 }}>
-            {pl.eapm != null && (
-              <span
-                className="inline-flex items-center gap-1 rounded-md font-mono"
-                style={{
-                  padding: "3px 8px",
-                  background: hasEapmGod ? AWARD_BG : "rgba(255,255,255,0.03)",
-                  border: hasEapmGod ? AWARD_BORDER : "1px solid var(--vertigo-line-soft)",
-                  fontVariantNumeric: "tabular-nums",
-                }}
-                title={hasEapmGod ? "eAPM GOD de la partida" : "Acciones efectivas por minuto"}
-              >
-                {hasEapmGod && <Zap style={{ width: 10, height: 10, color: "#facc15", flexShrink: 0 }} />}
-                <span className="text-[12px] font-bold text-[var(--vertigo-text)]">{pl.eapm}</span>
-                <span className="text-[8px] font-bold uppercase text-[var(--vertigo-faint)]" style={{ letterSpacing: "1px" }}>
-                  eAPM{pl.eapmPeak != null ? ` · ${pl.eapmPeak}` : ""}
-                </span>
-              </span>
-            )}
-            {winner ? (
-              <span
-                className="inline-flex items-baseline gap-1.5 rounded-md font-mono"
-                style={{
-                  padding: "3px 8px",
-                  background: "rgba(212,175,55,0.07)",
-                  border: "1px solid rgba(212,175,55,0.35)",
-                  fontVariantNumeric: "tabular-nums",
-                }}
-              >
-                <span className="text-[8px] font-bold uppercase" style={{ letterSpacing: "1.2px", color: GOLD }}>
-                  Ganó
-                </span>
-                {pl.resignedSeconds != null && (
-                  <span className="text-[10.5px]" style={{ color: "rgba(212,175,55,0.75)" }}>
-                    {fmtClock(pl.resignedSeconds)}
-                  </span>
-                )}
-              </span>
-            ) : pl.resignedSeconds != null ? (
-              <span
-                className="inline-flex items-center gap-1 rounded-md font-mono"
-                style={{
-                  padding: "3px 8px",
-                  background: hasLastStand ? AWARD_BG : "rgba(251,113,133,0.06)",
-                  border: hasLastStand ? AWARD_BORDER : "1px solid rgba(251,113,133,0.25)",
-                  fontVariantNumeric: "tabular-nums",
-                }}
-                title={hasLastStand ? "Last Stand de la partida" : undefined}
-              >
-                <span className="text-[8px] font-bold uppercase text-[var(--vertigo-faint)]" style={{ letterSpacing: "1px" }}>
-                  Resignó
-                </span>
-                {hasLastStand && <Heart style={{ width: 10, height: 10, color: "#fb923c", flexShrink: 0 }} />}
-                <span className="text-[10.5px]" style={{ color: hasLastStand ? "#fb923c" : "#fda4af" }}>
-                  {fmtClock(pl.resignedSeconds)}
-                </span>
-              </span>
-            ) : null}
-          </div>
-        )}
-      </div>
-
-      <AgeTrack uptimes={pl.uptimes} durationSeconds={durationSeconds} />
-
-      <StrategyChips pl={pl} />
-    </article>
-  );
-}
-
-/* ============================================================
-   Sección de equipo: cabecera + tarjetas de jugador apiladas
-   ============================================================ */
-
-function TeamSection({
-  name,
-  color,
-  winner,
-  hasWinner,
-  players,
-  durationSeconds,
-  badgesByProfile,
-}: {
-  name: string;
-  color: string;
-  winner: boolean;
-  hasWinner: boolean;
-  players: AnalysisPlayer[];
-  durationSeconds: number | null;
-  badgesByProfile: Map<number, Superlative[]>;
-}) {
-  const gold = hasWinner && winner;
-  return (
-    <section className="min-w-0">
-      <div
-        className="flex items-center gap-3"
-        style={{
-          paddingBottom: 13,
-          marginBottom: 15,
-          borderBottom: `2px solid ${gold ? "rgba(212,175,55,0.5)" : "var(--vertigo-line)"}`,
-        }}
-      >
-        <span className="flex-none" style={{ width: 10, height: 10, transform: "rotate(45deg)", background: gold ? GOLD : color }} />
-        <span
-          className="font-[Cinzel,serif] text-[16px] font-bold uppercase truncate"
-          style={{ letterSpacing: "1.4px", color: gold ? GOLD : "var(--vertigo-text)" }}
-        >
-          {name}
-        </span>
-        {hasWinner && (
-          <span
-            className="flex-none ml-auto text-[9px] font-bold uppercase rounded-full"
-            style={{
-              padding: "3.5px 11px",
-              letterSpacing: "1.2px",
-              color: winner ? GOLD : "var(--vertigo-faint)",
-              border: winner ? "1px solid rgba(212,175,55,0.4)" : "1px solid var(--vertigo-line)",
-              background: winner ? "rgba(212,175,55,0.07)" : "transparent",
-            }}
-          >
-            {winner ? "Victoria" : "Derrota"}
-          </span>
-        )}
-      </div>
-      <div className="flex flex-col gap-4">
-        {players.length === 0 && (
-          <div className="text-[12px] text-[var(--vertigo-faint)]" style={{ padding: "4px 2px" }}>
-            Sin datos de jugadores
-          </div>
-        )}
-        {players.map((pl, i) => (
-          <PlayerCard
-            key={pl.profileId ?? i}
-            pl={pl}
-            durationSeconds={durationSeconds}
-            badges={pl.profileId != null ? badgesByProfile.get(pl.profileId) ?? [] : []}
-          />
-        ))}
-      </div>
-    </section>
   );
 }
 
@@ -621,33 +447,70 @@ function TeamSection({
 
 function VsBanner({
   teamNames,
+  teamEmblems,
   winnerIdx,
   hasWinner,
   durationSeconds,
 }: {
   teamNames: [string, string];
+  teamEmblems: [string | null, string | null];
   winnerIdx: number | null;
   hasWinner: boolean;
   durationSeconds: number | null;
 }) {
   const side = (i: 0 | 1) => {
     const gold = hasWinner && winnerIdx === i;
+    const emblem = teamEmblems[i];
     return (
-      <div
-        className={`flex-1 flex items-center gap-2.5 min-w-0 ${i === 1 ? "flex-row-reverse" : ""}`}
-      >
-        {gold && <Crown style={{ width: 17, height: 17, color: GOLD, flexShrink: 0 }} />}
-        <span
-          className={`font-[Cinzel,serif] font-bold uppercase truncate ${gold ? "ga-gold-breath" : ""}`}
-          style={{
-            fontSize: 18,
-            letterSpacing: "1px",
-            color: gold ? GOLD : "var(--vertigo-text)",
-            textAlign: i === 1 ? "right" : "left",
-          }}
-        >
-          {teamNames[i]}
-        </span>
+      <div className={`flex-1 flex items-center gap-3.5 min-w-0 ${i === 1 ? "flex-row-reverse" : ""}`}>
+        {emblem ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={emblem}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            className="flex-none rounded-[10px]"
+            style={{
+              width: 44,
+              height: 44,
+              objectFit: "cover",
+              border: `2px solid ${gold ? "rgba(212,175,55,0.75)" : "var(--vertigo-line)"}`,
+              boxShadow: gold ? "0 0 18px rgba(212,175,55,0.22)" : "none",
+              background: "#0d0915",
+            }}
+          />
+        ) : (
+          <span
+            className="flex-none rounded-[10px]"
+            style={{
+              width: 44,
+              height: 44,
+              background: "var(--vertigo-line-soft)",
+              border: `2px solid ${gold ? "rgba(212,175,55,0.75)" : "var(--vertigo-line)"}`,
+            }}
+          />
+        )}
+        <div className={`flex flex-col min-w-0 ${i === 1 ? "items-end text-right" : "items-start"}`}>
+          {gold && (
+            <span
+              className="flex-none text-[8px] font-bold uppercase mb-1"
+              style={{ color: GOLD, letterSpacing: "2px" }}
+            >
+              ★ Campeón de la partida
+            </span>
+          )}
+          <span
+            className={`font-[Cinzel,serif] font-bold uppercase truncate ${gold ? "ga-gold-breath" : ""}`}
+            style={{
+              fontSize: 18,
+              letterSpacing: "1px",
+              color: gold ? GOLD : "var(--vertigo-text)",
+            }}
+          >
+            {teamNames[i]}
+          </span>
+        </div>
       </div>
     );
   };
@@ -695,6 +558,304 @@ function VsBanner({
 }
 
 /* ============================================================
+   Box score: cabecera de equipo, fila de jugador, stats
+   ============================================================ */
+
+function TeamHeaderRow({
+  name,
+  color,
+  winner,
+  hasWinner,
+}: {
+  name: string;
+  color: string;
+  winner: boolean;
+  hasWinner: boolean;
+}) {
+  const gold = hasWinner && winner;
+  return (
+    <div
+      className="flex items-center gap-3 px-3 lg:grid lg:grid-cols-[190px_minmax(0,1fr)_170px] lg:gap-x-4"
+      style={{
+        paddingTop: 9,
+        paddingBottom: 8,
+        borderBottom: `2px solid ${gold ? "rgba(212,175,55,0.5)" : "var(--vertigo-line)"}`,
+      }}
+    >
+      <div className="flex items-center gap-2.5 min-w-0">
+        <span className="flex-none" style={{ width: 9, height: 9, transform: "rotate(45deg)", background: gold ? GOLD : color }} />
+        <span
+          className={`font-[Cinzel,serif] text-[15px] font-bold uppercase truncate ${gold ? "ga-gold-breath" : ""}`}
+          style={{ letterSpacing: "1.2px", color: gold ? GOLD : "var(--vertigo-text)" }}
+        >
+          {name}
+        </span>
+      </div>
+      <div className="hidden lg:block" />
+      {hasWinner && (
+        <span
+          className="ml-auto lg:ml-0 lg:justify-self-end flex-none text-[9px] font-bold uppercase rounded-full"
+          style={{
+            padding: "3px 11px",
+            letterSpacing: "1.2px",
+            color: winner ? GOLD : "var(--vertigo-faint)",
+            border: winner ? "1px solid rgba(212,175,55,0.4)" : "1px solid var(--vertigo-line)",
+            background: winner ? "rgba(212,175,55,0.07)" : "transparent",
+          }}
+        >
+          {winner ? "Victoria" : "Derrota"}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function StatCell({
+  value,
+  label,
+  title,
+  gold,
+}: {
+  value: number | null;
+  label: string;
+  title: string;
+  gold?: boolean;
+}) {
+  if (value == null) return <span className="w-[52px] flex-none" />;
+  return (
+    <span
+      className="w-[52px] flex-none flex flex-col items-center rounded-md"
+      style={{
+        padding: "3px 2px",
+        background: gold ? AWARD_BG : "rgba(255,255,255,0.03)",
+        border: gold ? AWARD_BORDER : "1px solid var(--vertigo-line-soft)",
+      }}
+      title={title}
+    >
+      <span
+        className="font-mono text-[11.5px] font-bold leading-none"
+        style={{ color: "var(--vertigo-text)", fontVariantNumeric: "tabular-nums" }}
+      >
+        {value}
+      </span>
+      <span
+        className="text-[7px] font-bold uppercase mt-[3px] leading-none"
+        style={{ letterSpacing: "1px", color: gold ? AWARD_GOLD_TEXT : "var(--vertigo-faint)" }}
+      >
+        {label}
+      </span>
+    </span>
+  );
+}
+
+function PlayerRow({
+  pl,
+  total,
+  badges,
+  idx,
+}: {
+  pl: AnalysisPlayer;
+  total: number;
+  badges: Superlative[];
+  idx: number;
+}) {
+  const civSlug = normalizeCivSlug(pl.civ);
+  const winner = pl.winner;
+  const awardIds = new Set(badges.map((b) => b.id));
+  const hasEapmGod = awardIds.has("eapm_god");
+  const hasLastStand = awardIds.has("last_stand");
+  // Deduplicación: lo que la fila ya muestra (eAPM dorado, Last Stand en el
+  // marcador de renuncia) no se repite como mini chapa.
+  const rowBadges = badges.filter((b) => b.id !== "eapm_god" && b.id !== "last_stand");
+
+  return (
+    <div
+      className="ga-row ga-row-in flex flex-col gap-2 px-3 py-2.5 lg:grid lg:grid-cols-[190px_minmax(0,1fr)_170px] lg:gap-x-4 lg:items-center"
+      data-winner={winner ? "true" : undefined}
+      style={{ animationDelay: `${0.05 + idx * 0.05}s` }}
+    >
+      {/* Identidad: avatar de civ, nombre, galardones */}
+      <div className="flex items-center gap-2.5 min-w-0">
+        <div className="relative flex-none" style={{ width: 34, height: 34 }}>
+          {civSlug ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={`/civs/${civSlug}.webp`}
+              alt={civName(civSlug)}
+              loading="lazy"
+              decoding="async"
+              className="rounded-[9px]"
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                border: `2px solid ${pl.colorHex ?? "var(--vertigo-line)"}`,
+                boxShadow: winner ? "0 0 12px rgba(212,175,55,0.25)" : "none",
+              }}
+            />
+          ) : (
+            <div
+              className="rounded-[9px]"
+              style={{ width: "100%", height: "100%", background: "var(--vertigo-line-soft)", border: `2px solid ${pl.colorHex ?? "var(--vertigo-line)"}` }}
+            />
+          )}
+          {winner && (
+            <span
+              className="absolute flex items-center justify-center rounded-full"
+              style={{
+                top: -6,
+                right: -6,
+                width: 17,
+                height: 17,
+                background: "#0b0713",
+                border: "1.5px solid rgba(212,175,55,0.6)",
+              }}
+              title="Ganador"
+            >
+              <Crown style={{ width: 9, height: 9, color: GOLD }} />
+            </span>
+          )}
+        </div>
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-[13px] font-semibold text-[var(--vertigo-text)] truncate">
+              {pl.name ?? "—"}
+            </span>
+            {hasLastStand && (
+              <Heart style={{ width: 10, height: 10, color: "#fb923c", flexShrink: 0 }} />
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 text-[9.5px] text-[var(--vertigo-faint)] truncate">
+            {civSlug ? civName(civSlug) : "Civ desconocida"}
+            {pl.colorHex && (
+              <span
+                className="inline-block w-[6px] h-[6px] rounded-full flex-none"
+                style={{ background: pl.colorHex }}
+                title="Color en la partida"
+              />
+            )}
+          </div>
+          {rowBadges.length > 0 && (
+            <div className="flex flex-wrap gap-1" style={{ marginTop: 3 }}>
+              {rowBadges.map((b) => (
+                <SuperlativeChipMini key={b.id} chip={b} />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Eje de edades compartido */}
+      <AgeTrack uptimes={pl.uptimes} total={total} resignedSeconds={winner ? null : pl.resignedSeconds} />
+
+      {/* Stats alineadas por columna */}
+      <div className="flex gap-[7px] lg:justify-end">
+        <StatCell
+          value={pl.eapm}
+          label="eAPM"
+          title={hasEapmGod ? "eAPM GOD de la partida" : "Acciones efectivas por minuto"}
+          gold={hasEapmGod}
+        />
+        <StatCell value={pl.villagersTrained ?? null} label="ALD." title="Aldeanos entrenados" />
+        <StatCell value={pl.militaryTrained ?? null} label="MIL." title="Unidades militares entrenadas" />
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   Panel de lectura estratégica por equipo
+   ============================================================ */
+
+function StrategyBoard({
+  teamName,
+  color,
+  winner,
+  hasWinner,
+  players,
+  badgesByProfile,
+}: {
+  teamName: string;
+  color: string;
+  winner: boolean;
+  hasWinner: boolean;
+  players: AnalysisPlayer[];
+  badgesByProfile: Map<number, Superlative[]>;
+}) {
+  const gold = hasWinner && winner;
+  return (
+    <section
+      className="rounded-xl min-w-0"
+      style={{
+        padding: "14px 16px 16px",
+        border: `1px solid ${gold ? "rgba(212,175,55,0.28)" : "var(--vertigo-line-soft)"}`,
+        background: gold
+          ? "linear-gradient(180deg, rgba(212,175,55,0.05) 0%, rgba(212,175,55,0.015) 100%)"
+          : "rgba(255,255,255,0.015)",
+      }}
+    >
+      <div className="flex items-center gap-2.5" style={{ marginBottom: 12 }}>
+        <span className="flex-none" style={{ width: 8, height: 8, transform: "rotate(45deg)", background: gold ? GOLD : color }} />
+        <span
+          className="text-[11px] font-bold uppercase truncate"
+          style={{ letterSpacing: "1.6px", color: gold ? GOLD : "var(--vertigo-text)" }}
+        >
+          {teamName}
+        </span>
+      </div>
+      <div className="flex flex-col gap-3.5">
+        {players.length === 0 && (
+          <div className="text-[11.5px] text-[var(--vertigo-faint)]">Sin datos de jugadores</div>
+        )}
+        {players.map((pl, i) => {
+          const civSlug = normalizeCivSlug(pl.civ);
+          return (
+            <div key={pl.profileId ?? i} className="flex items-start gap-2.5 min-w-0">
+              <div className="flex-none" style={{ width: 22, height: 22, marginTop: 1 }}>
+                {civSlug ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={`/civs/${civSlug}.webp`}
+                    alt={civName(civSlug)}
+                    loading="lazy"
+                    decoding="async"
+                    className="rounded-[6px]"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      border: `1.5px solid ${pl.colorHex ?? "var(--vertigo-line)"}`,
+                    }}
+                  />
+                ) : (
+                  <div
+                    className="rounded-[6px]"
+                    style={{ width: "100%", height: "100%", background: "var(--vertigo-line-soft)" }}
+                  />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11.5px] font-semibold text-[var(--vertigo-text)] truncate">{pl.name ?? "—"}</span>
+                  {pl.colorHex && (
+                    <span
+                      className="inline-block w-[6px] h-[6px] rounded-full flex-none"
+                      style={{ background: pl.colorHex }}
+                      title="Color en la partida"
+                    />
+                  )}
+                </div>
+                <StrategyChips pl={pl} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+/* ============================================================
    Card principal
    ============================================================ */
 
@@ -702,10 +863,14 @@ export default function GameAnalysisCard({
   gameId,
   teamAName,
   teamBName,
+  teamAEmblem,
+  teamBEmblem,
 }: {
   gameId: string;
   teamAName: string;
   teamBName: string;
+  teamAEmblem?: string | null;
+  teamBEmblem?: string | null;
 }) {
   const [data, setData] = useState<AnalysisData | null>(null);
   const [failed, setFailed] = useState(false);
@@ -729,7 +894,7 @@ export default function GameAnalysisCard({
   const players = useMemo(() => p?.players ?? [], [p]);
 
   // Superlativos de la partida: se calculan client-side sobre los jugadores
-  // curados (función pura) y alimentan la galería + las mini chapas de tarjeta.
+  // curados (función pura) y alimentan la galería + las mini chapas de fila.
   const superlatives = useMemo(() => computeSuperlatives(players), [players]);
   const badgesByProfile = useMemo(() => {
     const m = new Map<number, Superlative[]>();
@@ -793,6 +958,14 @@ export default function GameAnalysisCard({
       : null;
   const chat = p.chat ?? [];
 
+  // Eje de tiempo compartido del box score.
+  const latestAgeSec = Math.max(
+    0,
+    ...players.flatMap((pl) => pl.uptimes.map((u) => u.seconds ?? 0)),
+  );
+  const total = axisTotal(p.durationSeconds, latestAgeSec);
+  const gridlines = gridlinesFor(total);
+
   const metaBits = [
     p.mapName ?? null,
     p.patch ? `Patch ${p.patch}` : null,
@@ -801,6 +974,8 @@ export default function GameAnalysisCard({
   ].filter(Boolean) as string[];
 
   const hasCenter = Boolean(data.svgUrl) || chat.length > 0;
+
+  const rowIdxBase = (t: number) => byTeam[t].length;
 
   return (
     <div
@@ -826,6 +1001,7 @@ export default function GameAnalysisCard({
 
         <VsBanner
           teamNames={teamNames}
+          teamEmblems={[teamAEmblem ?? null, teamBEmblem ?? null]}
           winnerIdx={winnerIdx}
           hasWinner={winnerIdx != null}
           durationSeconds={p.durationSeconds ?? null}
@@ -849,48 +1025,182 @@ export default function GameAnalysisCard({
         )}
       </div>
 
-      {/* ═══════════ CAMPO DE BATALLA: una tarjeta por jugador ═══════════ */}
-      <div style={{ padding: "26px 28px 30px" }}>
-        <SectionLabel>Campo de batalla</SectionLabel>
-        <div className="grid grid-cols-1 gap-x-10 gap-y-9 lg:grid-cols-2">
-          <TeamSection
-            name={teamNames[0]}
-            color={TEAM_COLORS[0]}
-            winner={winnerIdx === 0}
-            hasWinner={winnerIdx != null}
-            players={byTeam[0]}
-            durationSeconds={p.durationSeconds ?? null}
-            badgesByProfile={badgesByProfile}
-          />
-          <TeamSection
-            name={teamNames[1]}
-            color={TEAM_COLORS[1]}
-            winner={winnerIdx === 1}
-            hasWinner={winnerIdx != null}
-            players={byTeam[1]}
-            durationSeconds={p.durationSeconds ?? null}
-            badgesByProfile={badgesByProfile}
-          />
+      {/* ═══════════ LA PARTIDA EN UNA MIRADA: box score ═══════════ */}
+      <div style={{ padding: "24px 28px 26px" }}>
+        <div className="flex items-end justify-between gap-4 flex-wrap">
+          <SectionLabel>La partida en una mirada</SectionLabel>
+          {/* Leyenda de edades: los colores de las bandas del eje */}
+          <div className="flex items-center gap-3 flex-wrap" style={{ marginBottom: 4 }}>
+            {(["dark_age", "feudal_age", "castle_age", "imperial_age"] as const).map((age) => (
+              <span key={age} className="inline-flex items-center gap-1.5 text-[8.5px] font-bold uppercase" style={{ color: "var(--vertigo-faint)", letterSpacing: "1.2px" }}>
+                <span className="inline-block w-[10px] h-[6px] rounded-full" style={{ background: SEG_COLORS[age] }} />
+                {SEG_LABELS[age]}
+              </span>
+            ))}
+          </div>
         </div>
 
-        {orphans.length > 0 && (
-          <div style={{ marginTop: 28, paddingTop: 24, borderTop: "1px solid var(--vertigo-line-soft)" }}>
-            <TeamSection
-              name="Sin equipo"
-              color="var(--vertigo-faint)"
-              winner={false}
-              hasWinner={false}
-              players={orphans}
-              durationSeconds={p.durationSeconds ?? null}
+        <div className="relative rounded-xl" style={{ border: "1px solid var(--vertigo-line-soft)", background: "rgba(255,255,255,0.008)" }}>
+          {/* Retícula de minutos compartida (desktop): los tracks de ambas
+              secciones alinean contra las mismas líneas de tiempo. */}
+          <div
+            className="hidden lg:block absolute pointer-events-none"
+            style={{ left: ROW_PX + IDENTITY_W + COL_GAP, right: ROW_PX + STATS_W + COL_GAP, top: 0, bottom: 0 }}
+          >
+            {gridlines.map((t) => (
+              <span
+                key={`g-${t}`}
+                className="ga-gridline absolute"
+                style={{
+                  left: `${(t / total) * 100}%`,
+                  top: 0,
+                  bottom: 16,
+                  width: 1,
+                  background: "rgba(255,255,255,0.05)",
+                }}
+              />
+            ))}
+            {gridlines.map((t) => (
+              <span
+                key={`gl-${t}`}
+                className="ga-gridline absolute font-mono text-[8px] text-[var(--vertigo-faint)]"
+                style={{
+                  left: `${(t / total) * 100}%`,
+                  bottom: 1,
+                  transform: "translateX(-50%)",
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
+                {fmtClock(t)}
+              </span>
+            ))}
+          </div>
+
+          {/* Cabecera de columnas (desktop) */}
+          <div
+            className="hidden lg:grid lg:grid-cols-[190px_minmax(0,1fr)_170px] lg:gap-x-4 px-3"
+            style={{ paddingTop: 10, paddingBottom: 6 }}
+          >
+            <span className="text-[8px] font-bold uppercase" style={{ letterSpacing: "1.8px", color: "var(--vertigo-faint)" }}>
+              Jugador
+            </span>
+            <span className="text-[8px] font-bold uppercase" style={{ letterSpacing: "1.8px", color: "var(--vertigo-faint)" }}>
+              Progresión de edades
+            </span>
+            <div className="flex gap-[7px] justify-end">
+              {["eAPM", "ALDEANOS", "MILITAR"].map((h) => (
+                <span
+                  key={h}
+                  className="w-[52px] flex-none text-center text-[8px] font-bold uppercase"
+                  style={{ letterSpacing: "1.2px", color: "var(--vertigo-faint)" }}
+                >
+                  {h}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Equipo A */}
+          <TeamHeaderRow name={teamNames[0]} color={TEAM_COLORS[0]} winner={winnerIdx === 0} hasWinner={winnerIdx != null} />
+          <div className="flex flex-col" style={{ paddingTop: 6 }}>
+            {byTeam[0].length === 0 && (
+              <div className="text-[11.5px] text-[var(--vertigo-faint)] px-3 py-2">Sin datos de jugadores</div>
+            )}
+            {byTeam[0].map((pl, i) => (
+              <PlayerRow
+                key={pl.profileId ?? i}
+                pl={pl}
+                total={total}
+                badges={pl.profileId != null ? badgesByProfile.get(pl.profileId) ?? [] : []}
+                idx={i}
+              />
+            ))}
+          </div>
+
+          {/* Divisor entre equipos */}
+          <div className="flex items-center gap-3 px-3" style={{ padding: "13px 12px" }}>
+            <span className="h-px flex-1" style={{ background: "linear-gradient(90deg, transparent, var(--vertigo-line))" }} />
+            <Swords style={{ width: 11, height: 11, color: "rgba(212,175,55,0.5)" }} />
+            <span className="h-px flex-1" style={{ background: "linear-gradient(90deg, var(--vertigo-line), transparent)" }} />
+          </div>
+
+          {/* Equipo B */}
+          <TeamHeaderRow name={teamNames[1]} color={TEAM_COLORS[1]} winner={winnerIdx === 1} hasWinner={winnerIdx != null} />
+          <div className="flex flex-col" style={{ paddingTop: 6, paddingBottom: 18 }}>
+            {byTeam[1].length === 0 && (
+              <div className="text-[11.5px] text-[var(--vertigo-faint)] px-3 py-2">Sin datos de jugadores</div>
+            )}
+            {byTeam[1].map((pl, i) => (
+              <PlayerRow
+                key={pl.profileId ?? i}
+                pl={pl}
+                total={total}
+                badges={pl.profileId != null ? badgesByProfile.get(pl.profileId) ?? [] : []}
+                idx={i + rowIdxBase(0)}
+              />
+            ))}
+          </div>
+
+          {/* Jugadores sin equipo mapeado */}
+          {orphans.length > 0 && (
+            <>
+              <TeamHeaderRow name="Sin equipo" color="var(--vertigo-faint)" winner={false} hasWinner={false} />
+              <div className="flex flex-col" style={{ paddingTop: 6, paddingBottom: 18 }}>
+                {orphans.map((pl, i) => (
+                  <PlayerRow
+                    key={pl.profileId ?? i}
+                    pl={pl}
+                    total={total}
+                    badges={pl.profileId != null ? badgesByProfile.get(pl.profileId) ?? [] : []}
+                    idx={i}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* ═══════════ LECTURA DE LA PARTIDA ═══════════ */}
+      {(byTeam[0].length > 0 || byTeam[1].length > 0) && (
+        <div style={{ padding: "4px 28px 28px" }}>
+          <SectionLabel>Lectura de la partida</SectionLabel>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <StrategyBoard
+              teamName={teamNames[0]}
+              color={TEAM_COLORS[0]}
+              winner={winnerIdx === 0}
+              hasWinner={winnerIdx != null}
+              players={byTeam[0]}
+              badgesByProfile={badgesByProfile}
+            />
+            <StrategyBoard
+              teamName={teamNames[1]}
+              color={TEAM_COLORS[1]}
+              winner={winnerIdx === 1}
+              hasWinner={winnerIdx != null}
+              players={byTeam[1]}
               badgesByProfile={badgesByProfile}
             />
           </div>
-        )}
-      </div>
+          {orphans.length > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <StrategyBoard
+                teamName="Sin equipo"
+                color="var(--vertigo-faint)"
+                winner={false}
+                hasWinner={false}
+                players={orphans}
+                badgesByProfile={badgesByProfile}
+              />
+            </div>
+          )}
+        </div>
+      )}
 
-      {/* ═══════════ EL CAMPO FINAL: mapa + chat a lo ancho ═══════════ */}
+      {/* ═══════════ EL CAMPO FINAL: mapa + chat ═══════════ */}
       {hasCenter && (
-        <div style={{ padding: "26px 28px 30px", borderTop: "1px solid var(--vertigo-line-soft)" }}>
+        <div style={{ padding: "2px 28px 30px" }}>
           <div className="grid grid-cols-1 gap-9 xl:grid-cols-[minmax(0,1fr)_minmax(300px,440px)] xl:gap-12">
             {data.svgUrl && (
               <div className="min-w-0">
@@ -928,12 +1238,20 @@ export default function GameAnalysisCard({
                       : "var(--vertigo-faint)");
                     const spectator = c.audience === "spectator";
                     return (
-                      <div key={i} className="flex items-baseline gap-2 text-[11.5px] leading-[1.6]">
+                      <div key={i} className="ga-chat-line flex items-baseline gap-2 text-[11.5px] leading-[1.6]">
                         <span className="font-mono text-[var(--vertigo-faint)] flex-none" style={{ minWidth: 38, fontVariantNumeric: "tabular-nums" }}>
                           {fmtClock(c.seconds)}
                         </span>
                         {playerName && (
-                          <span className="flex-none font-semibold" style={{ color: spectator ? "var(--vertigo-faint)" : color }}>
+                          <span className="flex-none font-semibold inline-flex items-center gap-1.5" style={{ color: spectator ? "var(--vertigo-faint)" : color }}>
+                            {spectator ? (
+                              <MessageSquare style={{ width: 9, height: 9, flexShrink: 0, opacity: 0.6 }} />
+                            ) : (
+                              <span
+                                className="inline-block w-[7px] h-[7px] rounded-full flex-none"
+                                style={{ background: color, boxShadow: `0 0 6px ${color}66` }}
+                              />
+                            )}
                             {playerName}
                             {spectator ? " (espectador)" : ":"}
                           </span>

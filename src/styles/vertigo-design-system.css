@@ -2003,30 +2003,31 @@ html:has(.vertigo-page) {
   background: rgba(255, 255, 255, 0.055) !important;
 }
 
-/* Tarjeta de jugador del informe: superficie propia con aire,
-   micro-respuesta al hover. La tarjeta del ganador lleva tinte dorado. */
-.ga-player-card {
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid var(--vertigo-line-soft);
+/* Filas del box score: una fila compacta por jugador sobre el eje de
+   tiempo compartido. Hover sutil; las filas del equipo ganador llevan
+   tinte dorado horizontal. */
+.ga-row {
+  border-radius: 10px;
   transition:
-    background 0.2s var(--vertigo-ease),
-    border-color 0.2s var(--vertigo-ease),
-    transform 0.2s var(--vertigo-ease);
+    background 0.18s var(--vertigo-ease),
+    border-color 0.18s var(--vertigo-ease);
 }
 
-.ga-player-card:hover {
+.ga-row:hover {
   background: rgba(255, 255, 255, 0.035);
-  border-color: var(--vertigo-line);
 }
 
-.ga-player-card[data-winner="true"] {
-  background: linear-gradient(180deg, rgba(212, 175, 55, 0.06) 0%, rgba(212, 175, 55, 0.02) 100%);
-  border-color: rgba(212, 175, 55, 0.3);
+.ga-row[data-winner="true"] {
+  background: linear-gradient(90deg, rgba(212, 175, 55, 0.06) 0%, rgba(212, 175, 55, 0.015) 100%);
 }
 
-.ga-player-card[data-winner="true"]:hover {
-  border-color: rgba(212, 175, 55, 0.5);
+.ga-row[data-winner="true"]:hover {
+  background: linear-gradient(90deg, rgba(212, 175, 55, 0.1) 0%, rgba(212, 175, 55, 0.03) 100%);
+}
+
+/* Entrada escalonada de las filas: el box score se despliega en cascada */
+.ga-row-in {
+  animation: vertigoFadeUp 0.5s var(--vertigo-ease) both;
 }
 
 /* Entrada escalonada de los chips de la galería */
@@ -2067,6 +2068,12 @@ html:has(.vertigo-page) {
   animation: gaTickIn 0.4s ease-out 0.5s both;
 }
 
+/* Retícula vertical de minutos bajo las barras: líneas discretas que
+   comparten todos los tracks de edades del box score. */
+.ga-gridline {
+  animation: gaTickIn 0.6s ease-out 0.35s both;
+}
+
 /* Medallón VS: respiración muy sutil de las espadas */
 @keyframes gaMedallionBreath {
   0%, 100% { opacity: 0.6; }
@@ -2075,6 +2082,19 @@ html:has(.vertigo-page) {
 
 .ga-medallion-swords {
   animation: gaMedallionBreath 3.4s ease-in-out infinite;
+}
+
+/* Línea de chat del informe: resaltado sutil al pasar el mouse para
+   no perder la línea mientras se lee el hilo. */
+.ga-chat-line {
+  border-radius: 6px;
+  padding: 2px 6px;
+  margin-left: -6px;
+  transition: background 0.15s var(--vertigo-ease);
+}
+
+.ga-chat-line:hover {
+  background: rgba(255, 255, 255, 0.035);
 }
 
 /* Nombre del equipo ganador: glow dorado que respira */

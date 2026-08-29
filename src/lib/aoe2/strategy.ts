@@ -254,14 +254,18 @@ export function analyzeStrategy(buildOrder: OrderItem[], uptimes: UptimeLike[]):
   // Sin rush identificable: la apertura es la PRIMERA unidad militar del
   // jugador (aunque sea después de un Fast Castle — "abrió monjes",
   // "abrió rattan archer", "abrió mangonel"…).
+  let openedClass: string | null = null; // clase/uu de la primera unidad militar
+  let openedUUName: string | null = null; // nombre de la UU, si abrió con ella
   if (rushTags.length === 0) {
     const firstMilitary = buildOrder.find((b) => b.kind === "unit" && classifyUnit(b.name) !== "econ");
     if (firstMilitary) {
       const cls = classifyUnit(firstMilitary.name);
+      openedClass = cls;
       if (cls === "uu") {
+        openedUUName = prettyUnit(firstMilitary.name);
         opening.push({
           icon: "Sparkles",
-          label: `Abrió ${prettyUnit(firstMilitary.name)}`,
+          label: `Abrió ${openedUUName}`,
           detail: fmtClock(firstMilitary.seconds),
           kind: "opening",
         });
@@ -281,15 +285,18 @@ export function analyzeStrategy(buildOrder: OrderItem[], uptimes: UptimeLike[]):
   // ════════════ EJÉRCITO ════════════
   const army: StrategyTag[] = [];
 
-  // Unidad única más producida (si es relevante).
+  // La clase (o UU) con la que abrió ya está contada en la apertura: si es la
+  // misma dominante, no se repite como composición ("abrió artillería" +
+  // "artillería" es lo mismo dicho dos veces).
+  // Unidad única más producida (si es relevante y no es la de la apertura).
   const topUU = [...uuCount.entries()].sort((a, b) => b[1] - a[1])[0];
-  if (topUU && topUU[1] >= 12) {
-    army.push({ icon: "Sparkles", label: topUU[0], detail: `×${topUU[1]}`, kind: "army" });
+  if (topUU && topUU[1] >= 12 && prettyUnit(topUU[0]) !== openedUUName) {
+    army.push({ icon: "Sparkles", label: prettyUnit(topUU[0]), detail: `×${topUU[1]}`, kind: "army" });
   }
 
-  // Clases genéricas dominantes.
+  // Clases genéricas dominantes (excluida la clase con la que abrió).
   const topClasses = [...classCount.entries()]
-    .filter(([cls, c]) => c >= 10 && CLASS_META[cls])
+    .filter(([cls, c]) => c >= 10 && CLASS_META[cls] && cls !== openedClass)
     .sort((a, b) => b[1] - a[1]);
   for (const [cls, c] of topClasses) {
     if (army.length >= 3) break;
