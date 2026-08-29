@@ -16,9 +16,11 @@ export const GRACE_MIN = 15;
  * - "open": ventana abierta antes del horario (se puede confirmar READY).
  * - "grace": tolerancia posterior al horario (W.O. automático al agotarse).
  * - "expired": tolerancia agotada (el enforcement lo convierte en forfeit).
+ * - "confirmed": llave habilitada (status open, ambos READY) — la ventana
+ *   cerró pero el horario de inicio sigue siendo relevante (countdown).
  * - "inactive": el match ya no está en estado scheduled (nada que mostrar).
  */
-export type ReadyPhase = "no-date" | "early" | "open" | "grace" | "expired" | "inactive";
+export type ReadyPhase = "no-date" | "early" | "open" | "grace" | "expired" | "confirmed" | "inactive";
 
 export interface ReadyWindowState {
   phase: ReadyPhase;
@@ -31,6 +33,16 @@ export function computeReadyPhase(
   status: string,
   nowMs: number
 ): ReadyWindowState {
+  // "open" = ambos equipos confirmaron READY #1 y la llave quedó habilitada:
+  // la ventana de confirmación ya cerró, pero el horario de inicio sigue
+  // siendo relevante (countdown al inicio programado / al sorteo).
+  if (status === "open") {
+    if (!scheduledAtStart) {
+      return { phase: "no-date", msToOpen: null, msToDeadline: null };
+    }
+    const start = new Date(scheduledAtStart).getTime();
+    return { phase: "confirmed", msToOpen: start - nowMs, msToDeadline: null };
+  }
   if (status !== "scheduled") {
     return { phase: "inactive", msToOpen: null, msToDeadline: null };
   }

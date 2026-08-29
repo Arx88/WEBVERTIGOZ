@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Shield, CheckCircle2 } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
+import LiveDrawRoulette from "@/components/ruleta/live-draw-roulette";
 import { useReadyWindow } from "@/components/shared/ready-deadline-timer";
 import { deriveTeamPalette } from "@/components/team/team-banner-bg";
 import { fmt } from "@/lib/format";
@@ -26,6 +27,9 @@ export interface StreamMatchData {
   scoreB: number;
   winnerTeamId: string | null;
   roundName: string | null;
+  /** La partida más reciente está en "drawing" (re-sorteo de una partida 2/3
+      de BO3: el match queda in_progress pero la ruleta debe salir igual). */
+  activeGameDrawing: boolean;
   teamA: StreamTeam | null;
   teamB: StreamTeam | null;
 }
@@ -66,6 +70,11 @@ export default function StreamScreen({ match }: { match: StreamMatchData }) {
         { event: "*", schema: "public", table: "match", filter: `id=eq.${match.id}` },
         scheduleRefresh
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "match_game", filter: `match_id=eq.${match.id}` },
+        scheduleRefresh
+      )
       .subscribe();
     return () => {
       if (debounce) clearTimeout(debounce);
@@ -75,6 +84,10 @@ export default function StreamScreen({ match }: { match: StreamMatchData }) {
 
   const [colorA] = deriveTeamPalette(match.teamA?.id ?? "a");
   const [colorB] = deriveTeamPalette(match.teamB?.id ?? "b");
+
+  // La ruleta sale cuando el match está en sorteo (P1) o cuando la partida
+  // más reciente está en sorteo (re-giro de la partida 2/3 de un BO3).
+  const showRoulette = match.status === "drawing" || match.activeGameDrawing;
 
   const preMatch = match.status === "scheduled" || match.status === "open";
   const inGame = match.status === "in_progress";
@@ -104,6 +117,9 @@ export default function StreamScreen({ match }: { match: StreamMatchData }) {
         flexDirection: "column",
       }}
     >
+      {/* RULETA EN VIVO — fullscreen durante el sorteo (capturada por OBS
+          desde este mismo Browser Source). */}
+      {showRoulette && <LiveDrawRoulette matchId={match.id} />}
       {/* ══ FONDO: video de marca + tinte de cada equipo a su lado ══ */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <video

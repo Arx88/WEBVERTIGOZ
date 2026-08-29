@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlarmClock, Hourglass, TimerOff } from "lucide-react";
+import { AlarmClock, CheckCircle2, Hourglass, TimerOff } from "lucide-react";
 import {
   READY_WINDOW_MIN,
   computeReadyPhase,
@@ -76,6 +76,38 @@ export default function ReadyDeadlineTimer({
       <span className="inline-flex items-center gap-1.5 text-[11px] text-[var(--vertigo-muted)]">
         <Hourglass style={{ width: 12, height: 12, color: "var(--vertigo-faint)" }} />
         {label}
+      </span>
+    );
+  }
+
+  // "confirmed": llave habilitada (status open, ambos equipos listos).
+  // La ventana de READY cerró; lo que queda es el countdown al inicio
+  // programado y la espera del sorteo que dispara el admin.
+  if (phase === "confirmed") {
+    const toStart = msToOpen ?? 0;
+    const countdown = toStart > 0 ? `Inicio en ${fmtHMS(toStart)}` : "Esperando sorteo del admin";
+    return variant === "block" ? (
+      <div className="vertigo-stat" style={{ textAlign: "center", borderColor: "rgba(34,197,94,0.35)" }}>
+        <div className="vertigo-stat-label" style={{ color: "var(--vertigo-success)" }}>
+          Llave habilitada — ambos equipos listos
+        </div>
+        <div className="vertigo-stat-value" style={{ fontSize: 20 }}>
+          <CheckCircle2
+            style={{ width: 18, height: 18, display: "inline", marginRight: 8, verticalAlign: "middle", color: "var(--vertigo-success)" }}
+            strokeWidth={1.5}
+          />
+          {countdown}
+        </div>
+        <div className="text-[11px] text-[var(--vertigo-muted)] mt-1">
+          {toStart > 0
+            ? "El admin puede iniciar el sorteo cuando quiera"
+            : "El admin inicia el sorteo para arrancar la partida"}
+        </div>
+      </div>
+    ) : (
+      <span className="inline-flex items-center gap-1.5 text-[11px]" style={{ color: "var(--vertigo-success)" }}>
+        <CheckCircle2 style={{ width: 12, height: 12 }} />
+        {toStart > 0 ? `Llave habilitada · inicio en ${fmtHMS(toStart)}` : "Llave habilitada — esperando sorteo"}
       </span>
     );
   }

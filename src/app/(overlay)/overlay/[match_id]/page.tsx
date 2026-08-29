@@ -34,6 +34,17 @@ export default async function OverlayMatchPage({
 
   if (!match) notFound();
 
+  // Partidas 2/3 de un BO3: el match queda "in_progress" pero la partida
+  // activa vuelve a "drawing" para el re-sorteo. La stream debe mostrar la
+  // ruleta igual, así que se expone el estado de la partida más reciente.
+  const { data: activeGame } = (await supabase
+    .from("match_game")
+    .select("status")
+    .eq("match_id", match_id)
+    .order("game_number", { ascending: false })
+    .limit(1)
+    .maybeSingle()) as { data: any };
+
   const data: StreamMatchData = {
     id: match.id,
     status: match.status,
@@ -46,6 +57,7 @@ export default async function OverlayMatchPage({
     scoreB: match.score_b ?? 0,
     winnerTeamId: match.winner_team_id ?? null,
     roundName: match.round?.name ?? null,
+    activeGameDrawing: activeGame?.status === "drawing",
     teamA: match.team_a
       ? {
           id: match.team_a.id,

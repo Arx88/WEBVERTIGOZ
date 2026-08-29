@@ -30,6 +30,7 @@ import MatchLiveRefresher from "@/components/admin/match-live-refresher";
 import LobbyNameCard from "@/components/shared/lobby-name-card";
 import Aoe2SyncIndicator from "@/components/admin/aoe2-sync-indicator";
 import AdminHero from "@/components/shared/admin-hero";
+import LiveDrawRoulette from "@/components/ruleta/live-draw-roulette";
 import { civName } from "@/lib/constants/civs";
 import { fmt } from "@/lib/format";
 import { lobbyNameForGame } from "@/lib/aoe2/lobby-name";
@@ -162,6 +163,13 @@ export default async function AdminPartidoPage({
       {/* Refresco en vivo: READY de capitanes, resultados y extensiones de
           ventana se reflejan sin tener que refrescar a mano. */}
       <MatchLiveRefresher matchId={match.id} />
+
+      {/* RULETA EN VIVO — fullscreen cuando el sorteo está en curso.
+          El admin dispara el sorteo desde acá y la ve girar igual que
+          la página pública, el overlay OBS y los capitanes. */}
+      {match.status === "drawing" && (
+        <LiveDrawRoulette matchId={match.id} isAdmin />
+      )}
 
       {/* Header cinematográfico (patrón del panel): título = enfrentamiento,
           stats de vidrio con lo esencial, "volver" integrado en el hero. */}
@@ -381,7 +389,7 @@ export default async function AdminPartidoPage({
             {/* ── ZONA IZQ: VENTANA DE READY ── */}
             <div>
               <div className="vertigo-zone-label">Ventana de READY</div>
-              {isScheduled && hasDate ? (
+              {(isScheduled || match.status === "open") && hasDate ? (
                 <>
                   <ReadyDeadlineTimer scheduledAtStart={match.scheduled_at_start} status={match.status} variant="block" />
                   <form action={extendReadyWindowFormAction} className="mt-4">
@@ -407,14 +415,15 @@ export default async function AdminPartidoPage({
                     </p>
                   </form>
                 </>
-              ) : isScheduled ? (
+              ) : isScheduled || match.status === "open" ? (
                 <p className="text-[12px] text-[var(--vertigo-faint)] leading-relaxed">
                   La llave todavía no tiene fecha: programala en el bloque de arriba para
                   que exista la ventana de READY.
                 </p>
               ) : (
                 <p className="text-[12px] text-[var(--vertigo-faint)] leading-relaxed">
-                  La ventana de READY ya cerró — la llave avanzó a la siguiente fase.
+                  La ventana de READY ya cerró — la llave está en fase{" "}
+                  {STATUS_META[match.status]?.label ?? match.status}.
                 </p>
               )}
             </div>
@@ -474,18 +483,14 @@ export default async function AdminPartidoPage({
                 )}
 
                 {/* El W.O. doble sin ganador NO es una disputa: se resuelve con la
-                    tarjeta de arriba (asignar ganador o reprogramar). */}
-                {!isFinished && !isScheduled && match.status !== "disputed" &&
-                  !(match.status === "forfeit" && !match.winner_team_id) && (
+                    tarjeta de arriba (asignar ganador o reprogramar).
+                    El botón aparece SOLO si realmente hay una disputa abierta
+                    en este match — antes se mostraba en open/drawing/lineup/
+                    in_progress, donde nunca existe una. */}
+                {match.status === "disputed" && (
                   <Link href="/admin/disputas" className="vertigo-btn vertigo-btn-danger" style={{ alignSelf: "flex-start" }}>
                     <AlertTriangle style={{ width: 14, height: 14 }} />
                     Ver disputas
-                  </Link>
-                )}
-                {match.status === "disputed" && (
-                  <Link href="/admin/disputas" className="vertigo-btn vertigo-btn-danger" style={{ alignSelf: "flex-start" }}>
-                    <Shield style={{ width: 14, height: 14 }} />
-                    Resolver disputa
                   </Link>
                 )}
               </div>

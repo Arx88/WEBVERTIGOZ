@@ -27,28 +27,33 @@ function format(input: DateInput, options: Intl.DateTimeFormatOptions): string {
 
 export const fmt = {
   /** "24/8/2026, 22:00:00" — fecha y hora completas. */
-  dateTime: (d: DateInput) => format(d, {}),
+  dateTime: (d: DateInput) => format(d, { hourCycle: "h23" }),
 
   /** "24/8/2026" — solo fecha. */
   date: (d: DateInput) => format(d, { day: "numeric", month: "numeric", year: "numeric" }),
 
-  /** "22:00" — solo hora. */
-  time: (d: DateInput) => format(d, { hour: "2-digit", minute: "2-digit" }),
+  /** "22:00" — solo hora.
+      hourCycle h23: evita que es-AR use el reloj de 12 h ("09:35 p. m.")
+      cuando la zona horaria del runtime no coincide con la pedida (ej.
+      server en UTC formateando hora argentina de noche). */
+  time: (d: DateInput) =>
+    format(d, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }),
 
   /** "24 ago, 22:00" — día de 2 dígitos, mes corto y hora. */
   dayMonTime: (d: DateInput) =>
-    format(d, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }),
+    format(d, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }),
 
   /** "24 ago, 22:00" — día numérico (sin cero), mes corto y hora. */
   dayMonTimeNum: (d: DateInput) =>
-    format(d, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }),
+    format(d, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }),
 
   /** "24 ago 2026, 22:00" — fecha media + hora corta. */
-  dateTimeMedium: (d: DateInput) => format(d, { dateStyle: "medium", timeStyle: "short" }),
+  dateTimeMedium: (d: DateInput) =>
+    format(d, { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }),
 
   /** "lunes, 24 de agosto, 22:00" — fecha larga con día de la semana y hora. */
   longDateTime: (d: DateInput) =>
-    format(d, { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }),
+    format(d, { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }),
 
   /** "24 ago" — día y mes corto. */
   dayMon: (d: DateInput) => format(d, { day: "2-digit", month: "short" }),
@@ -58,9 +63,9 @@ export const fmt = {
 
   /** "24 de agosto, 22:00" — día, mes largo y hora. */
   dayLongMonTime: (d: DateInput) =>
-    format(d, { day: "2-digit", month: "long", hour: "2-digit", minute: "2-digit" }),
+    format(d, { day: "2-digit", month: "long", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }),
 
   /** "lun, 24 ago, 22:00" — día de semana corto + fecha corta + hora. */
   weekdayShortTime: (d: DateInput) =>
-    format(d, { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }),
+    format(d, { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }),
 };

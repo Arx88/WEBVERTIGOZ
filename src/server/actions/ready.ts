@@ -163,8 +163,11 @@ export async function extendReadyWindowAction(formData: FormData): Promise<{ ok:
     .eq("id", matchId)
     .single()) as { data: any };
   if (!match) return { ok: false, error: "Match no encontrado." };
-  if (match.status !== "scheduled" || !match.scheduled_at_start) {
-    return { ok: false, error: "Solo se puede extender una llave programada con horario." };
+  // scheduled (ventana en curso) u open (ambos ready, sorteo pendiente):
+  // en ambos casos mover el horario tiene sentido — retrasa el inicio y,
+  // con él, el límite de W.O. Los READY confirmados se conservan siempre.
+  if (!["scheduled", "open"].includes(match.status) || !match.scheduled_at_start) {
+    return { ok: false, error: "Solo se puede extender una llave programada o habilitada con horario." };
   }
 
   const newStart = new Date(new Date(match.scheduled_at_start).getTime() + minutes * 60_000);
