@@ -3,11 +3,22 @@
 /**
  * StreamConvergenceBackground — fondo WebGL que reproduce el shader
  * "Stream Convergence" de ThreeUI (https://threeui.com/backgrounds/
- * portal-field/stream-convergence): líneas violetaíndigo que convergen
+ * portal-field/stream-convergence): líneas violeta-índigo que convergen
  * hacia el centro. Se usa en la pantalla de carga.
  *
  * Es WebGL puro (sin three.js): un canvas a pantalla completa con un
- * póster que dibuja ondas convergendo.
+ * shader que dibuja ondas convergiendo.
+ *
+ * Fiabilidad:
+ *  - Al desmontar se libera el contexto (WEBGL_lose_context) para no agotar
+ *    el tope de contextos del navegador.
+ *  - En React StrictMode (dev) el mismo canvas se remonta justo después de
+ *    un loseContext(): getContext() devuelve el contexto PERDIDO. En ese caso
+ *    se pide restoreContext() y se reinicializa todo en webglcontextrestored.
+ *  - Si el navegador recicla el contexto en pleno uso, se reinicializa igual.
+ *  - Red de seguridad CSS: .vertigo-loader::before lleva un gradiente animado
+ *    detrás del canvas (el canvas es opaco cuando funciona, así que solo se
+ *    ve si WebGL falla).
  */
 import { useEffect, useRef } from "react";
 
@@ -63,7 +74,9 @@ function compile(gl: WebGLRenderingContext, type: number, source: string) {
   gl.shaderSource(shader, source);
   gl.compileShader(shader);
   if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    throw new Error(gl.getShaderInfoLog(shader) ?? "Stream Convergence shader compilation failed");
+    const info = gl.getShaderInfoLog(shader);
+    gl.deleteShader(shader);
+    throw new Error(info ?? "Stream Convergence shader compilation failed");
   }
   return shader;
 }
@@ -89,94 +102,131 @@ export default function StreamConvergenceBackground({
     const canvas = canvasRef.current;
     if (!host || !canvas) return undefined;
 
-    const gl = canvas.getContext("webgl", { alpha: true, antialias: false });
+    let gl: WebGLRenderingContext | null = canvas.getContext("webgl", {
+      alpha: true,
+      antialias: false,
+    });
     if (!gl) return undefined;
 
-    const vertex = compile(gl, gl.VERTEX_SHADER, STREAM_CONVERGENCE_VERTEX_SHADER);
-    const fragment = compile(
-      gl,
-      gl.FRAGMENT_SHADER,
-      `precision highp float;\n${STREAM_CONVERGENCE_FRAGMENT_SHADER}`,
-    );
-    const program = gl.createProgram();
-    if (!program) return undefined;
-
-    gl.attachShader(program, vertex);
-    gl.attachShader(program, fragment);
-    gl.linkProgram(program);
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-      throw new Error(gl.getProgramInfoLog(program) ?? "Stream Convergence program link failed");
-    }
-    gl.useProgram(program);
-
-    const buffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.bufferData(
-      gl.ARRAY_BUFFER,
-      new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]),
-      gl.STATIC_DRAW,
-    );
-    const position = gl.getAttribLocation(program, "position");
-    gl.enableVertexAttribArray(position);
-    gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
-
-    const uTime = gl.getUniformLocation(program, "u_time");
-    const uResolution = gl.getUniformLocation(program, "u_resolution");
-    const uFidelity = gl.getUniformLocation(program, "u_interactive_fidelity");
-
+    let program: WebGLProgram | null = null;
+    let buffer: WebGLBuffer | null = null;
+    let uTime: WebGLUniformLocation | null = null;
+    let uResolution: WebGLUniformLocation | null = null;
+    let uFidelity: WebGLUniformLocation | null = null;
+    let ready = false;
     let frame = 0;
     let visible = true;
 
+    // (Re)inicializa shaders/program/buffer. Se llama en el montaje inicial y
+    // cada vez que el contexto se restaura (StrictMode, reciclaje del navegador).
+    const initGL = () => {
+      if (!gl || gl.isContextLost()) return;
+      try {
+        const vertex = compile(gl, gl.VERTEX_SHADER, STREAM_CONVERGENCE_VERTEX_SHADER);
+        const fragment = compile(
+          gl,
+          gl.FRAGMENT_SHADER,
+          `precision highp float;\n${STREAM_CONVERGENCE_FRAGMENT_SHADER}`,
+        );
+        const prog = gl.createProgram();
+        if (!prog) {
+          gl.deleteShader(vertex);
+          gl.deleteShader(fragment);
+          return;
+        }
+        gl.attachShader(prog, vertex);
+        gl.attachShader(prog, fragment);
+        gl.linkProgram(prog);
+        gl.deleteShader(vertex);
+        gl.deleteShader(fragment);
+        if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+          gl.deleteProgram(prog);
+          return;
+        }
+        gl.useProgram(prog);
+
+        const buf = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+        gl.bufferData(
+          gl.ARRAY_BUFFER,
+          new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]),
+          gl.STATIC_DRAW,
+        );
+        const position = gl.getAttribLocation(prog, "position");
+        gl.enableVertexAttribArray(position);
+        gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+
+        uTime = gl.getUniformLocation(prog, "u_time");
+        uResolution = gl.getUniformLocation(prog, "u_resolution");
+        uFidelity = gl.getUniformLocation(prog, "u_interactive_fidelity");
+
+        program = prog;
+        buffer = buf;
+        ready = true;
+        resize();
+      } catch {
+        ready = false;
+      }
+    };
+
     const resize = () => {
+      if (!gl || !ready) return;
       const bounds = host.getBoundingClientRect();
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       canvas.width = Math.max(1, Math.round(bounds.width * dpr));
       canvas.height = Math.max(1, Math.round(bounds.height * dpr));
       gl.viewport(0, 0, canvas.width, canvas.height);
-      gl.uniform2f(uResolution, canvas.width, canvas.height);
+      if (uResolution) gl.uniform2f(uResolution, canvas.width, canvas.height);
     };
 
     const render = (now: number) => {
-      // Si el navegador recicló el contexto, frenar el loop hasta el restore
-      if (gl.isContextLost()) {
+      if (!gl || gl.isContextLost()) {
         frame = 0;
         return;
       }
+      // Contexto vivo pero aún no inicializado (esperando restore): seguir en el loop
+      if (!ready) {
+        frame = visible && !document.hidden ? requestAnimationFrame(render) : 0;
+        return;
+      }
       const options = optionsRef.current;
-      gl.uniform1f(uTime, now * 0.0003 * options.speed);
-      gl.uniform1f(uFidelity, options.fidelity);
+      if (uTime) gl.uniform1f(uTime, now * 0.0003 * options.speed);
+      if (uFidelity) gl.uniform1f(uFidelity, options.fidelity);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
       frame = visible && !document.hidden ? requestAnimationFrame(render) : 0;
     };
 
-    // Si el contexto se pierde (los navegadores reciclan WebGL bajo presión de
-    // memoria), pausar y redibujar al restaurarlo — el fondo nunca queda muerto.
+    const start = () => {
+      if (!frame && visible && !document.hidden) frame = requestAnimationFrame(render);
+    };
+
     const onContextLost = (event: Event) => {
       event.preventDefault();
+      ready = false;
       if (frame) {
         cancelAnimationFrame(frame);
         frame = 0;
       }
     };
+
     const onContextRestored = () => {
-      resize();
-      if (visible && !document.hidden && !frame) frame = requestAnimationFrame(render);
+      initGL();
+      start();
     };
 
-    // Al volver a la pestaña, reanudar el loop si quedó frenado
     const onVisibilityChange = () => {
-      if (!document.hidden && visible && !frame) frame = requestAnimationFrame(render);
+      if (!document.hidden) start();
     };
 
     canvas.addEventListener("webglcontextlost", onContextLost);
     canvas.addEventListener("webglcontextrestored", onContextRestored);
     document.addEventListener("visibilitychange", onVisibilityChange);
 
-    const resizeObserver = new ResizeObserver(resize);
+    const resizeObserver = new ResizeObserver(() => resize());
     const intersection = new IntersectionObserver(([entry]) => {
       visible = entry?.isIntersecting ?? true;
-      if (visible && !frame) frame = requestAnimationFrame(render);
-      if (!visible && frame) {
+      if (visible) start();
+      else if (frame) {
         cancelAnimationFrame(frame);
         frame = 0;
       }
@@ -184,8 +234,16 @@ export default function StreamConvergenceBackground({
 
     resizeObserver.observe(host);
     intersection.observe(host);
-    resize();
-    frame = requestAnimationFrame(render);
+
+    if (gl.isContextLost()) {
+      // React StrictMode: el montaje anterior llamó loseContext() sobre este
+      // mismo canvas y getContext() devuelve ese contexto perdido. Pedimos
+      // restaurarlo; initGL + start ocurren en webglcontextrestored.
+      gl.getExtension("WEBGL_lose_context")?.restoreContext();
+    } else {
+      initGL();
+      start();
+    }
 
     return () => {
       if (frame) cancelAnimationFrame(frame);
@@ -194,15 +252,12 @@ export default function StreamConvergenceBackground({
       canvas.removeEventListener("webglcontextlost", onContextLost);
       canvas.removeEventListener("webglcontextrestored", onContextRestored);
       document.removeEventListener("visibilitychange", onVisibilityChange);
-      gl.deleteBuffer(buffer);
-      gl.deleteShader(vertex);
-      gl.deleteShader(fragment);
-      gl.deleteProgram(program);
-      // CRÍTICO: liberar el contexto WebGL explícitamente. Sin esto, cada loader
-      // deja un contexto vivo hasta que GC pase; los navegadores tienen un tope
-      // de contextos activos y al agotarse getContext() devuelve null → loader
-      // sin fondo animado.
-      gl.getExtension("WEBGL_lose_context")?.loseContext();
+      if (gl && !gl.isContextLost()) {
+        if (program) gl.deleteProgram(program);
+        if (buffer) gl.deleteBuffer(buffer);
+        // Liberar el contexto explícitamente para no agotar el tope del navegador.
+        gl.getExtension("WEBGL_lose_context")?.loseContext();
+      }
     };
   }, []);
 
