@@ -1,6 +1,7 @@
 /**
- * Grilla de comodines del equipo, compartida por /mi-equipo y el
- * perfil público /equipos/[id].
+ * Grilla de comodines del equipo, compartida por /mi-equipo, el
+ * perfil público /equipos/[id] y el historial "Comodines usados"
+ * de la página del partido.
  */
 export interface ComodinRow {
   rerollAvailable: number;
@@ -8,6 +9,14 @@ export interface ComodinRow {
   elegirRivalAvailable: number;
   invocarProAvailable: number;
 }
+
+/** Icono de marca de cada comodín (mismo arte que MI PERFIL). */
+export const COMODIN_ICONS: Record<string, string> = {
+  reroll: "/comodines/reroll.webp",
+  anular: "/comodines/anular.webp",
+  elegir_rival: "/comodines/elegir-rival.webp",
+  invocar_pro: "/comodines/invocar-pro.webp",
+};
 
 function ComodinCard({ icon, label, value, desc }: { icon: string; label: string; value: number; desc: string }) {
   const isAvailable = value > 0;
@@ -51,10 +60,10 @@ export function ComodinesGrid({ comodin }: { comodin: ComodinRow }) {
       className="grid gap-3"
       style={{ gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))" }}
     >
-      <ComodinCard icon="/comodines/reroll.webp" label="Reroll" value={comodin.rerollAvailable} desc="Re-girar fase" />
-      <ComodinCard icon="/comodines/anular.webp" label="Anular" value={comodin.anularAvailable} desc="Anular jugador rival" />
-      <ComodinCard icon="/comodines/elegir-rival.webp" label="Elegir rival" value={comodin.elegirRivalAvailable} desc="Elegir oponente" />
-      <ComodinCard icon="/comodines/invocar-pro.webp" label="Invocar PRO" value={comodin.invocarProAvailable} desc="Refuerzo profesional" />
+      <ComodinCard icon={COMODIN_ICONS.reroll} label="Reroll" value={comodin.rerollAvailable} desc="Re-girar fase" />
+      <ComodinCard icon={COMODIN_ICONS.anular} label="Anular" value={comodin.anularAvailable} desc="Anular jugador rival" />
+      <ComodinCard icon={COMODIN_ICONS.elegir_rival} label="Elegir rival" value={comodin.elegirRivalAvailable} desc="Elegir oponente" />
+      <ComodinCard icon={COMODIN_ICONS.invocar_pro} label="Invocar PRO" value={comodin.invocarProAvailable} desc="Refuerzo profesional" />
     </div>
   );
 }

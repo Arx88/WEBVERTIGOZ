@@ -11,10 +11,12 @@ import {
   ChevronDown,
   Copy,
   Check,
+  Wand2,
 } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { civName } from "@/lib/constants/civs";
 import { artForMode, artForMap, ART_FALLBACK } from "@/lib/art";
+import { COMODIN_ICONS } from "@/components/team/comodin-cards";
 import { CaptainMatchPanel, type CaptainPanelContext } from "@/components/captain/captain-match-panel";
 import BetPanel, { type BetPanelContext } from "@/components/apuestas/bet-panel";
 import { loadMatch, type GameView, type MatchData } from "./match-data";
@@ -358,35 +360,42 @@ export default function MatchRealtimeWrapper({ matchId, initialMatch, captainCon
             <span className="rule" />
           </div>
           <div className="vertigo-card">
-            <div className="flex flex-col gap-3">
+            <div className="used-body">
               {match.comodinUsages.map((c) => {
                 const statusCls =
                   c.status === "executed"
-                    ? "vertigo-badge-success"
+                    ? "ok"
                     : c.status === "cancelled" || c.status === "revoked"
-                    ? "vertigo-badge-danger"
-                    : "vertigo-badge-warning";
+                    ? "revoked"
+                    : "wait";
+                const statusLabel =
+                  c.status === "executed"
+                    ? "Ejecutado"
+                    : c.status === "cancelled"
+                    ? "Cancelado"
+                    : c.status === "revoked"
+                    ? "Revocado"
+                    : "Pendiente";
+                // Mismo sistema de iconos que MI PERFIL: caja dorada con glow
+                // violeta cuando está activo, gris cuando se revocó/canceló.
+                const icon = COMODIN_ICONS[c.comodinType];
+                const dead = statusCls === "revoked";
                 return (
-                  <div
-                    key={c.id}
-                    className="flex items-center justify-between gap-3 pb-3 border-b border-[var(--vertigo-line-soft)] last:border-0 last:pb-0"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <span className="vertigo-badge vertigo-badge-purple flex-none">
-                        {COMODIN_LABELS[c.comodinType] ?? c.comodinType}
-                      </span>
-                      <span className="text-[13px] text-[var(--vertigo-text)] truncate">
-                        {c.teamName ?? "Equipo"}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 flex-none">
-                      {c.notes && (
-                        <span className="text-[11px] text-[var(--vertigo-faint)] truncate max-w-[200px]">
-                          {c.notes}
-                        </span>
+                  <div key={c.id} className={`used-row${dead ? " dead" : ""}`}>
+                    <span className="used-icon">
+                      {icon ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={icon} alt={COMODIN_LABELS[c.comodinType] ?? c.comodinType} />
+                      ) : (
+                        <Wand2 style={{ width: 26, height: 26, color: "var(--vertigo-purple-soft)" }} />
                       )}
-                      <span className={`vertigo-badge ${statusCls}`}>{c.status}</span>
-                    </div>
+                    </span>
+                    <span className="used-main">
+                      <span className="used-label">{COMODIN_LABELS[c.comodinType] ?? c.comodinType}</span>
+                      <span className="used-team">{c.teamName ?? "Equipo"}</span>
+                      {c.notes && <span className="used-note">{c.notes}</span>}
+                    </span>
+                    <span className={`used-status ${statusCls}`}>{statusLabel}</span>
                   </div>
                 );
               })}

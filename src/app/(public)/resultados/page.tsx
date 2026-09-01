@@ -1,6 +1,6 @@
-import { Trophy } from "lucide-react";
+import Link from "next/link";
+import { Trophy, Swords, AlertTriangle, Clock } from "lucide-react";
 import { getSupabaseServer } from "@/lib/supabase/server";
-import DuelCard from "@/components/shared/duel-card";
 import SiteNav from "@/components/nav/site-nav";
 import { fmt } from "@/lib/format";
 
@@ -84,6 +84,57 @@ async function loadResultados(): Promise<ResultadoRow[]> {
   }
 }
 
+/** Estado de la llave con la semántica del sitio (badge + icono). */
+function statusBadge(status: string, format: string | null) {
+  if (status === "disputed") {
+    return (
+      <span className="vertigo-badge vertigo-badge-danger" style={{ fontSize: 9, padding: "3px 10px" }}>
+        <AlertTriangle style={{ width: 10, height: 10 }} /> Disputa
+      </span>
+    );
+  }
+  if (status === "forfeit") {
+    return (
+      <span className="vertigo-badge vertigo-badge-danger" style={{ fontSize: 9, padding: "3px 10px" }}>
+        <Swords style={{ width: 10, height: 10 }} /> W.O.
+      </span>
+    );
+  }
+  return (
+    <span className="vertigo-badge vertigo-badge-purple" style={{ fontSize: 9, padding: "3px 10px" }}>
+      <Trophy style={{ width: 10, height: 10 }} /> Finalizado
+    </span>
+  );
+}
+
+/** Un lado de la llave: emblema + nombre (Cinzel) + tagline. Oro si ganó. */
+function ResultSide({
+  team,
+  won,
+  align,
+}: {
+  team: ResultadoRow["teamA"];
+  won: boolean;
+  align: "l" | "r";
+}) {
+  return (
+    <div className={`res-side ${align === "r" ? "r" : ""} ${won ? "winner" : ""}`}>
+      <div className="res-emblem">
+        {team?.emblemUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={team.emblemUrl} alt={`Escudo de ${team.name}`} />
+        ) : (
+          <Trophy style={{ width: 22, height: 22, color: "var(--vertigo-purple-soft)" }} strokeWidth={1.1} />
+        )}
+      </div>
+      <div style={{ minWidth: 0 }}>
+        <div className="res-name">{team?.name ?? "Por definir"}</div>
+        {team?.tagline && <div className="res-tagline">{team.tagline}</div>}
+      </div>
+    </div>
+  );
+}
+
 export default async function ResultadosPage() {
   const rows = await loadResultados();
 
@@ -114,39 +165,58 @@ export default async function ResultadosPage() {
             </div>
           </div>
         ) : (
-          <div className="flex flex-col gap-4">
+          <div className="res-list">
             {rows.map((m) => {
-              const isFinished = m.status === "finished";
               const disputed = m.status === "disputed";
               const forfeit = m.status === "forfeit";
+              const aWon = m.winnerTeamId === m.teamA?.id;
+              const bWon = m.winnerTeamId === m.teamB?.id;
               return (
-                <div key={m.id} style={{ position: "relative" }}>
-                  {/* Badges de estado sobre la card */}
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
-                    <span style={{ fontSize: 10, letterSpacing: "2px", textTransform: "uppercase", color: "var(--vertigo-faint)", fontWeight: 700 }}>
-                      {m.roundName ?? "—"}{m.format && ` · ${m.format}`}
+                <Link key={m.id} href={`/partido/${m.id}`} className="res-card">
+                  {/* Banda superior: ronda + formato con hairlines doradas */}
+                  <div className="res-top">
+                    <span className="hairline" />
+                    <span className="round">
+                      {m.roundName ?? "—"}{m.format ? ` · ${m.format}` : ""}
                     </span>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      {disputed && <span className="vertigo-badge vertigo-badge-danger" style={{ fontSize: 9, padding: "3px 10px" }}>Disputa</span>}
-                      {forfeit && <span className="vertigo-badge vertigo-badge-danger" style={{ fontSize: 9, padding: "3px 10px" }}>W.O.</span>}
-                      {m.finishedAt && (
-                        <span style={{ fontSize: 10, color: "var(--vertigo-faint)" }}>
-                          {fmt.dayMonTime(m.finishedAt)}
-                        </span>
-                      )}
-                    </div>
+                    <span className="hairline rev" />
+                    <span className="when">
+                      <Clock style={{ width: 10, height: 10, verticalAlign: -1, marginRight: 4 }} />
+                      {m.finishedAt ? fmt.dayMonTime(m.finishedAt) : "—"}
+                    </span>
                   </div>
 
-                  <DuelCard
-                    teamA={m.teamA ? { id: m.teamA.id, name: m.teamA.name, seed: m.teamA.seed, emblemUrl: m.teamA.emblemUrl, tagline: m.teamA.tagline } : null}
-                    teamB={m.teamB ? { id: m.teamB.id, name: m.teamB.name, seed: m.teamB.seed, emblemUrl: m.teamB.emblemUrl, tagline: m.teamB.tagline } : null}
-                    scoreA={m.scoreA}
-                    scoreB={m.scoreB}
-                    winnerId={m.winnerTeamId}
-                    href={`/partido/${m.id}`}
-                    live={false}
-                  />
-                </div>
+                  {/* Cuerpo: equipo A — score — equipo B */}
+                  <div className="res-body">
+                    <ResultSide team={m.teamA} won={aWon} align="l" />
+                    <div className="res-mid">
+                      {forfeit ? (
+                        /* W.O.: el score 0:0 no cuenta la historia — el pase
+                           al rival es el resultado. */
+                        <div className="res-score">
+                          <span className="win" style={{ fontSize: 24, letterSpacing: "0.08em" }}>W.O.</span>
+                        </div>
+                      ) : (
+                        <div className="res-score">
+                          <span className={aWon ? "win" : ""}>{m.scoreA}</span>
+                          <span className="colon">:</span>
+                          <span className={bWon ? "win" : ""}>{m.scoreB}</span>
+                        </div>
+                      )}
+                      <div className="res-format">
+                        {forfeit
+                          ? "Pase directo del rival"
+                          : m.format === "BO1"
+                            ? "Partido único"
+                            : m.format
+                              ? `Al mejor de ${m.format.replace(/^BO/i, "")}`
+                              : "Serie"}
+                      </div>
+                      {statusBadge(m.status, m.format)}
+                    </div>
+                    <ResultSide team={m.teamB} won={bWon} align="r" />
+                  </div>
+                </Link>
               );
             })}
           </div>

@@ -1,3 +1,5 @@
+import FoldText from "./FoldText";
+
 export default function TrophySection() {
   return (
     <section className="relative w-full min-h-[95vh] overflow-hidden">
@@ -21,11 +23,12 @@ export default function TrophySection() {
 
           <div className="reveal ml-auto mt-4 hairline w-64" />
 
-          <h3 className="reveal landing-title mt-6 font-cinzel text-[24px] md:text-[36px] leading-[1.18] uppercase tracking-[0.04em]">
-            Solo el equipo que<br />
-            soporte el peso del<br />
-            destino, podrá levantar<br />
-            la copa vértigo.
+          <h3 className="landing-title mt-6 font-cinzel text-[24px] md:text-[36px] leading-[1.18] uppercase tracking-[0.04em]">
+            <FoldText
+              text={"Solo el equipo que\nsoporte el peso del\ndestino, podrá levantar\nla copa vértigo."}
+              trigger="scroll"
+              hinge="top"
+            />
           </h3>
 
           <div className="reveal mt-9 flex justify-end">

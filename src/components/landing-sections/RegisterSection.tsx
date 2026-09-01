@@ -3,6 +3,7 @@
 import { Coins, Mic, Swords } from "lucide-react";
 import { useRef } from "react";
 import SlotsLine from "./SlotsLine";
+import FoldText from "./FoldText";
 
 type Path = {
   href: string;
@@ -104,7 +105,7 @@ function PathCard({ href, img, video, role, character, blurb, Icon }: Path) {
           </span>
         </div>
         <h3 className="landing-title mt-2.5 font-cinzel text-[30px] md:text-[38px] uppercase tracking-[0.06em]">
-          {role}
+          <FoldText text={role} trigger="scroll" hinge="top" />
         </h3>
         <p className="mt-3 text-[14px] md:text-[16px] leading-relaxed text-[#e6d3f5]/75">
           {blurb}

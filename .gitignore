@@ -72,3 +72,9 @@ serve.log
 # scripts descartables de análisis/calibración
 scripts/tmp-*
 scripts/db-cleanup/tmp-*
+
+# demo standalone del hero con parallax (video incluido, no va al repo)
+/test-hero/
+
+# captures d'ecran des scripts QA E2E
+/shots/

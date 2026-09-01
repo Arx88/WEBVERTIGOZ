@@ -9,6 +9,7 @@ import CivSection from "./CivSection";
 import RulesSection from "./RulesSection";
 import TrophySection from "./TrophySection";
 import Footer from "./Footer";
+import GlowCursor from "./GlowCursor";
 
 export default function Landing() {
   const rootRef = useRef<HTMLElement>(null);
@@ -40,6 +41,9 @@ export default function Landing() {
       <RulesSection />
       <TrophySection />
       <Footer />
+
+      {/* Estela de luz del cursor — SOLO en el landing, nunca en páginas internas */}
+      <GlowCursor color="#d667f9" />
     </main>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { BookOpen, Loader2, Download } from "lucide-react";
+import FoldText from "./FoldText";
 
 export default function RulesSection() {
   const [loading, setLoading] = useState(false);
@@ -59,10 +60,12 @@ export default function RulesSection() {
 
           <div className="reveal mt-4 hairline w-64" />
 
-          <h3 className="reveal landing-title mt-6 font-cinzel text-[24px] md:text-[36px] leading-[1.18] uppercase tracking-[0.04em]">
-            Un verdadero guerrero<br />
-            siempre estudia el campo<br />
-            de batalla y a sus rivales.
+          <h3 className="landing-title mt-6 font-cinzel text-[24px] md:text-[36px] leading-[1.18] uppercase tracking-[0.04em]">
+            <FoldText
+              text={"Un verdadero guerrero\nsiempre estudia el campo\nde batalla y a sus rivales."}
+              trigger="scroll"
+              hinge="top"
+            />
           </h3>
 
           <p className="reveal mt-5 max-w-md text-[13px] md:text-[14px] leading-relaxed text-[#e6d3f5]/80">

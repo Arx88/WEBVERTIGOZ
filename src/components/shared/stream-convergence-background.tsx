@@ -137,12 +137,40 @@ export default function StreamConvergenceBackground({
     };
 
     const render = (now: number) => {
+      // Si el navegador recicló el contexto, frenar el loop hasta el restore
+      if (gl.isContextLost()) {
+        frame = 0;
+        return;
+      }
       const options = optionsRef.current;
       gl.uniform1f(uTime, now * 0.0003 * options.speed);
       gl.uniform1f(uFidelity, options.fidelity);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
       frame = visible && !document.hidden ? requestAnimationFrame(render) : 0;
     };
+
+    // Si el contexto se pierde (los navegadores reciclan WebGL bajo presión de
+    // memoria), pausar y redibujar al restaurarlo — el fondo nunca queda muerto.
+    const onContextLost = (event: Event) => {
+      event.preventDefault();
+      if (frame) {
+        cancelAnimationFrame(frame);
+        frame = 0;
+      }
+    };
+    const onContextRestored = () => {
+      resize();
+      if (visible && !document.hidden && !frame) frame = requestAnimationFrame(render);
+    };
+
+    // Al volver a la pestaña, reanudar el loop si quedó frenado
+    const onVisibilityChange = () => {
+      if (!document.hidden && visible && !frame) frame = requestAnimationFrame(render);
+    };
+
+    canvas.addEventListener("webglcontextlost", onContextLost);
+    canvas.addEventListener("webglcontextrestored", onContextRestored);
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     const resizeObserver = new ResizeObserver(resize);
     const intersection = new IntersectionObserver(([entry]) => {
@@ -163,10 +191,18 @@ export default function StreamConvergenceBackground({
       if (frame) cancelAnimationFrame(frame);
       resizeObserver.disconnect();
       intersection.disconnect();
+      canvas.removeEventListener("webglcontextlost", onContextLost);
+      canvas.removeEventListener("webglcontextrestored", onContextRestored);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       gl.deleteBuffer(buffer);
       gl.deleteShader(vertex);
       gl.deleteShader(fragment);
       gl.deleteProgram(program);
+      // CRÍTICO: liberar el contexto WebGL explícitamente. Sin esto, cada loader
+      // deja un contexto vivo hasta que GC pase; los navegadores tienen un tope
+      // de contextos activos y al agotarse getContext() devuelve null → loader
+      // sin fondo animado.
+      gl.getExtension("WEBGL_lose_context")?.loseContext();
     };
   }, []);
 

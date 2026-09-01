@@ -1,6 +1,7 @@
 "use client";
 
 import { Sparkles } from "lucide-react";
+import FoldText from "./FoldText";
 
 export default function RouletteSection() {
   return (
@@ -27,9 +28,12 @@ export default function RouletteSection() {
           </span>
         </div>
 
-        <h3 className="reveal landing-title mt-7 font-cinzel text-[21px] md:text-[33px] leading-[1.3] uppercase tracking-[0.06em] max-w-4xl mx-auto">
-          &ldquo;Cada acción está en manos del azar,<br />
-          pero tendrás el poder de cambiarlo&rdquo;
+        <h3 className="landing-title mt-7 font-cinzel text-[21px] md:text-[33px] leading-[1.3] uppercase tracking-[0.06em] max-w-4xl mx-auto">
+          <FoldText
+            text={"\u201CCada acción está en manos del azar,\npero tendrás el poder de cambiarlo\u201D"}
+            trigger="scroll"
+            hinge="top"
+          />
         </h3>
       </div>
 

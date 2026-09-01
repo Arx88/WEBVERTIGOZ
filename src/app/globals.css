@@ -1371,6 +1371,193 @@ input::placeholder, textarea::placeholder {
 .ready-status.ok i { background: var(--vertigo-success); }
 .ready-status.wait i { background: var(--vertigo-purple-soft); animation: pulse-dot 2s infinite; }
 .pool-note { font-size: 11px; color: var(--vertigo-faint); line-height: 1.5; }
+
+/* Comodines usados — historial de la llave. El icono es la misma caja que
+   MI PERFIL (ComodinCard): 58px, radio 14, borde dorado + glow violeta;
+   gris cuando el uso se revocó/canceló. */
+.used-body { padding: 22px 28px; display: flex; flex-direction: column; gap: 10px; }
+.used-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  background: rgba(8, 7, 13, 0.55);
+  box-shadow: inset 0 0 0 1px rgba(255, 248, 231, 0.08);
+}
+.used-icon {
+  width: 58px;
+  height: 58px;
+  flex: none;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1.5px solid rgba(212, 175, 55, 0.45);
+  box-shadow: 0 0 18px rgba(124, 58, 237, 0.35), 0 4px 12px rgba(0, 0, 0, 0.4);
+  display: grid;
+  place-items: center;
+  background: rgba(124, 58, 237, 0.06);
+}
+.used-icon img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.used-row.dead .used-icon {
+  border-color: var(--vertigo-line);
+  box-shadow: none;
+  filter: grayscale(1) brightness(0.7);
+}
+.used-row.dead { opacity: 0.75; }
+.used-main { min-width: 0; display: flex; flex-direction: column; gap: 2px; flex: 1; }
+.used-label {
+  font-family: var(--font-cinzel), Cinzel, serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--vertigo-text);
+  line-height: 1.1;
+}
+.used-team { font-size: 12px; font-weight: 700; color: var(--vertigo-purple-pale); }
+.used-note { font-size: 11px; color: var(--vertigo-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.used-status {
+  padding: 4px 11px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border-radius: 999px;
+  flex: none;
+  color: var(--vertigo-faint);
+  background: rgba(255, 248, 231, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(255, 248, 231, 0.14);
+}
+.used-status.ok { color: var(--vertigo-success); background: rgba(34, 197, 94, 0.08); box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.3); }
+.used-status.revoked { color: var(--vertigo-danger); background: rgba(251, 113, 133, 0.08); box-shadow: inset 0 0 0 1px rgba(251, 113, 133, 0.3); }
+.used-status.wait { color: var(--vertigo-purple-soft); background: rgba(124, 58, 237, 0.08); box-shadow: inset 0 0 0 1px rgba(124, 58, 237, 0.3); }
+@media (max-width: 760px) {
+  .used-body { padding: 16px 18px; }
+  .used-row { gap: 10px; padding: 10px 12px; }
+  .used-note { min-width: 120px; flex-basis: 100%; order: 3; }
+}
+
+/* Resultados — lista de llaves finalizados (lenguaje del scoreboard del
+   partido: emblema circular, Cinzel, score grande, hairlines por ronda) */
+.res-list { display: flex; flex-direction: column; gap: 16px; }
+.res-card {
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  border: 1px solid var(--vertigo-line-soft);
+  background: rgba(13, 9, 19, 0.85);
+  overflow: hidden;
+  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+.res-card:hover {
+  border-color: rgba(124, 58, 237, 0.45);
+  transform: translateY(-2px);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+}
+/* Banda superior: ronda + formato con hairlines doradas (como el msb-top) */
+.res-top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 22px;
+  border-bottom: 1px solid var(--vertigo-line-soft);
+  background: rgba(8, 7, 13, 0.45);
+}
+.res-top .round {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 3.5px;
+  text-transform: uppercase;
+  color: var(--vertigo-gold);
+  white-space: nowrap;
+}
+.res-top .hairline {
+  flex: 1;
+  height: 1px;
+  min-width: 30px;
+  background: linear-gradient(90deg, rgba(212, 175, 55, 0.42), transparent);
+}
+.res-top .hairline.rev { transform: scaleX(-1); }
+.res-top .when { font-size: 11px; color: var(--vertigo-faint); white-space: nowrap; }
+/* Cuerpo: equipos con emblema + score central */
+.res-body {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 18px;
+  padding: 22px 26px;
+}
+.res-side { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.res-side.r { flex-direction: row-reverse; text-align: right; }
+.res-emblem {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  padding: 3px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 30% 25%, rgba(196, 181, 253, 0.18), var(--vertigo-input-bg) 62%);
+  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.35);
+}
+.res-emblem img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.res-side.winner .res-emblem {
+  box-shadow: 0 0 0 2px var(--vertigo-gold), 0 0 24px rgba(212, 175, 55, 0.28);
+}
+.res-name {
+  font-family: Cinzel, serif;
+  font-size: 17px;
+  font-weight: 900;
+  color: var(--vertigo-text);
+  letter-spacing: 0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.res-side.winner .res-name { color: var(--vertigo-gold); }
+.res-tagline {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--vertigo-faint);
+  margin-top: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Centro: score + estado */
+.res-mid {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 110px;
+}
+.res-score {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 34px;
+  font-weight: 900;
+  font-family: Cinzel, serif;
+  color: var(--vertigo-purple-pale);
+  text-shadow: 0 4px 24px rgba(124, 58, 237, 0.35);
+}
+.res-score .colon { color: var(--vertigo-faint); font-size: 24px; }
+.res-score .win { color: var(--vertigo-gold); text-shadow: 0 4px 24px rgba(212, 175, 55, 0.35); }
+.res-format {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--vertigo-faint);
+}
+@media (max-width: 640px) {
+  .res-body { grid-template-columns: 1fr; gap: 14px; padding: 18px 16px; }
+  .res-side.r { flex-direction: row; text-align: left; }
+  .res-mid { order: -1; }
+  .res-top { padding: 10px 16px; gap: 10px; }
+  .res-top .when { order: 3; }
+}
 @media (max-width: 760px) {
   .roster { grid-template-columns: 1fr; }
   .lineup-assign-row { flex-direction: column; align-items: flex-start; gap: 10px; }

@@ -2179,6 +2179,30 @@ html:has(.vertigo-page) {
   /* Se funde con el fondo del sitio en los bordes */
   mask-image: radial-gradient(ellipse at center, #000 35%, transparent 80%);
   -webkit-mask-image: radial-gradient(ellipse at center, #000 35%, transparent 80%);
+  /* Respaldo: gradiente animado CSS por si WebGL no puede iniciar
+     (el canvas de la consola converge encima cuando funciona) */
+  background: linear-gradient(
+    120deg,
+    rgba(76, 29, 149, 0.35),
+    rgba(255, 46, 158, 0.14),
+    rgba(30, 27, 75, 0.4),
+    rgba(124, 58, 237, 0.28),
+    rgba(76, 29, 149, 0.35)
+  );
+  background-size: 300% 300%;
+  animation: vertigo-loader-fallback 9s ease-in-out infinite;
+}
+
+@keyframes vertigo-loader-fallback {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
 .vertigo-loader .stream-convergence-bg canvas {
   width: 100%;
