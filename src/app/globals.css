@@ -1696,41 +1696,71 @@ input::placeholder, textarea::placeholder {
 }
 .window-timer.expired { color: var(--vertigo-danger); }
 
-/* Pestañas del informe de la serie (una por partida) */
+/* Pestañas del informe de la serie (una por partida) — banda segmentada:
+   columnas iguales de grilla (el ancho no depende del texto, así nada se
+   re-acomoda al cambiar de pestaña), número en caja como los asientos del
+   lineup, y hairline inferior que separa la banda del bloque de la partida. */
 .game-tabs {
-  display: flex;
+  --gt-n: 2;
+  display: grid;
+  grid-template-columns: repeat(var(--gt-n), 1fr);
   gap: 8px;
-  padding: 14px 18px 0;
-  flex-wrap: wrap;
+  padding: 12px 14px;
+  background: rgba(19, 15, 27, 0.5);
+  border-bottom: 1px solid var(--vertigo-line);
 }
 .game-tab {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
-  border-radius: 10px;
+  justify-content: center;
+  gap: 10px;
+  min-height: 54px;
+  padding: 8px 10px;
+  border-radius: 12px;
   border: 1px solid var(--vertigo-line);
-  background: rgba(19, 15, 27, 0.55);
+  background: rgba(11, 7, 19, 0.55);
   cursor: pointer;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--vertigo-muted);
   transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
 }
-.game-tab:hover:not(:disabled) { border-color: rgba(124, 58, 237, 0.5); }
+.game-tab:hover:not(:disabled) {
+  border-color: rgba(124, 58, 237, 0.5);
+  background: rgba(124, 58, 237, 0.08);
+}
 .game-tab.active {
   border-color: var(--vertigo-purple);
   background: rgba(124, 58, 237, 0.16);
   color: var(--vertigo-purple-pale);
+  box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.25), 0 6px 22px rgba(124, 58, 237, 0.18);
 }
 .game-tab:disabled { cursor: not-allowed; opacity: 0.45; }
 .game-tab .n {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  border: 1px solid var(--vertigo-line-soft);
+  background: rgba(19, 15, 27, 0.85);
   font-family: Cinzel, serif;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 16px;
   color: var(--vertigo-text);
 }
-.game-tab.active .n { color: var(--vertigo-purple-pale); }
-.game-tab .st { font-weight: 600; letter-spacing: 0.4px; }
+.game-tab.active .n {
+  border-color: rgba(124, 58, 237, 0.6);
+  background: rgba(124, 58, 237, 0.22);
+  color: var(--vertigo-purple-pale);
+}
+.game-tab .st {
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  line-height: 1.25;
+  text-align: left;
+  white-space: nowrap;
+}
 .game-tab.done .st { color: var(--vertigo-gold); }
 .game-tab.live .st {
   color: var(--vertigo-success);
@@ -1744,6 +1774,31 @@ input::placeholder, textarea::placeholder {
   animation: matchLiveDot 1.6s ease-in-out infinite;
 }
 .game-tab.locked .st { color: var(--vertigo-faint); font-style: italic; }
+
+/* Con más de 3 partidas la banda no entra en una fila: se reparte en
+   renglones de columnas iguales, así los anchos siguen estables. */
+.game-tabs.cols-4, .game-tabs.cols-5, .game-tabs.cols-6, .game-tabs.cols-7 {
+  grid-template-columns: repeat(var(--gt-n), minmax(0, 1fr));
+}
+.game-tabs.cols-4 { --gt-n: 4; }
+.game-tabs.cols-5 { --gt-n: 5; }
+.game-tabs.cols-6 { --gt-n: 6; }
+.game-tabs.cols-7 { --gt-n: 7; }
+
+/* Móvil: las partidas van de a pares (2 columnas), una fila por renglón. */
+@media (max-width: 760px) {
+  .game-tabs { --gt-n: 2; gap: 6px; padding: 10px; }
+  .game-tab { min-height: 48px; gap: 8px; padding: 6px 8px; }
+  .game-tab .n { width: 30px; height: 30px; font-size: 14px; }
+  .game-tab .st { font-size: 11px; }
+}
+
+/* Cuerpo de la pestaña activa: separado de la banda de pestañas por su
+   hairline, con aire propio para que el bloque respire. */
+.game-tab-body { padding: 18px 14px 8px; }
+@media (max-width: 760px) {
+  .game-tab-body { padding: 12px 10px 4px; }
+}
 @keyframes matchLiveDot {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.35; }

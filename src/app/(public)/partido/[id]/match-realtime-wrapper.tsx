@@ -476,7 +476,11 @@ function SeriesReport({
             con una sola (BO1) son ruido — el estado ya lo dicen el scoreboard
             y el GameCard. */}
         {games.length > 1 && (
-          <div className="game-tabs" role="tablist" aria-label="Partidas de la serie">
+          <div
+            className={`game-tabs cols-${Math.min(games.length, 7)}`}
+            role="tablist"
+            aria-label="Partidas de la serie"
+          >
             {games.map((game, i) => {
               const score = scoreAtGame(game);
               const isLive = game.status === "in_progress";
@@ -521,7 +525,7 @@ function SeriesReport({
           </div>
         )}
         {g && (
-          <div style={{ padding: "0 0 6px" }}>
+          <div className="game-tab-body">
             <GameCard
               game={g}
               teamAName={teamAName}
