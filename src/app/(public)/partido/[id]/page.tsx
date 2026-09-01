@@ -28,12 +28,13 @@ export default async function PartidoPage({
   const supabase = await getSupabaseServer();
 
   // Datos del partido + contexto del capitán + contexto del espectador
-  // corren EN PARALELO (antes: 3 bloques en serie — cada uno con varias
-  // queries de Supabase dentro, todo sumando latencia al TTFB).
-  const [initialMatch, captainContext, spectatorContext] = await Promise.all([
+  // + contexto de visualización pública (rosters/pozo para el scoreboard)
+  // corren EN PARALELO.
+  const [initialMatch, captainContext, spectatorContext, viewContext] = await Promise.all([
     loadMatch(supabase, id).catch(() => null),
     resolveCaptainContext(supabase as any, id).catch(() => null),
     resolveSpectatorContext(supabase as any, id).catch(() => null),
+    resolveViewContext(supabase as any, id).catch(() => null),
   ]);
 
   if (!initialMatch) {
@@ -70,7 +71,7 @@ export default async function PartidoPage({
       <SiteNav />
 
       <main className="vertigo-content">
-        <MatchRealtimeWrapper matchId={id} initialMatch={initialMatch} captainContext={captainContext} spectatorContext={spectatorContext} />
+        <MatchRealtimeWrapper matchId={id} initialMatch={initialMatch} captainContext={captainContext} spectatorContext={spectatorContext} viewContext={viewContext} />
 
         <div className="mt-6">
           <VertigoFooter />
@@ -151,6 +152,22 @@ async function resolveCaptainContext(supabase: any, matchId: string) {
   const annulledPlayerIds = annulledAll.filter((id) => myPlayerIds.has(id));
   const rivalAnnulledPlayerIds = annulledAll.filter((id) => !myPlayerIds.has(id));
 
+  // Inventario de comodines del capitán (usos restantes por tipo) para la
+  // grilla de la ventana de comodines. Service role: RLS de participación.
+  const { data: inv } = await service
+    .from("comodin_inventory")
+    .select("reroll_available, anular_available, elegir_rival_available, invocar_pro_available")
+    .eq("team_registration_id", myReg.id)
+    .maybeSingle();
+  const comodinInventory = inv
+    ? {
+        reroll: (inv.reroll_available ?? 0) as number,
+        anular: (inv.anular_available ?? 0) as number,
+        elegirRival: (inv.elegir_rival_available ?? 0) as number,
+        invocarPro: (inv.invocar_pro_available ?? 0) as number,
+      }
+    : { reroll: 0, anular: 0, elegirRival: 0, invocarPro: 0 };
+
   return {
     myTeamRegId: myReg.id,
     teamA_id: matchRow.team_a_id,
@@ -159,6 +176,7 @@ async function resolveCaptainContext(supabase: any, matchId: string) {
     rivalPlayers,
     annulledPlayerIds,
     rivalAnnulledPlayerIds,
+    comodinInventory,
   };
 }
 
@@ -218,4 +236,48 @@ async function resolveSpectatorContext(supabase: any, matchId: string) {
     bettors: bets.length,
     scheduledAtStart: matchRow?.scheduled_at_start ?? null,
   } as const;
+}
+
+// ============================================================
+// Resolver el contexto de visualización pública (server-side)
+// ============================================================
+// Datos que la página muestra a TODOS los roles (capitán, espectador,
+// anónimo): rosters de ambos equipos (banda "playing" del scoreboard) y
+// el agregado del pozo (solo números, nunca quién apostó — las bets son
+// privadas, service role como en resolveSpectatorContext).
+
+async function resolveViewContext(supabase: any, matchId: string) {
+  const service = getSupabaseServiceRole();
+
+  // Rosters de ambos equipos EN PARALELO
+  const { data: matchRow } = await service
+    .from("match").select("team_a_id, team_b_id").eq("id", matchId).maybeSingle();
+  const teamIds = [matchRow?.team_a_id, matchRow?.team_b_id].filter(Boolean) as string[];
+  const [playersRows, pendingBets] = (await Promise.all([
+    teamIds.length > 0
+      ? service
+          .from("player_registration")
+          .select("id, display_name, is_captain, team_registration_id")
+          .in("team_registration_id", teamIds)
+      : Promise.resolve({ data: [] }),
+    service
+      .from("bet").select("stake").eq("match_id", matchId).eq("status", "pending"),
+  ])) as { data: any }[];
+
+  const players = playersRows?.data ?? [];
+  const playersA = players
+    .filter((p: any) => p.team_registration_id === matchRow?.team_a_id)
+    .map((p: any) => ({ id: p.id, displayName: p.display_name, isCaptain: !!p.is_captain }));
+  const playersB = players
+    .filter((p: any) => p.team_registration_id === matchRow?.team_b_id)
+    .map((p: any) => ({ id: p.id, displayName: p.display_name, isCaptain: !!p.is_captain }));
+
+  const pool = (pendingBets?.data ?? []).reduce((acc: number, b: any) => acc + (b.stake ?? 0), 0);
+
+  return {
+    playersA,
+    playersB,
+    pool,
+    bettors: (pendingBets?.data ?? []).length,
+  };
 }

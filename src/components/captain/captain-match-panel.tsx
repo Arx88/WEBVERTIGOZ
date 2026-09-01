@@ -23,13 +23,13 @@ import ConfirmReadyForm from "@/components/captain/confirm-ready-form";
 import {
   declareLineupFormAction,
   confirmLineupReadyFormAction,
-  requestComodinFormAction,
+  useComodinFormAction,
 } from "@/server/actions/match-day";
 import ReadyDeadlineTimer, { useReadyWindow } from "@/components/shared/ready-deadline-timer";
 import { NoDateBanner } from "@/components/shared/no-date-banner";
-import LobbyNameCard from "@/components/shared/lobby-name-card";
+import { useAutoScrollOnPhase, usePhaseEnter } from "@/app/(public)/partido/[id]/realtime-hooks";
 import {
-  CheckCircle2, Users, Sword, Timer, Sparkles, Loader2, AlertCircle,
+  CheckCircle2, Users, Sword, Timer, Sparkles, Loader2, AlertCircle, Clock, AlertTriangle, RotateCcw,
 } from "lucide-react";
 
 interface TeamLite {
@@ -58,6 +58,16 @@ export interface CaptainPanelContext {
   annulledPlayerIds: string[];
   /** Jugadores del RIVAL ya anulados en este match (para deshabilitarlos como objetivo) */
   rivalAnnulledPlayerIds: string[];
+  /** Usos restantes de cada comodín (para la grilla de la ventana) */
+  comodinInventory: ComodinInventoryLite;
+}
+
+/** Usos restantes por comodín (inventario del capitán). */
+export interface ComodinInventoryLite {
+  reroll: number;
+  anular: number;
+  elegirRival: number;
+  invocarPro: number;
 }
 
 interface Props {
@@ -77,6 +87,16 @@ interface Props {
   annulledPlayerIds: string[];
   /** Jugadores del RIVAL ya anulados (objetivo inválido para ANULAR/ELEGIR otra vez) */
   rivalAnnulledPlayerIds: string[];
+  /** Usos restantes de cada comodín (grilla de la ventana) */
+  comodinInventory: ComodinInventoryLite;
+  /** Todos los usos del match — el panel deriva la exclusión mutua
+      anular↔elegir_rival (usage de MI equipo del otro tipo con status
+      ∉ {cancelled, revoked}, igual que el server). */
+  comodinUsages: {
+    comodinType: string;
+    status: string;
+    teamRegId: string | null;
+  }[];
   readyA: boolean;
   readyB: boolean;
   readyLineupA: boolean;
@@ -86,11 +106,25 @@ interface Props {
   playerMode: string | null;
   /** Civs sorteadas para MI equipo en la partida activa (pool para asignar). */
   myCivs: string[];
+  /** Lineup ya declarado por MI equipo en la partida activa (si existe):
+      IDs de jugadores + civ asignada por jugador. Sirve para mostrar un
+      resumen en vez del form cuando ya se declaró/confirmó. */
+  myLineup: string[];
+  myCivAssignment: Record<string, string>;
   /** comodin_window_expires_at */
   comodinExpiresAt: string | null;
   /** Nombre de sala AoE2 de la partida activa (derivado, no guardado).
       Con esto el capitán crea la sala y el resultado se detecta solo. */
   lobbyName?: string | null;
+  /** Partida activa (mapa/modo/civs) — para mostrar el resultado del sorteo
+      en drawing/lineup desde el panel, no solo en las cards de abajo. */
+  activeGame?: {
+    map: string | null;
+    gameMode: string | null;
+    playerMode: string | null;
+    civsA: string[];
+    civsB: string[];
+  } | null;
 }
 
 export function CaptainMatchPanel({
@@ -104,19 +138,27 @@ export function CaptainMatchPanel({
   rivalPlayers,
   annulledPlayerIds,
   rivalAnnulledPlayerIds,
+  comodinInventory,
+  comodinUsages,
   readyA,
   readyB,
   readyLineupA,
   readyLineupB,
   playerMode,
   myCivs,
+  myLineup = [],
+  myCivAssignment = {},
   comodinExpiresAt,
   lobbyName = null,
+  /** Partida activa del match (mapa/modo/civs sorteadas) — el panel muestra
+      el resultado del sorteo en fases drawing/lineup, no solo su nombre. */
+  activeGame = null,
 }: Props) {
   const isMyTeamA = myTeamRegId === teamA?.id;
   const myTeam = isMyTeamA ? teamA : teamB;
   const myReady = isMyTeamA ? readyA : readyB;
   const myReadyLineup = isMyTeamA ? readyLineupA : readyLineupB;
+  const rivalReadyLineup = isMyTeamA ? readyLineupB : readyLineupA;
   const rivalReady = isMyTeamA ? readyB : readyA;
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -124,75 +166,218 @@ export function CaptainMatchPanel({
   // Ventana de READY: [15 min antes del horario, 15 min después] (tolerancia W.O.)
   const { phase: readyPhase } = useReadyWindow(scheduledAtStart, status);
 
+  // ===== UX de fases en vivo: auto-scroll + glow cuando el status cambia.
+  // phaseKey separa la RE-apertura del lineup (admin re-abrió tras un comodín:
+  // lineup declarado pero mi READY#2 quedó en false → hay que re-declarar).
+  const needsRedeclare = status === "lineup" && !myReadyLineup;
+  const phaseKey = `${status}:${needsRedeclare ? "redeclare" : "normal"}`;
+  const sectionRef = useAutoScrollOnPhase<HTMLDivElement>(phaseKey);
+  const phaseCls = usePhaseEnter(phaseKey);
+
   const panelClasses = "vertigo-card";
   const isCaptainOfThisMatch = !!myTeamRegId;
 
   if (!isCaptainOfThisMatch) return null;
 
+  // Cabecera de sección de la fase (estilo demo: tag + título + rule)
+  const phaseHead = (tag: string, title: string) => (
+    <div className="match-sec-head">
+      <span className="tag">{tag}</span>
+      <h2>{title}</h2>
+      <span className="rule" />
+    </div>
+  );
+
   // ===== READY #2 view (declarar lineup + confirmar)
   if (status === "lineup") {
+    // Ya declaraste Y confirmaste READY → resumen (no el form de nuevo: el form
+    // deshabilitado con contadores en cero era confuso). Si el admin re-abrió
+    // el lineup (comodín ANULAR/ELEGIR_RIVAL → ready_lineup=null), vuelve el
+    // form para re-declarar: el lineup guardado puede estar incompleto o sin
+    // el jugador forzado, no es un resumen válido.
+    const myDeclared = myLineup.length > 0;
+    const showSummary = myDeclared && myReadyLineup;
     return (
-      <div className={panelClasses} style={{ border: "1px solid rgba(251,191,36,0.3)", background: "rgba(251,191,36,0.04)" }}>
-        <div className="vertigo-card-header" style={{ borderBottomColor: "rgba(251,191,36,0.2)" }}>
-          <div className="vertigo-card-title" style={{ color: "#fbbf24" }}>
+      <div ref={sectionRef} className="captain-phase-anchor">
+        {phaseHead("Fase · Lineup", showSummary ? "Lineup declarado" : myDeclared ? "Re-declará el lineup" : `¿Quiénes juegan el ${(playerMode ?? "").toUpperCase() === "1V1" ? "1 VS 1" : (playerMode ?? "").toUpperCase() === "2V2" ? "2 VS 2" : (playerMode ?? "").toUpperCase() || "encuentro"}?`)}
+        <div className={panelClasses}>
+        <div className="vertigo-card-header">
+          <div className="vertigo-card-title">
             <Users style={{ width: 14, height: 14, display: "inline", marginRight: 8 }} />
-            Declarar lineup de {myTeam?.name ?? "tu equipo"}
+            {myDeclared ? `Lineup de ${myTeam?.name ?? "tu equipo"}` : `Declarar lineup de ${myTeam?.name ?? "tu equipo"}`}
           </div>
-          <span className="vertigo-badge vertigo-badge-warning">LINEUP</span>
+          <span className="vertigo-badge vertigo-badge-purple">LINEUP</span>
         </div>
-        <p className="text-sm text-[var(--vertigo-muted)] mb-4 leading-relaxed">
-          El sorteo definió el modo y el formato. Declará <strong style={{ color: "var(--vertigo-text)" }}>quién juega</strong> esta partida,
-          asigná <strong style={{ color: "var(--vertigo-text)" }}>una civ sorteada a cada jugador</strong> y confirmá READY.
-          Cuando ambos equipos lo hagan, abre la ventana de comodines (5 min).
-        </p>
-        <CaptainLineupForm
-          matchId={matchId}
-          myPlayers={myPlayers}
-          annulledPlayerIds={annulledPlayerIds}
-          playerModeExpected={playerMode}
-          myCivs={myCivs}
-          readyLineup={myReadyLineup}
-          pending={pending}
-          onSubmit={(playerIds, civAssignment) => {
-            setError(null); setSuccessMsg(null);
-            startTransition(async () => {
-              try {
-                const fd = new FormData();
-                // Necesitamos el match_game_id — lo resolvemos acá
-                const gameId = await fetchCurrentGameId(matchId);
-                if (!gameId) throw new Error("No se encontró la partida en curso.");
-                fd.set("match_game_id", gameId);
-                fd.set("player_ids", JSON.stringify(playerIds));
-                fd.set("civ_assignment", JSON.stringify(civAssignment));
-                await declareLineupFormAction(fd);
-                // Luego confirmar READY #2
-                const fd2 = new FormData();
-                fd2.set("match_id", matchId);
-                await confirmLineupReadyFormAction(fd2);
-                setSuccessMsg("Lineup declarado y READY confirmado. Esperando al rival…");
-              } catch (e) {
-                setError(e instanceof Error ? e.message : "Error al declarar lineup.");
-              }
-            });
-          }}
-        />
+        {showSummary ? (
+          <>
+            <div
+              style={{
+                padding: "14px 18px",
+                background: "rgba(34,197,94,0.08)",
+                border: "1px solid rgba(34,197,94,0.3)",
+                borderRadius: "10px",
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                flexWrap: "wrap",
+              }}
+            >
+              <CheckCircle2 style={{ width: 20, height: 20, color: "var(--vertigo-success)", flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: "1px", color: "var(--vertigo-success)" }}>
+                  {myReadyLineup ? "✓ LINEUP CONFIRMADO" : "Lineup declarado — confirmá READY"}
+                </div>
+                <div style={{ fontSize: 12, color: "var(--vertigo-muted)", marginTop: 4, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                  {myLineup.map((pid) => {
+                    const p = myPlayers.find((x) => x.id === pid);
+                    const civ = myCivAssignment[pid];
+                    return (
+                      <span
+                        key={pid}
+                        className="vertigo-badge vertigo-badge-purple"
+                        style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
+                      >
+                        {p?.is_captain ? "★ " : ""}{p?.display_name ?? "Jugador"}
+                        {civ && (
+                          <>
+                            <img src={`/civs/${civ}.webp`} alt="" style={{ width: 14, height: 14, objectFit: "contain" }} />
+                            {civName(civ)}
+                          </>
+                        )}
+                      </span>
+                    );
+                  })}
+                </div>
+                <div style={{ fontSize: 12, color: "var(--vertigo-faint)", marginTop: 4 }}>
+                  {myReadyLineup
+                    ? rivalReadyLineup
+                      ? "Ambos equipos confirmaron. Esperando que el admin abra la ventana de comodines."
+                      : "Esperando que el rival confirme su lineup…"
+                    : "Tu selección quedó registrada."}
+                </div>
+              </div>
+            </div>
+            {/* Vía de escape: si el admin re-abre el lineup (p.ej. tras un
+                comodín ANULAR), el capitán puede volver a declarar. */}
+            {!myReadyLineup && (
+              <div className="text-[12px] text-[var(--vertigo-faint)] mt-3">
+                Si el admin re-abre el lineup tras un comodín, volvé a declararlo desde acá cuando cambie.
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {myDeclared && (
+              <div
+                className="mb-4"
+                style={{
+                  padding: "12px 16px",
+                  background: "rgba(251,191,36,0.08)",
+                  border: "1px solid rgba(251,191,36,0.35)",
+                  borderRadius: "10px",
+                  fontSize: 13,
+                  color: "#fbbf24",
+                  lineHeight: 1.5,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                }}
+              >
+                <AlertTriangle style={{ width: 16, height: 16, flexShrink: 0 }} />
+                <span>
+                  Un comodín re-abrió el lineup de esta llave.{" "}
+                  {annulledPlayerIds.length > 0
+                    ? "Tenés jugador(es) anulado(s) — elegí de nuevo quién juega."
+                    : "Re-declará tu lineup para continuar."}
+                </span>
+              </div>
+            )}
+            <p className="text-sm text-[var(--vertigo-muted)] mb-4 leading-relaxed">
+              Primero elegí <strong style={{ color: "var(--vertigo-text)" }}>quiénes juegan</strong>, después la{" "}
+              <strong style={{ color: "var(--vertigo-text)" }}>civilización de cada uno</strong> y declará. Cuando ambos equipos confirmen, abre la ventana de comodines (5 min).
+            </p>
+            <CaptainLineupForm
+              matchId={matchId}
+              myPlayers={myPlayers}
+              annulledPlayerIds={annulledPlayerIds}
+              playerModeExpected={playerMode}
+              myCivs={myCivs}
+              readyLineup={myReadyLineup}
+              pending={pending}
+              onSubmit={(playerIds, civAssignment) => {
+                setError(null); setSuccessMsg(null);
+                startTransition(async () => {
+                  try {
+                    const fd = new FormData();
+                    // Necesitamos el match_game_id — lo resolvemos acá
+                    const gameId = await fetchCurrentGameId(matchId);
+                    if (!gameId) throw new Error("No se encontró la partida en curso.");
+                    fd.set("match_game_id", gameId);
+                    fd.set("player_ids", JSON.stringify(playerIds));
+                    fd.set("civ_assignment", JSON.stringify(civAssignment));
+                    await declareLineupFormAction(fd);
+                    // Luego confirmar READY #2
+                    const fd2 = new FormData();
+                    fd2.set("match_id", matchId);
+                    await confirmLineupReadyFormAction(fd2);
+                    setSuccessMsg("Lineup declarado y READY confirmado. Esperando al rival…");
+                  } catch (e) {
+                    setError(e instanceof Error ? e.message : "Error al declarar lineup.");
+                  }
+                });
+              }}
+            />
+          </>
+        )}
         {error && <div className="mt-3 text-sm text-[var(--vertigo-danger)] flex items-center gap-2"><AlertCircle style={{ width: 14, height: 14 }} />{error}</div>}
         {successMsg && <div className="mt-3 text-sm text-[var(--vertigo-success)]">{successMsg}</div>}
+        {/* La sala se muestra UNA sola vez, en la sección Sala del scoreboard
+            (wrapper) — nunca duplicada acá. */}
+      </div>
       </div>
     );
   }
 
   // ===== Ventana de comodines
   if (status === "comodin_window") {
-    return <ComodinPrompt matchId={matchId} comodinExpiresAt={comodinExpiresAt} myTeamName={myTeam?.name ?? "Tu equipo"} rivalTeamName={!isMyTeamA ? teamA?.name ?? "Rival" : teamB?.name ?? "Rival"} rivalPlayers={rivalPlayers} rivalAnnulled={rivalAnnulledPlayerIds} playerMode={playerMode} />;
+    return (
+      <div ref={sectionRef} className="captain-phase-anchor">
+        {phaseHead("Fase · Ventana 5:00", "Comodines de la llave")}
+        <ComodinPrompt
+          phaseCls={phaseCls}
+          matchId={matchId}
+          comodinExpiresAt={comodinExpiresAt}
+          myTeamName={myTeam?.name ?? "Tu equipo"}
+          rivalTeamName={!isMyTeamA ? teamA?.name ?? "Rival" : teamB?.name ?? "Rival"}
+          rivalPlayers={rivalPlayers}
+          rivalAnnulled={rivalAnnulledPlayerIds}
+          playerMode={playerMode}
+          comodinInventory={comodinInventory}
+          myTeamRegId={myTeamRegId}
+          comodinUsages={comodinUsages}
+        />
+      </div>
+    );
   }
 
   // ===== Esperando sorteo / partido en curso — contexto para el capitán.
-  // El countdown y el estado ya viven en el bloque VERSUS (abajo); este panel
+  // El countdown y el estado ya viven en el scoreboard (arriba); este panel
   // es la ACCIÓN del capitán: READY #1 para habilitar la llave.
   const waitingStart = status === "scheduled" || status === "open";
+  const phaseTag =
+    status === "drawing" ? "Fase · Sorteo"
+    : status === "in_progress" ? "Fase · En juego"
+    : waitingStart ? "Fase · Confirmación"
+    : "Tu partido";
+  const phaseTitle =
+    status === "drawing" ? "El sorteo definió la partida"
+    : status === "in_progress" ? "¡A ganar!"
+    : waitingStart ? (myReady ? "Estás listo" : "Confirmá tu asistencia")
+    : `Tu partido — ${myTeam?.name ?? ""}`;
   return (
-    <div className={panelClasses}>
+    <div ref={sectionRef} className="captain-phase-anchor">
+      {phaseHead(phaseTag, phaseTitle)}
+      <div className={`${panelClasses} ${phaseCls}`}>
       <div className="vertigo-card-header">
         <div className="vertigo-card-title">
           <Sword style={{ width: 14, height: 14, display: "inline", marginRight: 8, color: "var(--vertigo-purple-soft)" }} />
@@ -279,18 +464,58 @@ export function CaptainMatchPanel({
         </>
       )}
       {status === "drawing" && (
-        <div className="text-sm text-[var(--vertigo-purple-soft)]">◆ La ruleta está girando. El resultado aparece acá apenas termina.</div>
-      )}
-      {status === "in_progress" && (
         <>
-          <div className="text-sm text-[var(--vertigo-success)]">▶ Partida en juego. ¡A ganar!</div>
-          {lobbyName && (
-            <div className="mt-3">
-              <LobbyNameCard name={lobbyName} variant="chip" />
+          {/* El resultado del sorteo YA está decidido (startDrawAction lo
+              persiste revelado antes de animar): el capitán lo ve acá mismo,
+              sin esperar a que el admin publique el lineup. */}
+          {activeGame && activeGame.map ? (
+            <>
+              <div className="text-sm text-[var(--vertigo-purple-soft)] mb-3">
+                ◆ Sorteo realizado — así se juega esta partida:
+              </div>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {[
+                  { label: "Mapa", value: activeGame.map },
+                  { label: "Modo", value: activeGame.gameMode },
+                  { label: "Formato", value: activeGame.playerMode },
+                ].filter((c) => !!c.value).map((c) => (
+                  <span
+                    key={c.label}
+                    className="text-[12px] rounded-lg"
+                    style={{
+                      padding: "8px 14px",
+                      background: "rgba(13,9,19,0.6)",
+                      border: "1px solid var(--vertigo-line-soft)",
+                    }}
+                  >
+                    <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "1.5px", textTransform: "uppercase", color: "var(--vertigo-faint)", marginRight: 7 }}>
+                      {c.label}
+                    </span>
+                    <strong style={{ color: "var(--vertigo-text)" }}>{c.value}</strong>
+                  </span>
+                ))}
+              </div>
+              <MyCivChips
+                myCivs={isMyTeamA ? activeGame.civsA : activeGame.civsB}
+                label="Tus civs sorteadas"
+              />
+            </>
+          ) : (
+            <div className="text-sm text-[var(--vertigo-purple-soft)]">
+              ◆ La ruleta está girando. El resultado aparece acá apenas termina.
+            </div>
+          )}
+          {activeGame && activeGame.map && (
+            <div className="text-[12px] text-[var(--vertigo-faint)] mt-3">
+              El admin lo publica en el stream y se abre la fase de lineup.
             </div>
           )}
         </>
       )}
+      {status === "in_progress" && (
+        <div className="text-sm text-[var(--vertigo-success)]">▶ Partida en juego. ¡A ganar!</div>
+      )}
+    </div>
     </div>
   );
 }
@@ -320,7 +545,9 @@ function CaptainLineupForm({
 }) {
   const available = myPlayers.filter((p) => !annulledPlayerIds.includes(p.id));
   const expected = playersForMode(playerModeExpected);
-  const [selected, setSelected] = useState<string[]>(available.slice(0, expected).map((p) => p.id));
+  // La selección arranca VACÍA: la pregunta "¿quiénes juegan?" es explícita —
+  // nada pre-marcado que el capitán pueda declarar sin haber mirado.
+  const [selected, setSelected] = useState<string[]>([]);
   // player_id → civ_id. Cada jugador seleccionado elige UNA civ del pool.
   const [assign, setAssign] = useState<Record<string, string>>({});
   const [civError, setCivError] = useState<string | null>(null);
@@ -329,9 +556,25 @@ function CaptainLineupForm({
     setSelected((cur) => cur.filter((id) => !annulledPlayerIds.includes(id)));
   }, [annulledPlayerIds]);
 
+  // Al cambiar la selección, el estado de civs SIEMPRE queda saneado:
+  // solo existen entradas para jugadores seleccionados — así una civ nunca
+  // queda "tomada" por un jugador que ya sacaste.
+  useEffect(() => {
+    setAssign((cur) => {
+      const next: Record<string, string> = {};
+      for (const pid of selected) next[pid] = cur[pid];
+      return Object.keys(next).length === Object.keys(cur).length && Object.entries(next).every(([k, v]) => cur[k] === v) ? cur : next;
+    });
+  }, [selected]);
+
   const toggle = (id: string) => {
-    setSelected((cur) => cur.includes(id) ? cur.filter((x) => x !== id) : cur.length < expected ? [...cur, id] : cur);
     setCivError(null);
+    if (expected === 1) {
+      // 1v1: tocar un jugador lo SELECCIONA (radio) — uno solo, nunca cero.
+      setSelected([id]);
+      return;
+    }
+    setSelected((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : cur.length < expected ? [...cur, id] : cur));
   };
 
   if (expected === 0) {
@@ -344,6 +587,7 @@ function CaptainLineupForm({
   }
 
   const usedCivs = new Set(Object.values(assign));
+  const assignedCount = selected.filter((pid) => !!assign[pid]).length;
   const allAssignmentsDone = selected.length > 0 && selected.every((pid) => !!assign[pid]);
 
   const handleConfirm = () => {
@@ -359,57 +603,69 @@ function CaptainLineupForm({
   };
 
   return (
-    <div>
-      {/* Selección de jugadores */}
-      <div className="text-[10px] uppercase tracking-widest text-[var(--vertigo-faint)] mb-2">1 · Elegí quién juega ({expected})</div>
-      <div className="flex flex-wrap gap-2 mb-4">
-        {myPlayers.map((p) => {
-          const isSelected = selected.includes(p.id);
-          const isAnnulled = annulledPlayerIds.includes(p.id);
-          return (
-            <button
-              key={p.id}
-              type="button"
-              disabled={isAnnulled || pending || readyLineup}
-              onClick={() => toggle(p.id)}
-              className="vertigo-btn"
-              style={{
-                padding: "10px 16px",
-                fontSize: 12,
-                background: isSelected ? "rgba(124,58,237,0.18)" : "transparent",
-                border: `1px solid ${isAnnulled ? "var(--vertigo-border)" : isSelected ? "var(--vertigo-purple)" : "var(--vertigo-line)"}`,
-                color: isAnnulled ? "var(--vertigo-faint)" : isSelected ? "var(--vertigo-purple-pale)" : "var(--vertigo-muted)",
-                opacity: isAnnulled ? 0.45 : 1,
-                textDecoration: isAnnulled ? "line-through" : "none",
-              }}
-            >
-              {p.is_captain ? "★ " : ""}{p.display_name}
-              {isAnnulled && " (anulado)"}
-            </button>
-          );
-        })}
+    <div className="lineup-body">
+      {/* ── PASO 1: ¿quiénes juegan? ── */}
+      <div>
+        <div className="step-label">
+          1 · ¿Quiénes juegan esta partida? <b>({selected.length} de {expected})</b>
+        </div>
+        <div className="roster" style={{ marginTop: 10 }}>
+          {myPlayers.map((p) => {
+            const isSelected = selected.includes(p.id);
+            const isAnnulled = annulledPlayerIds.includes(p.id);
+            const civ = assign[p.id];
+            return (
+              <button
+                key={p.id}
+                type="button"
+                disabled={isAnnulled || pending || readyLineup}
+                onClick={() => toggle(p.id)}
+                className={`lineup-seat ${isSelected ? "selected" : ""}`}
+                aria-pressed={isSelected}
+              >
+                <span className="avatar">
+                  {civ ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={`/civs/${civ}.webp`} alt="" />
+                  ) : (
+                    p.display_name.slice(0, 1).toUpperCase()
+                  )}
+                </span>
+                <span className="info">
+                  <span className="nick">{p.display_name}</span>
+                  <span className="sub">
+                    {isAnnulled ? "Anulado por comodín" : p.is_captain ? "★ Capitán" : "Jugador"}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Paso a paso: si hay jugadores seleccionados, mostrar el selector de civs */}
+      {/* ── PASO 2: una pregunta por jugador — ¿qué civ usa cada uno? ── */}
       {selected.length > 0 && myCivs.length > 0 && (
-        <>
-          <div className="text-[10px] uppercase tracking-widest text-[var(--vertigo-faint)] mb-2 mt-4">2 · Asigná una civ a cada jugador</div>
-          <div className="flex flex-col gap-3 mb-4">
+        <div>
+          <div className="step-label">2 · Asigná la civilización de cada jugador</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
             {selected.map((pid) => {
               const player = myPlayers.find((p) => p.id === pid);
               const currentCiv = assign[pid] ?? null;
               return (
-                <div key={pid} className="vertigo-info-card" style={{ padding: "12px 14px" }}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-[13px] font-semibold text-[var(--vertigo-text)]">{player?.display_name ?? pid.slice(0, 8)}</span>
-                    {currentCiv && (
-                      <span className="vertigo-badge vertigo-badge-purple" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                        <img src={`/civs/${currentCiv}.webp`} alt="" style={{ width: 14, height: 14, objectFit: "contain" }} />
-                        {civName(currentCiv)}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap gap-1">
+                <div key={pid} className="lineup-assign-row">
+                  <span className="player">
+                    <span className="avatar">
+                      {currentCiv ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={`/civs/${currentCiv}.webp`} alt="" />
+                      ) : (
+                        (player?.display_name ?? "?").slice(0, 1).toUpperCase()
+                      )}
+                    </span>
+                    <span className="nick">{player?.display_name ?? pid.slice(0, 8)}</span>
+                    {player?.is_captain && <span className="star">★</span>}
+                  </span>
+                  <div className="civ-pool">
                     {myCivs.map((civ) => {
                       const taken = usedCivs.has(civ) && assign[pid] !== civ;
                       const chosen = assign[pid] === civ;
@@ -417,24 +673,13 @@ function CaptainLineupForm({
                         <button
                           key={civ}
                           type="button"
-                          disabled={taken || pending || readyLineup}
+                          disabled={pending || readyLineup}
                           onClick={() => { setCivError(null); setAssign((cur) => ({ ...cur, [pid]: civ })); }}
-                          className="vertigo-btn"
-                          style={{
-                            padding: "6px 10px",
-                            fontSize: 11,
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 5,
-                            background: chosen ? "rgba(124,58,237,0.2)" : taken ? "rgba(255,255,255,0.02)" : "transparent",
-                            border: `1px solid ${chosen ? "var(--vertigo-purple)" : "var(--vertigo-line)"}`,
-                            color: chosen ? "var(--vertigo-purple-pale)" : taken ? "var(--vertigo-faint)" : "var(--vertigo-muted)",
-                            opacity: taken ? 0.35 : 1,
-                            cursor: taken ? "not-allowed" : "pointer",
-                          }}
-                          title={taken ? "Civ ya asignada" : undefined}
+                          className={`civ-pick ${chosen ? "chosen" : ""} ${taken ? "taken" : ""}`}
+                          title={taken ? "Civ ya asignada a otro jugador" : undefined}
                         >
-                          <img src={`/civs/${civ}.webp`} alt="" style={{ width: 16, height: 16, objectFit: "contain", opacity: taken ? 0.3 : 1 }} />
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={`/civs/${civ}.webp`} alt="" />
                           {civName(civ)}
                         </button>
                       );
@@ -444,31 +689,69 @@ function CaptainLineupForm({
               );
             })}
           </div>
-        </>
+        </div>
       )}
 
-      {civError && <div className="text-[13px] text-[var(--vertigo-danger)] mb-3">{civError}</div>}
+      {civError && <div className="text-[13px] text-[var(--vertigo-danger)]">{civError}</div>}
 
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <span className="text-[12px] text-[var(--vertigo-faint)]">
-          Seleccionados: <strong className="text-[var(--vertigo-purple-pale)]">{selected.length} / {expected}</strong>
+      {/* ── Resumen + acciones: Declarar o empezar de nuevo ── */}
+      <div className="lineup-summary">
+        <span className="lineup-count">
+          Seleccionados: <b>{selected.length} / {expected}</b>
           {selected.length > 0 && myCivs.length > 0 && (
-            <span className="ml-2">· Civs asignadas: <strong className="text-[var(--vertigo-purple-pale)]">{Object.keys(assign).filter((pid) => selected.includes(pid) && assign[pid]).length} / {selected.length}</strong></span>
+            <> · Civs asignadas: <b>{Object.keys(assign).filter((pid) => selected.includes(pid) && assign[pid]).length} / {selected.length}</b></>
           )}
         </span>
-        {!readyLineup ? (
-          <button
-            type="button"
-            disabled={selected.length !== expected || pending || (myCivs.length > 0 && !allAssignmentsDone)}
-            onClick={handleConfirm}
-            className="vertigo-btn vertigo-btn-primary"
-          >
-            {pending ? <Loader2 style={{ width: 14, height: 14, animation: "spin 1s linear infinite" }} /> : <CheckCircle2 style={{ width: 14, height: 14 }} />}
-            Declarar lineup + READY
-          </button>
-        ) : (
-          <span className="text-sm text-[var(--vertigo-success)]">✓ Lineup declarado</span>
-        )}
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          {!readyLineup && (selected.length > 0 || Object.keys(assign).length > 0) && (
+            <button
+              type="button"
+              className="vertigo-btn vertigo-btn-ghost"
+              onClick={() => { setSelected([]); setAssign({}); setCivError(null); }}
+              disabled={pending}
+            >
+              <RotateCcw style={{ width: 14, height: 14 }} />
+              Reiniciar
+            </button>
+          )}
+          {!readyLineup ? (
+            <button
+              type="button"
+              className="vertigo-btn vertigo-btn-primary"
+              disabled={selected.length !== expected || pending || (myCivs.length > 0 && !allAssignmentsDone)}
+              onClick={handleConfirm}
+            >
+              {pending ? (
+                <Loader2 style={{ width: 14, height: 14, animation: "spin 1s linear infinite" }} />
+              ) : (
+                <CheckCircle2 style={{ width: 14, height: 14 }} />
+              )}
+              Declarar lineup + READY
+            </button>
+          ) : (
+            <span className="text-sm text-[var(--vertigo-success)]">✓ Lineup declarado</span>
+          )}
+        </div>
+      </div>
+
+      {/* Banda de confirmación al pie — el estado del flujo */}
+      <div className="ready-band">
+        <div className={`ready-status ${allAssignmentsDone && selected.length === expected ? "ok" : ""}`}>
+          <i />
+          {allAssignmentsDone && selected.length === expected
+            ? "Listo para declarar"
+            : selected.length === 0
+              ? "Todavía no elegiste jugadores"
+              : selected.length < expected
+                ? `Elegí ${expected - selected.length === 1 ? "un jugador más" : `${expected - selected.length} jugadores más`}`
+                : assignedCount < selected.length
+                  ? `Asigná la civ: falta${selected.length - assignedCount > 1 ? "n" : ""} ${selected.length - assignedCount}`
+                  : "Revisá la asignación"}
+        </div>
+        <span className="spacer" />
+        <span className="pool-note" style={{ maxWidth: 380 }}>
+          Cuando ambos capitanes confirman, se abre la ventana de comodines y arranca la partida. Si el admin re-abre el lineup tras un ANULAR, volvés a declararlo acá.
+        </span>
       </div>
     </div>
   );
@@ -509,25 +792,76 @@ function LineupReadyOnly({ matchId, readyLineup }: { matchId: string; readyLineu
 }
 
 // ============================================================
-// Prompt de ventana de comodines
+// Prompt de ventana de comodines — grilla 2×2 estilo demo
 // ============================================================
 
 const REROLL_PHASES = ["MODO", "ANTIMETA", "FORMATO", "MAPA", "CIVS"] as const;
 
-function ComodinPrompt({ matchId, comodinExpiresAt, myTeamName, rivalTeamName, rivalPlayers, rivalAnnulled, playerMode }: { matchId: string; comodinExpiresAt: string | null; myTeamName: string; rivalTeamName: string; rivalPlayers: PlayerLite[]; rivalAnnulled: string[]; playerMode: string | null }) {
+/** Reloj vivo de la ventana: mm:ss, rojo al último minuto, "cerró" al expirar. */
+function WindowTimer({ expiresAt }: { expiresAt: string | null }) {
   const [now, setNow] = useState<number>(() => Date.now());
-  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 500); return () => clearInterval(t); }, []);
-  const expires = comodinExpiresAt ? new Date(comodinExpiresAt).getTime() : null;
-  const left = expires ? Math.max(0, expires - now) : null;
-  const mm = left !== null ? Math.floor(left / 60000) : null;
-  const ss = left !== null ? Math.floor((left % 60000) / 1000) : null;
-  const expired = left !== null && left <= 0;
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 500);
+    return () => clearInterval(t);
+  }, []);
+  const expires = expiresAt ? new Date(expiresAt).getTime() : null;
+  if (expires === null) return null;
+  const left = Math.max(0, expires - now);
+  const mm = Math.floor(left / 60000);
+  const ss = Math.floor((left % 60000) / 1000);
+  const expired = left <= 0;
+  const urgent = !expired && left <= 60_000;
+  return (
+    <span className={`window-timer ${expired ? "expired" : urgent ? "urgent" : ""}`}>
+      <Clock style={{ width: 15, height: 15 }} />
+      {expired ? "Cerró" : `Cierra en ${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`}
+    </span>
+  );
+}
+
+function ComodinPrompt({
+  phaseCls,
+  matchId,
+  comodinExpiresAt,
+  myTeamName,
+  rivalTeamName,
+  rivalPlayers,
+  rivalAnnulled,
+  playerMode,
+  comodinInventory,
+  myTeamRegId,
+  comodinUsages,
+}: {
+  phaseCls: string;
+  matchId: string;
+  comodinExpiresAt: string | null;
+  myTeamName: string;
+  rivalTeamName: string;
+  rivalPlayers: PlayerLite[];
+  rivalAnnulled: string[];
+  playerMode: string | null;
+  comodinInventory: ComodinInventoryLite;
+  myTeamRegId: string;
+  comodinUsages: { comodinType: string; status: string; teamRegId: string | null }[];
+}) {
   const pendingCls = "vertigo-card";
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
   const [comodinOpen, setComodinOpen] = useState<null | "reroll" | "anular" | "elegir_rival">(null);
   const [targetPhase, setTargetPhase] = useState<string | null>(null);
   const [targetPlayer, setTargetPlayer] = useState<string | null>(null);
+
+  // Exclusión mutua anular↔elegir_rival por llave — MISMA regla que el server
+  // (match-day.ts): existe un uso de MI equipo del otro tipo con status fuera
+  // de {cancelled, revoked} → el opuesto queda bloqueado (pending también cuenta:
+  // apenas lo solicitás, el server ya lo rechazaría).
+  const usedTypes = new Set(
+    comodinUsages
+      .filter((u) => u.teamRegId === myTeamRegId && u.status !== "cancelled" && u.status !== "revoked")
+      .map((u) => u.comodinType)
+  );
+  const anularLocked = usedTypes.has("elegir_rival");
+  const elegirLocked = usedTypes.has("anular");
 
   const isMsgError = msg ? (msg.includes("✗") || msg.toLowerCase().includes("error") || msg.toLowerCase().startsWith("no ")) : false;
 
@@ -549,8 +883,8 @@ function ComodinPrompt({ matchId, comodinExpiresAt, myTeamName, rivalTeamName, r
           const p = rivalPlayers.find((r) => r.id === targetPlayer);
           fd.set("notes", `${type === "anular" ? "Anular" : "Elegir rival"}: ${p?.display_name ?? targetPlayer}`);
         }
-        await requestComodinFormAction(fd);
-        setMsg("✓ Comodín solicitado — el admin lo ejecuta en vivo.");
+        await useComodinFormAction(fd);
+        setMsg("✓ ¡Comodín usado! El efecto ya está aplicado y salió en el stream.");
         setComodinOpen(null);
         setTargetPhase(null);
         setTargetPlayer(null);
@@ -560,18 +894,19 @@ function ComodinPrompt({ matchId, comodinExpiresAt, myTeamName, rivalTeamName, r
     });
   };
 
+  const expired = (() => {
+    if (!comodinExpiresAt) return false;
+    return new Date(comodinExpiresAt).getTime() <= Date.now();
+  })();
+
   return (
-    <div className={pendingCls} style={{ border: "1px solid rgba(251,191,36,0.35)", background: "rgba(251,191,36,0.05)" }}>
+    <div className={`${pendingCls} ${phaseCls}`} style={{ border: "1px solid rgba(251,191,36,0.35)", background: "rgba(251,191,36,0.05)" }}>
       <div className="vertigo-card-header" style={{ borderBottomColor: "rgba(251,191,36,0.25)" }}>
         <div className="vertigo-card-title" style={{ color: "#fbbf24" }}>
           <Sparkles style={{ width: 14, height: 14, display: "inline", marginRight: 8 }} />
           Ventana de comodines — {myTeamName}
         </div>
-        {left !== null && (
-          <span className="vertigo-badge vertigo-badge-warning" style={{ fontFamily: "Cinzel, serif", fontSize: 14, color: expired ? "var(--vertigo-danger)" : undefined }}>
-            {String(mm).padStart(2, "0")}:{String(ss).padStart(2, "0")}
-          </span>
-        )}
+        <WindowTimer expiresAt={comodinExpiresAt} />
       </div>
 
       {expired ? (
@@ -582,124 +917,196 @@ function ComodinPrompt({ matchId, comodinExpiresAt, myTeamName, rivalTeamName, r
       ) : (
         <>
           <p className="text-sm text-[var(--vertigo-muted)] mb-4 leading-relaxed">
-            Podés usar tus comodines. El admin ejecuta cada uno en vivo (para que se vea en el stream).
+            Usá tus comodines antes de que cierre la ventana — el efecto se aplica <strong style={{ color: "var(--vertigo-text)" }}>al instante</strong> y la carta sale en el stream.
             Recordá: <strong style={{ color: "var(--vertigo-text)" }}>Anular</strong> y <strong style={{ color: "var(--vertigo-text)" }}>Elegir rival</strong> son mutuamente excluyentes en esta llave.
           </p>
-          <div className="flex flex-wrap gap-2">
-            <ComodinButton label="Re-girar una fase" active={comodinOpen === "reroll"} pending={pending} onClick={() => setComodinOpen(comodinOpen === "reroll" ? null : "reroll")} />
-            {playerMode !== "3v3" && playerMode !== "fusion" && (
-              <>
-                <ComodinButton label="Anular jugador rival" active={comodinOpen === "anular"} pending={pending} onClick={() => setComodinOpen(comodinOpen === "anular" ? null : "anular")} />
-                <ComodinButton label="Elegir rival forzado" active={comodinOpen === "elegir_rival"} pending={pending} onClick={() => setComodinOpen(comodinOpen === "elegir_rival" ? null : "elegir_rival")} />
-              </>
-            )}
-          </div>
+          <div className="comodin-grid">
+            {/* RE-GIRAR */}
+            <button
+              type="button"
+              className={`comodin-card ${comodinOpen === "reroll" ? "active" : ""}`}
+              disabled={pending || comodinInventory.reroll <= 0}
+              onClick={() => { setComodinOpen(comodinOpen === "reroll" ? null : "reroll"); setTargetPhase(null); }}
+            >
+              <span className="icon">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/brand/icons/comodin-regirar.png" alt="" />
+              </span>
+              <span className="info">
+                <span className="name">Re-girar una fase</span>
+                <span className="sub">Vuelve a sortear el mapa, civs o el modo</span>
+              </span>
+              <span className="qty">{comodinInventory.reroll > 0 ? `×${comodinInventory.reroll}` : "—"}</span>
+            </button>
 
-          {/* RE-GIRAR: elegir la fase */}
-          {comodinOpen === "reroll" && (
-            <div className="mt-4 p-3 rounded-lg" style={{ background: "rgba(124,58,237,0.06)", border: "1px solid rgba(124,58,237,0.25)" }}>
-              <div className="text-[10px] uppercase tracking-widest text-[var(--vertigo-faint)] mb-2">¿Qué fase querés re-girar?</div>
-              <div className="flex flex-wrap gap-2">
-                {REROLL_PHASES.map((phase) => (
-                  <button
-                    key={phase}
-                    type="button"
-                    onClick={() => setTargetPhase(phase)}
-                    className="vertigo-btn"
-                    style={{
-                      padding: "8px 14px",
-                      fontSize: 11,
-                      background: targetPhase === phase ? "rgba(124,58,237,0.2)" : "transparent",
-                      border: `1px solid ${targetPhase === phase ? "var(--vertigo-purple)" : "var(--vertigo-line)"}`,
-                      color: targetPhase === phase ? "var(--vertigo-purple-pale)" : "var(--vertigo-muted)",
-                    }}
-                  >
-                    {phase}
-                  </button>
-                ))}
-              </div>
-              <button type="button" disabled={!targetPhase || pending} onClick={() => request("reroll")} className="vertigo-btn vertigo-btn-primary mt-3" style={{ fontSize: 11, padding: "9px 18px" }}>
-                {pending ? <Loader2 style={{ width: 12, height: 12, animation: "spin 1s linear infinite" }} /> : <Sparkles style={{ width: 12, height: 12 }} />}
-                Solicitar RE-GIRAR {targetPhase ?? ""}
-              </button>
-            </div>
-          )}
-
-          {/* ANULAR / ELEGIR RIVAL: elegir jugador del rival */}
-          {(comodinOpen === "anular" || comodinOpen === "elegir_rival") && (
-            <div className="mt-4 p-3 rounded-lg" style={{ background: "rgba(124,58,237,0.06)", border: "1px solid rgba(124,58,237,0.25)" }}>
-              <div className="text-[10px] uppercase tracking-widest text-[var(--vertigo-faint)] mb-2">
-                {comodinOpen === "anular"
-                  ? `¿Qué jugador de ${rivalTeamName} NO puede jugar esta llave?`
-                  : `¿Qué jugador de ${rivalTeamName} DEBE jugar esta llave?`}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {rivalPlayers.map((p) => {
-                  const isAnnulled = rivalAnnulled.includes(p.id);
-                  return (
+            {/* Sub-selector de RE-GIRAR: banda central de la grilla */}
+            {comodinOpen === "reroll" && (
+              <div className="comodin-target">
+                <div className="q">¿Qué fase querés re-girar?</div>
+                <div className="target-options">
+                  {REROLL_PHASES.map((phase) => (
                     <button
-                      key={p.id}
+                      key={phase}
                       type="button"
-                      disabled={isAnnulled || pending}
-                      onClick={() => setTargetPlayer(p.id)}
-                      className="vertigo-btn"
-                      style={{
-                        padding: "8px 14px",
-                        fontSize: 11,
-                        background: targetPlayer === p.id ? "rgba(124,58,237,0.2)" : "transparent",
-                        border: `1px solid ${targetPlayer === p.id ? "var(--vertigo-purple)" : "var(--vertigo-line)"}`,
-                        color: targetPlayer === p.id ? "var(--vertigo-purple-pale)" : "var(--vertigo-muted)",
-                        opacity: isAnnulled ? 0.4 : 1,
-                        textDecoration: isAnnulled ? "line-through" : "none",
-                      }}
+                      className={`target-chip ${targetPhase === phase ? "chosen" : ""}`}
+                      onClick={() => setTargetPhase(phase)}
                     >
-                      {p.is_captain ? "★ " : ""}{p.display_name}{isAnnulled ? " (anulado)" : ""}
+                      {phase.charAt(0) + phase.slice(1).toLowerCase()}
                     </button>
-                  );
-                })}
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  disabled={!targetPhase || pending}
+                  onClick={() => request("reroll")}
+                  className="vertigo-btn vertigo-btn-primary self-start"
+                  style={{ fontSize: 11, padding: "9px 18px" }}
+                >
+                  {pending ? <Loader2 style={{ width: 12, height: 12, animation: "spin 1s linear infinite" }} /> : <Sparkles style={{ width: 12, height: 12 }} />}
+                  Usar RE-GIRAR {targetPhase ?? ""}
+                </button>
               </div>
+            )}
+
+            {/* ANULAR — solo si el modo tiene lineup individual */}
+            {playerMode !== "3v3" && playerMode !== "fusion" && (
               <button
                 type="button"
-                disabled={!targetPlayer || pending}
-                onClick={() => request(comodinOpen)}
-                className="vertigo-btn vertigo-btn-primary mt-3"
-                style={{ fontSize: 11, padding: "9px 18px" }}
+                className={`comodin-card ${comodinOpen === "anular" ? "active" : ""} ${comodinInventory.anular <= 0 || anularLocked ? "used" : ""}`}
+                disabled={pending || comodinInventory.anular <= 0 || anularLocked}
+                onClick={() => { setComodinOpen(comodinOpen === "anular" ? null : "anular"); setTargetPlayer(null); }}
               >
-                {pending ? <Loader2 style={{ width: 12, height: 12, animation: "spin 1s linear infinite" }} /> : <Sparkles style={{ width: 12, height: 12 }} />}
-                Solicitar {comodinOpen === "anular" ? "ANULAR" : "ELEGIR RIVAL"}
+                <span className="icon">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/brand/icons/comodin-anular.png" alt="" />
+                </span>
+                <span className="info">
+                  <span className="name">Anular jugador rival</span>
+                  <span className="sub">
+                    {anularLocked
+                      ? "Ya usaste ELEGIR RIVAL en esta llave"
+                      : comodinInventory.anular > 0
+                      ? `Un jugador de ${rivalTeamName} no puede jugar`
+                      : "No te quedan usos"}
+                  </span>
+                </span>
+                <span className="qty">{comodinInventory.anular > 0 ? `×${comodinInventory.anular}` : "—"}</span>
               </button>
-            </div>
-          )}
+            )}
 
-          {/* INVOCAR PRO no se usa en la ventana: se invoca durante la partida */}
-          <div className="text-[11px] text-[var(--vertigo-faint)] mt-4 pt-3 border-t border-[var(--vertigo-line-soft)]">
-            <strong style={{ color: "var(--vertigo-muted)" }}>INVOCAR PRO</strong> se usa DURANTE la partida: escribí “CARTA PRO” en el chat del sitio.
+            {/* Sub-selector de ANULAR */}
+            {comodinOpen === "anular" && (
+              <div className="comodin-target">
+                <div className="q">¿Qué jugador de {rivalTeamName} NO puede jugar esta llave?</div>
+                <div className="target-options">
+                  {rivalPlayers.map((p) => {
+                    const isAnnulled = rivalAnnulled.includes(p.id);
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        className={`target-chip ${targetPlayer === p.id ? "chosen" : ""}`}
+                        disabled={isAnnulled || pending}
+                        onClick={() => setTargetPlayer(p.id)}
+                      >
+                        {p.is_captain ? "★ " : ""}{p.display_name}
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  type="button"
+                  disabled={!targetPlayer || pending}
+                  onClick={() => request("anular")}
+                  className="vertigo-btn vertigo-btn-primary self-start"
+                  style={{ fontSize: 11, padding: "9px 18px" }}
+                >
+                  {pending ? <Loader2 style={{ width: 12, height: 12, animation: "spin 1s linear infinite" }} /> : <Sparkles style={{ width: 12, height: 12 }} />}
+                  Usar ANULAR
+                </button>
+              </div>
+            )}
+
+            {/* ELEGIR RIVAL — deshabilitado si ya usaste ANULAR (exclusión mutua) */}
+            {playerMode !== "3v3" && playerMode !== "fusion" && (
+              <button
+                type="button"
+                className={`comodin-card ${comodinOpen === "elegir_rival" ? "active" : ""} ${comodinInventory.elegirRival <= 0 || elegirLocked ? "used" : ""}`}
+                disabled={pending || comodinInventory.elegirRival <= 0 || elegirLocked}
+                onClick={() => { setComodinOpen(comodinOpen === "elegir_rival" ? null : "elegir_rival"); setTargetPlayer(null); }}
+              >
+                <span className="icon">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/brand/icons/comodin-elegir.png" alt="" />
+                </span>
+                <span className="info">
+                  <span className="name">Elegir rival forzado</span>
+                  <span className="sub">
+                    {elegirLocked
+                      ? "Ya usaste ANULAR en esta llave"
+                      : comodinInventory.elegirRival > 0
+                      ? `Un jugador de ${rivalTeamName} DEBE jugar`
+                      : "No te quedan usos"}
+                  </span>
+                </span>
+                <span className="qty">{comodinInventory.elegirRival > 0 ? `×${comodinInventory.elegirRival}` : "—"}</span>
+              </button>
+            )}
+
+            {/* Sub-selector de ELEGIR RIVAL */}
+            {comodinOpen === "elegir_rival" && (
+              <div className="comodin-target">
+                <div className="q">¿Qué jugador de {rivalTeamName} DEBE jugar esta llave?</div>
+                <div className="target-options">
+                  {rivalPlayers.map((p) => {
+                    const isAnnulled = rivalAnnulled.includes(p.id);
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        className={`target-chip ${targetPlayer === p.id ? "chosen" : ""}`}
+                        disabled={isAnnulled || pending}
+                        onClick={() => setTargetPlayer(p.id)}
+                      >
+                        {p.is_captain ? "★ " : ""}{p.display_name}
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  type="button"
+                  disabled={!targetPlayer || pending}
+                  onClick={() => request("elegir_rival")}
+                  className="vertigo-btn vertigo-btn-primary self-start"
+                  style={{ fontSize: 11, padding: "9px 18px" }}
+                >
+                  {pending ? <Loader2 style={{ width: 12, height: 12, animation: "spin 1s linear infinite" }} /> : <Sparkles style={{ width: 12, height: 12 }} />}
+                  Usar ELEGIR RIVAL
+                </button>
+              </div>
+            )}
+
+            {/* INVOCAR PRO: informativo — se activa con CARTA PRO en el chat */}
+            <div className="comodin-card used" style={{ cursor: "default" }} aria-label="Invocar PRO">
+              <span className="icon">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/brand/icons/comodin-invocar.png" alt="" />
+              </span>
+              <span className="info">
+                <span className="name">Invocar PRO</span>
+                <span className="sub">
+                  Se usa <strong style={{ color: "var(--vertigo-muted)" }}>durante la partida</strong>, no en esta ventana. Escribí{" "}
+                  <strong style={{ color: "var(--vertigo-muted)" }}>“CARTA PRO”</strong> en el chat del sitio.
+                </span>
+              </span>
+              <span className="qty">{comodinInventory.invocarPro > 0 ? `×${comodinInventory.invocarPro}` : "—"}</span>
+            </div>
           </div>
         </>
       )}
       {msg && <div className="mt-3 text-sm" style={{ color: isMsgError ? "var(--vertigo-danger)" : "var(--vertigo-success)" }}>{msg}</div>}
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
-  );
-}
-
-function ComodinButton({ label, pending, active, onClick }: { label: string; pending: boolean; active?: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      disabled={pending}
-      onClick={onClick}
-      className="vertigo-btn vertigo-btn-ghost"
-      style={{
-        padding: "10px 16px",
-        fontSize: 11,
-        background: active ? "rgba(124,58,237,0.18)" : undefined,
-        border: active ? "1px solid var(--vertigo-purple)" : undefined,
-      }}
-    >
-      {pending ? <Loader2 style={{ width: 12, height: 12, animation: "spin 1s linear infinite" }} /> : <Sparkles style={{ width: 12, height: 12 }} />}
-      {label}
-    </button>
   );
 }
 
@@ -741,4 +1148,25 @@ function playersForMode(mode: string | null): number {
       return 0;
     default: return 0;
   }
+}
+
+/** Chips de civs sorteadas para el equipo del capitán (bloque drawing). */
+function MyCivChips({ myCivs, label }: { myCivs: string[]; label: string }) {
+  if (!myCivs || myCivs.length === 0) return null;
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="text-[10px] uppercase tracking-widest text-[var(--vertigo-faint)]">{label}</span>
+      {myCivs.map((civ) => (
+        <span
+          key={civ}
+          className="vertigo-badge vertigo-badge-purple"
+          style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={`/civs/${civ}.webp`} alt="" style={{ width: 16, height: 16, objectFit: "contain" }} />
+          {civName(civ)}
+        </span>
+      ))}
+    </div>
+  );
 }

@@ -7,8 +7,15 @@ import { ART_BANDERA } from "@/lib/art";
  * Cierra la página con la bandera del torneo, en la misma clave que el hero:
  * arte full-bleed que se funde con el fondo (#0a0011) por arriba y por abajo,
  * con el bloque de texto apoyado abajo a la izquierda sobre un tinte oscuro.
+ *
+ * El tagline por defecto es la frase del vértigo; la sección de apuestas le
+ * pasa el suyo propio (juego de palabras con el pozo).
  */
-export default function VertigoFooter() {
+export default function VertigoFooter({
+  tagline = "El vértigo es el instante entre conocer tu destino y tener que enfrentarlo.",
+}: {
+  tagline?: string;
+}) {
   return (
     <footer
       className="relative overflow-hidden rounded-2xl"
@@ -115,7 +122,7 @@ export default function VertigoFooter() {
             color: "var(--vertigo-muted)",
           }}
         >
-          Algunas guerras son físicas, otras comerciales.
+          {tagline}
         </p>
 
         <div

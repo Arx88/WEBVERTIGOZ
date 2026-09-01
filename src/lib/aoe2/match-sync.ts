@@ -196,9 +196,11 @@ export async function syncGameWithCompanion(
   }
 
   // Recorrer de más reciente a más antigua: la última válida gana.
+  // (Una partida cancelada por config errónea y re-jugada produce DOS salas
+  //  con el mismo nombre: vale la MÁS RECIENTE — candidates ya viene ordenado.)
   let liveCandidate: Aoe2MatchSummary | null = null;
-  let mismatch: { candidate: Aoe2MatchSummary; reason: string } | null = null;
   let noWinner: Aoe2MatchSummary | null = null;
+  let configNote: string | null = null;
 
   for (const cand of candidates) {
     if (cand.finished == null) {
@@ -206,19 +208,10 @@ export async function syncGameWithCompanion(
       continue;
     }
 
+    // Refuerzo informativo: la config no bloquea (el nombre exacto es la
+    // clave). Si difiere del sorteo, queda como nota en el flag del admin.
     const check = checkMatchConfig(game.map, game.game_mode, cand);
-    if (!check.ok) {
-      mismatch =
-        mismatch ??
-        {
-          candidate: cand,
-          reason:
-            check.kind === "map"
-              ? `Mapa no coincide: la sala dice "${check.actual}", el sorteo fue "${check.expected}".`
-              : `Modo no coincide: la sala está en ${check.actual}, el sorteo fue "${check.expected}".`,
-        };
-      continue;
-    }
+    if (check.diverged && !configNote) configNote = check.note;
 
     const players = (cand.teams ?? []).flatMap((t) => t.players ?? []);
     const winners = players.filter((p) => p.won === true);
@@ -231,43 +224,20 @@ export async function syncGameWithCompanion(
     const winnerInA = winners.some((w) => profilesA.has(w.profileId));
     const winnerInB = winners.some((w) => profilesB.has(w.profileId));
     if (winnerInA && winnerInB) {
-      mismatch =
-        mismatch ??
-        {
-          candidate: cand,
-          reason: "Hay ganadores en ambos equipos según Companion (¿empate técnico?).",
-        };
+      // Ganadores en ambos equipos según Companion (¿empate técnico?) —
+      // con nombre exacto igual no es reportable: probar el siguiente candidato.
       continue;
     }
     if (!winnerInA && !winnerInB) {
-      mismatch =
-        mismatch ??
-        {
-          candidate: cand,
-          reason:
-            "El ganador de Companion no coincide con los perfiles de los lineups declarados.",
-        };
       continue;
     }
     const winnerTeamId = winnerInA ? match.team_a_id : match.team_b_id;
-    if (!winnerTeamId) {
-      mismatch =
-        mismatch ?? { candidate: cand, reason: "El match no tiene equipos definidos." };
-      continue;
-    }
+    if (!winnerTeamId) continue;
 
-    return processValidCandidate(service, match, game, cand, winnerTeamId, expectedName);
+    return processValidCandidate(service, match, game, cand, winnerTeamId, expectedName, configNote);
   }
 
-  // Ninguna válida: reportar el mejor motivo (prioridad: mismatch > sin ganador > en vivo)
-  if (mismatch) {
-    return markAttempt(service, game, {
-      ...base,
-      status: "config_mismatch",
-      flag: `${mismatch.reason} (match ${mismatch.candidate.matchId} — no se auto-reporta)`,
-      aoe2MatchId: mismatch.candidate.matchId,
-    });
-  }
+  // Ninguna válida: reportar el mejor motivo (sin ganador > en vivo)
   if (noWinner) {
     return markAttempt(service, game, {
       ...base,
@@ -280,7 +250,7 @@ export async function syncGameWithCompanion(
     return markAttempt(service, game, {
       ...base,
       status: "live",
-      flag: null,
+      flag: configNote,
       aoe2MatchId: liveCandidate.matchId,
     });
   }
@@ -307,7 +277,8 @@ async function processValidCandidate(
   game: SyncGameRow,
   cand: Aoe2MatchSummary,
   winnerTeamId: string,
-  expectedName: string
+  expectedName: string,
+  configNote: string | null = null
 ): Promise<SyncResult> {
   const now = new Date().toISOString();
 
@@ -347,7 +318,7 @@ async function processValidCandidate(
       aoe2_match_id: cand.matchId,
       aoe2_sync_status: "synced",
       aoe2_checked_at: now,
-      aoe2_flag: null,
+      aoe2_flag: configNote, // nota informativa de config (no bloquea nada)
       rec_storage_path: recPath,
       updated_at: now,
     })
@@ -399,7 +370,7 @@ async function processValidCandidate(
   return {
     matchGameId: game.id,
     status: "synced",
-    flag: null,
+    flag: configNote,
     reported: true,
     aoe2MatchId: cand.matchId,
   };

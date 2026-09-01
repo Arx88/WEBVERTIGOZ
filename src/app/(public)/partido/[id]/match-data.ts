@@ -25,6 +25,11 @@ export interface GameView {
   replayUrl: string | null;
   startedAt: string | null;
   finishedAt: string | null;
+  /** Lineups declarados por cada equipo (player_ids) y su civ por jugador. */
+  lineupA: string[];
+  lineupB: string[];
+  civAssignA: Record<string, string>;
+  civAssignB: Record<string, string>;
   /** Sync con AoE2 Companion (liviano: solo flags para decidir qué mostrar).
       El payload pesado del análisis se busca on-demand vía /api/replays/analysis. */
   aoe2: {
@@ -86,6 +91,10 @@ export interface MatchData {
     comodinType: string;
     status: string;
     teamName: string | null;
+    /** team_registration del equipo que lo pidió — para la exclusión mutua
+        anular↔elegir_rival del panel del capitán (misma regla que el server:
+        usage del otro tipo con status ∉ {cancelled, revoked}). */
+    teamRegId: string | null;
     notes: string | null;
   }[];
   games: GameView[];
@@ -137,7 +146,7 @@ export async function loadMatch(supabase: any, matchId: string): Promise<MatchDa
       : Promise.resolve({ data: null }),
     supabase
       .from("match_game")
-      .select("id, game_number, status, game_mode, antimeta_mode, player_mode, map, civs_a, civs_b, winner_team_id, replay_url, started_at, finished_at, draw_id, aoe2_match_id, aoe2_sync_status, rec_storage_path")
+      .select("id, game_number, status, game_mode, antimeta_mode, player_mode, map, civs_a, civs_b, winner_team_id, replay_url, started_at, finished_at, draw_id, aoe2_match_id, aoe2_sync_status, rec_storage_path, lineup_a, lineup_b, civ_assignment_a, civ_assignment_b")
       .eq("match_id", matchId)
       .order("game_number", { ascending: true }),
     supabase
@@ -211,8 +220,10 @@ export async function loadMatch(supabase: any, matchId: string): Promise<MatchDa
     regToName[r.id] = r.team_account?.name ?? "—";
   }
   const invToTeam: Record<string, string> = {};
+  const invToReg: Record<string, string> = {};
   for (const i of invs?.data ?? []) {
     invToTeam[i.id] = regToName[i.team_registration_id] ?? "—";
+    invToReg[i.id] = i.team_registration_id ?? "";
   }
   const drawById = new Map<string, any>();
   for (const d of draws?.data ?? []) drawById.set(d.id, d);
@@ -250,6 +261,10 @@ export async function loadMatch(supabase: any, matchId: string): Promise<MatchDa
       replayUrl: g.replay_url ?? null,
       startedAt: g.started_at ?? null,
       finishedAt: g.finished_at ?? null,
+      lineupA: (g.lineup_a as string[]) ?? [],
+      lineupB: (g.lineup_b as string[]) ?? [],
+      civAssignA: (g.civ_assignment_a as Record<string, string>) ?? {},
+      civAssignB: (g.civ_assignment_b as Record<string, string>) ?? {},
       aoe2: {
         matchId: g.aoe2_match_id ?? null,
         syncStatus: g.aoe2_sync_status ?? "pending",
@@ -265,6 +280,7 @@ export async function loadMatch(supabase: any, matchId: string): Promise<MatchDa
     comodinType: c.comodin_type,
     status: c.status,
     teamName: c.comodin_inventory_id ? invToTeam[c.comodin_inventory_id] ?? null : null,
+    teamRegId: c.comodin_inventory_id ? invToReg[c.comodin_inventory_id] ?? null : null,
     notes: c.notes ?? null,
   }));
 

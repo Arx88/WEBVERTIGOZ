@@ -411,7 +411,7 @@ const STATUS_META: Record<string, { label: string; desc: string }> = {
   finished: { label: "Finalizada", desc: "Edición cerrada y archivada. Podés crear la próxima edición." },
 };
 
-const TRANSITIONS: Record<string, { next: string; label: string; icon: typeof Play; danger?: boolean; confirm?: string }[]> = {
+const TRANSITIONS: Record<string, { next: string; label: string; icon: typeof Play; danger?: boolean; confirm?: string; variant?: "induction" }[]> = {
   draft: [
     { next: "registration", label: "Abrir inscripciones", icon: Megaphone, confirm: "¿Abrir las inscripciones de esta edición? Los equipos van a poder inscribirse por el wizard." },
   ],

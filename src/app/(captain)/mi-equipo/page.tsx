@@ -17,6 +17,8 @@ import {
 import { CIV_NAMES } from "@/lib/constants/civs";
 import { DISCORD_INVITE_URL } from "@/lib/constants";
 import { markRequirementAction } from "@/server/actions/requirements";
+import LobbyNameCard from "@/components/shared/lobby-name-card";
+import { lobbyNameForGame } from "@/lib/aoe2/lobby-name";
 import {
   Crown, Users, Calendar, Swords, Shield, Check, ChevronRight,
   Zap, Trophy, RefreshCw, Crosshair, ExternalLink, Play,
@@ -116,9 +118,12 @@ export default async function MiEquipoPage() {
 
     const { data: matches } = (await supabase
       .from("match")
-      .select("id, status, scheduled_at_start, jornada_label, format, team_a_id, team_b_id, round_id")
+      .select(`
+        id, status, scheduled_at_start, jornada_label, format, team_a_id, team_b_id,
+        round_id, slot_index, games:match_game (game_number, status, map)
+      `)
       .or(`team_a_id.eq.${latestReg.id},team_b_id.eq.${latestReg.id}`)
-      .in("status", ["scheduled", "open", "in_progress", "comodin_window"])
+      .in("status", ["scheduled", "open", "drawing", "lineup", "comodin_window", "in_progress"])
       .order("scheduled_at_start", { ascending: true })
       .limit(1)
       .maybeSingle()) as { data: any };
@@ -279,6 +284,23 @@ export default async function MiEquipoPage() {
   // Emblema real del equipo (de la DB), con fallback a los escudos genéricos si no eligió uno
   const emblemUrl = team?.emblem?.image_url ?? (team.id ? `/reinos/reino-${(team.id.charCodeAt(0) % 13) + 1}.webp` : `/reinos/reino-1.webp`);
 
+  // Nombre de sala AoE2 del próximo partido si ya está sorteado (fase drawing
+  // en adelante, hasta que termine): el capitán lo copia para crear la sala
+  // ANTES del "¡Se juega!" (misma derivación que el watcher).
+  const activeGame = (upcomingMatch?.games ?? [])
+    .filter((g: any) => g.map && g.status !== "finished")
+    .sort((a: any, b: any) => b.game_number - a.game_number)[0] ?? null;
+  const upcomingLobbyName =
+    upcomingMatch && activeGame &&
+    ["drawing", "lineup", "comodin_window", "in_progress"].includes(upcomingMatch.status)
+      ? lobbyNameForGame({
+          jornadaLabel: upcomingMatch.jornada_label,
+          slotIndex: upcomingMatch.slot_index ?? 0,
+          gameNumber: activeGame.game_number,
+          matchId: upcomingMatch.id,
+        })
+      : null;
+
   const verificationBadge = (() => {
     switch (latestReg?.elo_verification_status) {
       case "verified": return { cls: "vertigo-badge-success", label: "ELO verificado" };
@@ -401,7 +423,24 @@ export default async function MiEquipoPage() {
             Próxima partida
           </div>
           {upcomingMatch ? (
-            <Link href={`/partido/${upcomingMatch.id}`} style={{ textDecoration: "none" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              {/* Nombre de sala AoE2 cuando la partida está en juego: el
+                  capitán lo copia para crear la sala (misma clave que usa
+                  el watcher para detectar y auto-reportar el resultado). */}
+              {upcomingLobbyName && (
+                <div style={{
+                  display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap",
+                  padding: "13px 18px", borderRadius: "12px",
+                  background: "rgba(124,58,237,0.08)",
+                  border: "1px solid rgba(212,175,55,0.4)",
+                }}>
+                  <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "2px", textTransform: "uppercase", color: "var(--vertigo-gold)", flex: "none" }}>
+                    ▶ Sala de AoE2 de esta llave
+                  </span>
+                  <LobbyNameCard name={upcomingLobbyName} variant="chip" />
+                </div>
+              )}
+              <Link href={`/partido/${upcomingMatch.id}`} style={{ textDecoration: "none" }}>
               <div
                 className="vertigo-link-card"
                 style={{
@@ -451,6 +490,7 @@ export default async function MiEquipoPage() {
                 <ChevronRight style={{ width: 22, height: 22, color: "var(--vertigo-purple-soft)", flex: "none" }} />
               </div>
             </Link>
+            </div>
           ) : (
             <div className="vertigo-card">
               <div style={{ textAlign: "center", padding: "44px 20px", color: "var(--vertigo-faint)" }}>

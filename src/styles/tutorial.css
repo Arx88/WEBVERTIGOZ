@@ -703,8 +703,15 @@
    → 2.25 nombre slam → 2.60 divisor → 2.75 estandarte del reino.
    Después: la carta flota con vaivén 3D + barrido de luz (shine), como
    una carta premium real. Sin giros 360° planos ni loops amateurs.
+
+   Las vars que usa este bloque se re-declaran acá para que sea
+   AUTOCONTENIDO: el overlay del stream (/overlay) lo usa fuera de .tut-root.
    ------------------------------------------------------------------ */
 .tut-epic {
+  --tut-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --tut-gold: #D4AF37;
+  --tut-muted: #9a92a6;
+  --tut-text: #f2eef7;
   position: fixed; inset: 0; z-index: 900;
   background: radial-gradient(ellipse at center, rgba(13, 9, 19, 0.94) 0%, rgba(7, 3, 16, 0.98) 100%);
   display: grid; place-items: center;

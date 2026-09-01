@@ -7,7 +7,9 @@ import { ComodinesGrid } from "@/components/team/comodin-cards";
 import VertigoFooter from "@/components/shared/vertigo-footer";
 import ConfirmReadyForm from "@/components/captain/confirm-ready-form";
 import { NoDateBanner } from "@/components/shared/no-date-banner";
+import LobbyNameCard from "@/components/shared/lobby-name-card";
 import { computeReadyPhase } from "@/lib/match-rules";
+import { lobbyNameForGame } from "@/lib/aoe2/lobby-name";
 import { Calendar, History, ArrowRight, ArrowUpRight, Clock, CheckCircle, AlertCircle, Zap, Sparkles } from "lucide-react";
 import { fmt } from "@/lib/format";
 import LocalTime from "@/components/shared/local-time";
@@ -95,13 +97,32 @@ export default async function MisPartidosPage() {
   if (latestReg?.id) {
     const { data: um } = (await supabase
       .from("match")
-      .select("id, status, scheduled_at_start, scheduled_at_end, jornada_label, format, score_a, score_b, team_a_id, team_b_id, ready_a_at, ready_b_at")
+      .select(`
+        id, status, scheduled_at_start, scheduled_at_end, jornada_label, format,
+        score_a, score_b, team_a_id, team_b_id, ready_a_at, ready_b_at, slot_index,
+        games:match_game (game_number, status, map)
+      `)
       .or(`team_a_id.eq.${latestReg.id},team_b_id.eq.${latestReg.id}`)
       .in("status", ["scheduled", "open", "drawing", "lineup", "comodin_window", "in_progress"])
       .order("scheduled_at_start", { ascending: true })
       .limit(10)) as { data: any };
     upcomingMatches = um ?? [];
   }
+
+  // Nombre de sala AoE2 de cada partido que ya tiene sorteo y no terminó:
+  // el capitán lo necesita a mano (copiar/pegar) para crear la sala del juego.
+  const lobbyNameOf = (m: any): string | null => {
+    const g = (m.games ?? [])
+      .filter((x: any) => x.map && x.status !== "finished")
+      .sort((a: any, b: any) => b.game_number - a.game_number)[0];
+    if (!g) return null;
+    return lobbyNameForGame({
+      jornadaLabel: m.jornada_label,
+      slotIndex: m.slot_index ?? 0,
+      gameNumber: g.game_number,
+      matchId: m.id,
+    });
+  };
 
   let pastMatches: any[] = [];
   if (latestReg?.id) {
@@ -350,6 +371,12 @@ export default async function MisPartidosPage() {
                 const isScheduled = m.status === "scheduled";
                 const isOpen = m.status === "open";
                 const isComodinWindow = m.status === "comodin_window";
+                const isInProgress = m.status === "in_progress";
+                // Sala visible desde que el sorteo existe (drawing) hasta que se
+                // juega: el jugador crea la sala en AoE2 con este nombre antes
+                // del "¡Se juega!" — no cuando ya arrancó.
+                const hasDraw = ["drawing", "lineup", "comodin_window", "in_progress"].includes(m.status);
+                const lobbyName = hasDraw ? lobbyNameOf(m) : null;
                 // Ventana de READY: [15 min antes del horario, 15 min después].
                 // Gating server-side; el timer vivo está en la página del partido.
                 const readyWin = computeReadyPhase(m.scheduled_at_start ?? null, m.status, Date.now());
@@ -562,6 +589,13 @@ export default async function MisPartidosPage() {
                             <ArrowRight style={{ width: 13, height: 13 }} />
                           </Link>
                         </div>
+                      )}
+
+                      {/* SALA DE AOE2 — hay sorteo publicado y la partida no
+                          terminó: el jugador crea la sala en AoE2 con este
+                          nombre. Misma derivación que usa el watcher. */}
+                      {lobbyName && (
+                        <LobbyNameCard name={lobbyName} variant="block" />
                       )}
 
                       {/* CTA */}

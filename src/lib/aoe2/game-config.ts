@@ -1,17 +1,16 @@
 /**
- * Validación de configuración sorteada vs. partida real de AoE2 Companion.
+ * VÉRTIGO Cup — Validación de configuración sorteada vs. partida real de AoE2 Companion.
  *
- * El sorteo deja en match_game los TÍTULOS del preset ("ARENA",
- * "MUERTE SÚBITA") y Companion devuelve mapName en inglés ("Arena")
- * más flags booleanos de modo. Acá se normalizan ambos lados y se
- * comparan. MAPA y MODO son bloqueo duro para el auto-reporte;
- * tamaño de mapa y población NO se validan (en fusión 3 jugadores
- * pueden compartir civ y el tamaño no coincide con la cantidad de
- * jugadores).
+ * EL NOMBRE DE SALA ES LA CLAVE ÚNICA DE DESCUBRIMIENTO: el capitán lo copia
+ * y pega (botón COPIAR), no se tipea. Mapa y modo NO bloquean el auto-reporte
+ * — son REFUERZO INFORMATIVO: se comparan para describir la partida y
+ * detectar diferencias en el flag del admin, pero nunca invalidan un
+ * match con el nombre exacto. Si una partida se cancela por mala config y
+ * se re-juega, hay dos salas con el mismo nombre y vale la ÚLTIMA (más
+ * reciente): eso ya lo maneja el watcher (sort por started desc).
  *
- * Los alias de mapas son el mismo conjunto que usa stats-cache.ts
- * (MAP_ALIASES) — se mantienen acá independientes porque aquello
- * normaliza slugs de leaderboard y esto nombres de sala reales.
+ * Tamaño de mapa y población no se comparan (en fusión 3 jugadores
+ * comparten civ y el tamaño no coincide con la cantidad de jugadores).
  */
 
 /** Normaliza a token comparable: minúsculas, sin acentos, [_] como separador. */
@@ -42,7 +41,7 @@ const MAP_ALIASES: Record<string, string[]> = {
 export function mapMatches(drawnMap: string | null | undefined, companionMapName: string | null | undefined): boolean {
   const drawn = normalizeToken(drawnMap);
   const actual = normalizeToken(companionMapName);
-  if (!drawn || !actual) return true; // sin datos de un lado → no bloquear
+  if (!drawn || !actual) return true; // sin datos de un lado → sin objeción
   if (drawn === actual) return true;
   const aliases = MAP_ALIASES[drawn] ?? [];
   return aliases.includes(actual);
@@ -50,7 +49,7 @@ export function mapMatches(drawnMap: string | null | undefined, companionMapName
 
 /**
  * Flags de modo esperados según el modo sorteado.
- * `null` = modo no mapeable en la API (p.ej. ANTIMETA) → no validar.
+ * `null` = modo no mapeable en la API (p.ej. ANTIMETA) → sin objeción.
  */
 export function expectedModeFlags(gameMode: string | null | undefined): {
   regicideMode: boolean;
@@ -79,48 +78,60 @@ export interface MatchConfigLike {
   empireWarsMode?: boolean | null;
 }
 
-export type ConfigCheckResult =
-  | { ok: true }
-  | { ok: false; kind: "map" | "mode"; expected: string; actual: string };
+/** Refuerzo informativo: cómo quedó la config real vs. la sorteada. */
+export interface ConfigCheckResult {
+  /** Nunca false: la config no bloquea el auto-reporte. */
+  ok: true;
+  /** Descripción de la partida para el flag/admin. */
+  note: string | null;
+  /** True si mapa o modo difieren de lo sorteado — informativo. */
+  diverged: boolean;
+  drawnMap?: string | null;
+  drawnMode?: string | null;
+  actualMap?: string | null;
+}
 
 /**
  * Compara la configuración sorteada contra una partida candidata de
- * Companion. Devuelve el primer fallo (mapa, luego modo) u ok.
+ * Companion y devuelve una DESCRIPCIÓN (refuerzo informativo). Nunca
+ * bloquea: un match con el nombre exacto es la partida del torneo aunque
+ * el mapa o el modo difieran (los jugadores pudieron armar la sala con
+ * otra config; el resultado vale igual).
  */
 export function checkMatchConfig(
   drawnMap: string | null | undefined,
   drawnMode: string | null | undefined,
   candidate: MatchConfigLike
 ): ConfigCheckResult {
-  if (!mapMatches(drawnMap, candidate.mapName)) {
-    return {
-      ok: false,
-      kind: "map",
-      expected: drawnMap ?? "?",
-      actual: candidate.mapName ?? "?",
-    };
-  }
+  const mapOk = mapMatches(drawnMap, candidate.mapName);
   const expected = expectedModeFlags(drawnMode);
-  if (expected) {
-    const actual = {
+  const modeOk = expected
+    ? !!candidate.regicideMode === expected.regicideMode &&
+      !!candidate.suddenDeathMode === expected.suddenDeathMode &&
+      !!candidate.empireWarsMode === expected.empireWarsMode
+    : true;
+
+  if (mapOk && modeOk) {
+    return { ok: true, note: null, diverged: false, drawnMap, drawnMode, actualMap: candidate.mapName ?? null };
+  }
+
+  const parts: string[] = [];
+  if (!mapOk) parts.push(`mapa sorteado "${drawnMap ?? "?"}", sala en "${candidate.mapName ?? "?"}"`);
+  if (!modeOk && expected) {
+    const describe = (f: { regicideMode: boolean; suddenDeathMode: boolean; empireWarsMode: boolean }) =>
+      f.regicideMode ? "REGICIDA" : f.suddenDeathMode ? "MUERTE SÚBITA" : f.empireWarsMode ? "GUERRAS IMPERIALES" : "ESTÁNDAR";
+    parts.push(`modo sorteado "${drawnMode ?? "?"}", sala en ${describe({
       regicideMode: !!candidate.regicideMode,
       suddenDeathMode: !!candidate.suddenDeathMode,
       empireWarsMode: !!candidate.empireWarsMode,
-    };
-    if (
-      actual.regicideMode !== expected.regicideMode ||
-      actual.suddenDeathMode !== expected.suddenDeathMode ||
-      actual.empireWarsMode !== expected.empireWarsMode
-    ) {
-      const describe = (f: { regicideMode: boolean; suddenDeathMode: boolean; empireWarsMode: boolean }) =>
-        f.regicideMode ? "REGICIDA" : f.suddenDeathMode ? "MUERTE SÚBITA" : f.empireWarsMode ? "GUERRAS IMPERIALES" : "ESTÁNDAR";
-      return {
-        ok: false,
-        kind: "mode",
-        expected: drawnMode ?? "?",
-        actual: describe(actual),
-      };
-    }
+    })}`);
   }
-  return { ok: true };
+  return {
+    ok: true,
+    note: `Config difiere (${parts.join(" · ")}) — la partida vale igual (nombre exacto).`,
+    diverged: true,
+    drawnMap,
+    drawnMode,
+    actualMap: candidate.mapName ?? null,
+  };
 }

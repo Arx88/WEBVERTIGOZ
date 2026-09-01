@@ -659,7 +659,7 @@ export default async function ApuestasPage() {
           </section>
 
         {/* ═══ FOOTER CINEMATOGRÁFICO ═══ */}
-        <VertigoFooter />
+        <VertigoFooter tagline="Algunas guerras son físicas, otras comerciales." />
       </main>
     </div>
   );

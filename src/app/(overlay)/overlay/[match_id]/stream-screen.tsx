@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Shield, CheckCircle2, Dices } from "lucide-react";
+import { Shield, CheckCircle2, Dices, Swords, Timer } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import LiveDrawRoulette from "@/components/ruleta/live-draw-roulette";
 import { useReadyWindow } from "@/components/shared/ready-deadline-timer";
@@ -14,6 +14,24 @@ export interface StreamTeam {
   id: string;
   name: string;
   emblemUrl: string | null;
+  /** Roster (para el board de lineup: quiénes juegan y con qué civ). */
+  players: { id: string; name: string; isCaptain: boolean }[];
+}
+
+/** Sorteo de la partida activa, ya persistido — lo que el stream MUESTRA
+    (chips + lineup), no solo el nombre de la fase. */
+export interface StreamActiveDraw {
+  gameNumber: number;
+  status: string;
+  gameMode: string | null;
+  playerMode: string | null;
+  map: string | null;
+  civsA: string[];
+  civsB: string[];
+  lineupA: string[];
+  lineupB: string[];
+  civAssignA: Record<string, string>;
+  civAssignB: Record<string, string>;
 }
 
 export interface StreamMatchData {
@@ -31,6 +49,26 @@ export interface StreamMatchData {
   /** La partida más reciente está en "drawing" (re-sorteo de una partida 2/3
       de BO3: el match queda in_progress pero la ruleta debe salir igual). */
   activeGameDrawing: boolean;
+  /** Estado del sync con AoE2 Companion de la partida activa (null si no
+      hay partida). CORROBORA que la partida exista de verdad: mientras el
+      watcher no encuentre la sala por su nombre, "en juego" es solo la
+      intención del bracket, no un hecho. */
+  activeGameSyncStatus: string | null;
+  /** Cuándo arrancó la partida activa (para el mensaje de corroboración). */
+  activeGameStartedAt: string | null;
+  /** Sorteo persistido de la partida activa (chips + board de lineup). */
+  activeDraw: StreamActiveDraw | null;
+  readyLineupAAt: string | null;
+  readyLineupBAt: string | null;
+  comodinWindowExpiresAt: string | null;
+  /** Comodines ya ejecutados (el capitán los usa al instante): el overlay
+      dispara la CARTA ÉPICA cada vez que esta lista cambia por realtime. */
+  executedComodins: {
+    id: string;
+    comodinType: string;
+    teamRegId: string | null;
+    targetName: string | null;
+  }[];
   teamA: StreamTeam | null;
   teamB: StreamTeam | null;
 }
@@ -66,7 +104,74 @@ export default function StreamScreen({
   const router = useRouter();
   const [starting, setStarting] = useState(false);
   const [drawError, setDrawError] = useState<string | null>(null);
+  /** La ruleta terminó (onDone): se desmonta y no vuelve a salir para ESTA
+      sesión de overlay aunque el match siga en "drawing" — el resultado ya
+      se vio; si el admin aún no publicó el lineup, el footer lo dice. */
+  const [rouletteDone, setRouletteDone] = useState(false);
+  /** ¿El sorteo pasó EN VIVO ante esta pantalla? Contexto de montaje:
+      snapshot del estado de sorteo con el que esta pantalla se montó por
+      primera vez (survive a los router.refresh() — el componente no se
+      re-monta, solo re-renderiza con props nuevas).
+      - Montó sin sorteo en curso y el Realtime trajo "drawing" → EN VIVO.
+      - Montó ya con el sorteo en curso (re-entrada, reload, OBS prendido
+        tarde) → el sorteo ya pasó: la ruleta no se re-anima. */
+  const drawActiveNow = match.status === "drawing" || !!match.activeGameDrawing;
+  const mountedDrawRef = useRef<boolean | null>(null);
+  if (mountedDrawRef.current === null) mountedDrawRef.current = drawActiveNow;
+  const sawDrawLive = drawActiveNow && !mountedDrawRef.current;
+  // Nuevo sorteo (false→true): la partida 2/3 de un BO3 se re-sortea con el
+  // overlay ya abierto — la ruleta tiene que volver a salir aunque la P1
+  // ya se hubiera visto (rouletteDone true desde el giro anterior).
+  const prevDrawActiveRef = useRef(drawActiveNow);
+  useEffect(() => {
+    if (drawActiveNow && !prevDrawActiveRef.current) setRouletteDone(false);
+    prevDrawActiveRef.current = drawActiveNow;
+  }, [drawActiveNow]);
+  // onDone estable: useReadyWindow tickea cada segundo y re-crea cualquier
+  // arrow inline, lo que reseteaba el auto-cierre del panel estático en cada
+  // tick (el timeout de 8s nunca disparaba). useCallback lo hace estable.
+  const handleRouletteDone = useCallback(() => setRouletteDone(true), []);
   const { phase, msToOpen, msToDeadline } = useReadyWindow(match.scheduledAtStart, match.status);
+
+  // ── CARTA ÉPICA de comodín ──
+  // El capitán usa el comodín desde /partido y el INSERT llega por realtime
+  // (refresh → props nuevas). El comodín NUEVO (id que no estaba en el render
+  // anterior) dispara la secuencia épica del tutorial. Snapshot de montaje:
+  // si el overlay se abrió DESPUÉS de un comodín (recarga, OBS prendido
+  // tarde), ese comodín ya pasó — no se re-anima.
+  const [shownComodin, setShownComodin] = useState<{
+    id: string;
+    comodinType: string;
+    team: StreamTeam | null;
+    targetName: string | null;
+  } | null>(null);
+  const seenComodinIdsRef = useRef<Set<string> | null>(null);
+  if (seenComodinIdsRef.current === null) {
+    seenComodinIdsRef.current = new Set(match.executedComodins.map((c) => c.id));
+  }
+  // Detección del comodín NUEVO (id no visto): lo muestra. El desmonte a
+  // 8.2s vive en OTRO effect (deps: shownComodin) — si viviera acá, el
+  // re-render por cualquier otro cambio realtime (status, scores…) recrea
+  // executedComodins con nueva referencia de array y el cleanup cancelaría
+  // el timeout, dejando la carta clavada para siempre.
+  useEffect(() => {
+    const seen = seenComodinIdsRef.current!;
+    const fresh = match.executedComodins.find((c) => !seen.has(c.id));
+    if (!fresh) return;
+    seen.add(fresh.id);
+    const team =
+      fresh.teamRegId === match.teamA?.id ? match.teamA :
+      fresh.teamRegId === match.teamB?.id ? match.teamB : null;
+    setShownComodin({ id: fresh.id, comodinType: fresh.comodinType, team, targetName: fresh.targetName });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [match.executedComodins]);
+  // Desmonte programado: la secencia dura ~8s y cede la escena. Un comodín
+  // posterior reemplaza al actual y reinicia el reloj.
+  useEffect(() => {
+    if (!shownComodin) return;
+    const t = setTimeout(() => setShownComodin(null), 8200);
+    return () => clearTimeout(t);
+  }, [shownComodin]);
 
   // Refresco en vivo: cambios en el match → re-render del server.
   useEffect(() => {
@@ -88,6 +193,17 @@ export default function StreamScreen({
         { event: "*", schema: "public", table: "match_game", filter: `match_id=eq.${match.id}` },
         scheduleRefresh
       )
+      // Comodines: el capitán los ejecuta al instante desde /partido — este
+      // canal es el que dispara la CARTA ÉPICA en el stream.
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "comodin_usage", filter: `match_id=eq.${match.id}` },
+        scheduleRefresh
+      )
+      // roulette_draw NO está en la publicación de Realtime de este proyecto:
+      // la suscripción es un canal muerto. El draw se refleja en match_game
+      // (draw_id/map/civs se escriben juntos) y el fetch del resultado lo
+      // hace la propia ruleta (polling de respaldo cada 3s).
       .subscribe();
     return () => {
       if (debounce) clearTimeout(debounce);
@@ -100,7 +216,10 @@ export default function StreamScreen({
 
   // La ruleta sale cuando el match está en sorteo (P1) o cuando la partida
   // más reciente está en sorteo (re-giro de la partida 2/3 de un BO3).
-  const showRoulette = match.status === "drawing" || match.activeGameDrawing;
+  // Una vez que el resultado se vio en vivo (rouletteDone), no se re-monta:
+  // el sorteo YA PASÓ, el footer muestra el resultado publicado.
+  const showRoulette = drawActiveNow && !rouletteDone;
+  const rouletteLive = sawDrawLive;
 
   // Botón INICIAR SORTEO (solo admin): el sorteo arranca desde la propia
   // stream. La P1 exige fecha + READY de ambos; las partidas 2/3 de un BO3
@@ -165,8 +284,20 @@ export default function StreamScreen({
       }}
     >
       {/* RULETA EN VIVO — fullscreen durante el sorteo (capturada por OBS
-          desde este mismo Browser Source). */}
-      {showRoulette && <LiveDrawRoulette matchId={match.id} />}
+          desde este mismo Browser Source). Al terminar (onDone) se desmonta
+          y cede la escena al scoreboard con el resultado en el footer. */}
+      {showRoulette && (
+        <LiveDrawRoulette matchId={match.id} live={rouletteLive} onDone={handleRouletteDone} />
+      )}
+      {/* CARTA ÉPICA DE COMODÍN — el capitán la ejecutó al instante: sale
+          sola en el stream con la secuencia cinematográfica del tutorial. */}
+      {shownComodin && (
+        <ComodinEpicStream
+          comodinType={shownComodin.comodinType}
+          team={shownComodin.team}
+          targetName={shownComodin.targetName}
+        />
+      )}
       {/* ══ FONDO: video de marca + tinte de cada equipo a su lado ══ */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <video
@@ -306,9 +437,32 @@ export default function StreamScreen({
             <BottomNote color="var(--vertigo-muted)">Sin horario asignado</BottomNote>
           )}
 
-          {match.status === "drawing" && <BottomNote color="#fbbf24">◆ Sorteo en curso — el azar decide</BottomNote>}
-          {match.status === "lineup" && <BottomNote color="#fbbf24">Fase de lineup</BottomNote>}
-          {match.status === "comodin_window" && <BottomNote color="#fbbf24">Ventana de comodines abierta</BottomNote>}
+          {drawActiveNow && !rouletteDone && <BottomNote color="#fbbf24">◆ Sorteo en curso — el azar decide</BottomNote>}
+          {drawActiveNow && rouletteDone && (
+            <>
+              <BottomNote color="var(--vertigo-success)">✓ Sorteo realizado</BottomNote>
+              {/* El resultado en pantalla aunque el admin aún no publicó:
+                  nadie tiene que adivinar qué salió. */}
+              <DrawChips draw={match.activeDraw} />
+            </>
+          )}
+
+          {/* LINEUP: el stream muestra QUIÉNES eligen y las civs — el corazón
+              de la fase, no solo su nombre. Actualiza solo por Realtime. */}
+          {match.status === "lineup" && match.activeDraw && (
+            <LineupBoard
+              draw={match.activeDraw}
+              teamA={match.teamA}
+              teamB={match.teamB}
+              readyLineupAAt={match.readyLineupAAt}
+              readyLineupBAt={match.readyLineupBAt}
+            />
+          )}
+
+          {/* COMODINES: countdown vivo del cierre de la ventana. */}
+          {match.status === "comodin_window" && (
+            <ComodinCountdown expiresAt={match.comodinWindowExpiresAt} />
+          )}
 
           {(inGame || closed) && (
             <>
@@ -317,11 +471,13 @@ export default function StreamScreen({
                 <span className="font-cinzel" style={{ fontSize: "clamp(18px, 2vw, 30px)", color: "var(--vertigo-faint)" }}>—</span>
                 <BigCountdown>{match.scoreB}</BigCountdown>
               </div>
-              <BottomNote color={closed ? "#e9d18a" : "var(--vertigo-success)"}>
-                {closed
-                  ? winnerName ? `Ganador: ${winnerName}` : "Llave cerrada"
-                  : "Partida en juego"}
-              </BottomNote>
+              {closed ? (
+                <BottomNote color="#e9d18a">
+                  {winnerName ? `Ganador: ${winnerName}` : "Llave cerrada"}
+                </BottomNote>
+              ) : (
+                <InGameNote syncStatus={match.activeGameSyncStatus} />
+              )}
             </>
           )}
         </footer>
@@ -485,4 +641,377 @@ function BottomNote({ children, color }: { children: React.ReactNode; color: str
       {children}
     </div>
   );
+}
+
+/**
+ * "Partida en juego" CORROBORADO: el estado del bracket dice in_progress,
+ * pero el hecho real lo confirma el sync que busca la sala por su nombre
+ * en AoE2 Companion. Mientras no la encuentre, se dice lo que pasa de
+ * verdad ("buscando la sala") — no que la partida existe.
+ */
+function InGameNote({ syncStatus }: { syncStatus: string | null }) {
+  switch (syncStatus) {
+    case "live":
+      return <BottomNote color="var(--vertigo-success)">◉ En vivo en AoE2</BottomNote>;
+    case "synced":
+      return <BottomNote color="var(--vertigo-success)">✓ Partida detectada</BottomNote>;
+    case "config_mismatch":
+    case "no_winner":
+      return <BottomNote color="#fbbf24">⚠ Sala encontrada — verificando resultado</BottomNote>;
+    // pending o sin partida sorteada todavía: no afirmamos que exista.
+    default:
+      return <BottomNote color="#fbbf24">Esperando la sala en AoE2…</BottomNote>;
+  }
+}
+
+/** Chips del sorteo persistido: modo/formato/mapa + civs por equipo. */
+function DrawChips({ draw }: { draw: StreamActiveDraw | null }) {
+  if (!draw) return null;
+  const cells = [
+    { label: "MODO", value: draw.gameMode },
+    { label: "FORMATO", value: draw.playerMode },
+    { label: "MAPA", value: draw.map },
+  ].filter((c) => !!c.value);
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "clamp(10px, 1.2vw, 22px)", marginTop: "1vh" }}>
+      {cells.map((c) => (
+        <div key={c.label} style={{
+          padding: "0.7vh 1.1vw", borderRadius: 10, textAlign: "center",
+          border: "1.5px solid rgba(212,175,55,0.35)", background: "rgba(13,9,19,0.72)",
+          minWidth: "clamp(110px, 10vw, 170px)",
+        }}>
+          <div style={{ fontSize: "clamp(8px, 0.7vw, 10px)", fontWeight: 700, letterSpacing: "2.5px", color: "rgba(207,200,221,0.55)", textTransform: "uppercase", marginBottom: 3 }}>
+            {c.label}
+          </div>
+          <div className="font-cinzel" style={{ fontSize: "clamp(12px, 1.2vw, 19px)", fontWeight: 700, color: "#e9d18a" }}>
+            {c.value}
+          </div>
+        </div>
+      ))}
+      {(draw.civsA.length > 0 || draw.civsB.length > 0) && (
+        <div style={{
+          padding: "0.7vh 1.1vw", borderRadius: 10, display: "flex", alignItems: "center", gap: "0.8vw",
+          border: "1.5px solid rgba(167,139,250,0.35)", background: "rgba(13,9,19,0.72)",
+        }}>
+          {(["A", "B"] as const).map((side) => {
+            const civs = side === "A" ? draw.civsA : draw.civsB;
+            return (
+              <div key={side} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                {civs.map((civ) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img key={civ} src={`/civs/${civ}.webp`} alt={civNameEs(civ)} title={civNameEs(civ)} style={{ width: "clamp(26px, 2.2vw, 38px)", height: "clamp(26px, 2.2vw, 38px)", borderRadius: 8, objectFit: "cover", border: side === "A" ? "1.5px solid rgba(167,139,250,0.55)" : "1.5px solid rgba(253,164,175,0.55)" }} />
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Board de LINEUP para el stream: quiénes juegan y con qué civ, por equipo.
+ * El que no declaró todavía muestra sus civs disponibles ("eligiendo…");
+ * el que declaró muestra jugador + civ asignada con check de READY #2.
+ * El refresh llega por Realtime (match_game → router.refresh()).
+ */
+function LineupBoard({
+  draw,
+  teamA,
+  teamB,
+  readyLineupAAt,
+  readyLineupBAt,
+}: {
+  draw: StreamActiveDraw;
+  teamA: StreamTeam | null;
+  teamB: StreamTeam | null;
+  readyLineupAAt: string | null;
+  readyLineupBAt: string | null;
+}) {
+  return (
+    <div style={{ width: "min(94vw, 1100px)", margin: "0 auto 1.5vh" }}>
+      <div
+        className="font-cinzel"
+        style={{
+          textAlign: "center", marginBottom: "1.8vh",
+          fontSize: "clamp(13px, 1.4vw, 21px)", fontWeight: 700,
+          letterSpacing: "4px", textTransform: "uppercase", color: "#e9d18a",
+          textShadow: "0 2px 14px rgba(0,0,0,0.85)",
+        }}
+      >
+        LINEUP — Partida {draw.gameNumber} · {draw.playerMode ?? ""}
+        {draw.map ? ` · ${draw.map}` : ""}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "clamp(12px, 2vw, 28px)" }}>
+        <LineupSide
+          teamName={teamA?.name ?? "Equipo A"}
+          lineup={draw.lineupA}
+          civAssign={draw.civAssignA}
+          civsPool={draw.civsA}
+          players={teamA?.players ?? []}
+          ready={!!readyLineupAAt}
+          accent="rgba(167,139,250,0.55)"
+        />
+        <LineupSide
+          teamName={teamB?.name ?? "Equipo B"}
+          lineup={draw.lineupB}
+          civAssign={draw.civAssignB}
+          civsPool={draw.civsB}
+          players={teamB?.players ?? []}
+          ready={!!readyLineupBAt}
+          accent="rgba(253,164,175,0.55)"
+        />
+      </div>
+    </div>
+  );
+}
+
+function LineupSide({
+  teamName,
+  lineup,
+  civAssign,
+  civsPool,
+  players,
+  ready,
+  accent,
+}: {
+  teamName: string;
+  lineup: string[];
+  civAssign: Record<string, string>;
+  civsPool: string[];
+  players: { id: string; name: string; isCaptain: boolean }[];
+  ready: boolean;
+  accent: string;
+}) {
+  const declared = lineup.length > 0;
+  return (
+    <div style={{
+      borderRadius: 14, padding: "1.6vh 1.4vw",
+      border: `1.5px solid ${accent}`,
+      background: "rgba(13,9,19,0.72)",
+      boxShadow: "0 10px 30px rgba(0,0,0,0.55)",
+      textAlign: "center", minWidth: 0,
+    }}>
+      <div className="font-cinzel" style={{
+        fontSize: "clamp(12px, 1.2vw, 19px)", fontWeight: 700,
+        letterSpacing: "1.5px", textTransform: "uppercase",
+        color: "var(--vertigo-text, #efeaf7)", overflowWrap: "anywhere",
+        marginBottom: "1.2vh",
+      }}>
+        {teamName}
+      </div>
+      {ready ? (
+        // Declarado y confirmado: jugador + civ, listo para jugar.
+        // 3v3/FUSIÓN no declara lineup (juegan todos): se listan los players
+        // y las civs se reparten por índice del pool.
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.8vh", alignItems: "center" }}>
+          {(lineup.length > 0
+            ? lineup.map((pid) => ({ pid, civ: civAssign[pid] }))
+            : players.map((p, i) => ({ pid: p.id, civ: civAssign[p.id] ?? civsPool[i] }))
+          ).map(({ pid, civ }, i) => {
+            const p = players.find((x) => x.id === pid);
+            return (
+              <div key={pid} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+                {civ && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={`/civs/${civ}.webp`} alt="" style={{ width: "clamp(26px, 2.4vw, 40px)", height: "clamp(26px, 2.4vw, 40px)", borderRadius: 8, objectFit: "cover", border: `1.5px solid ${accent}` }} />
+                )}
+                <span style={{ fontSize: "clamp(12px, 1.2vw, 18px)", fontWeight: 700, color: "#4ade80" }}>
+                  {(p?.isCaptain ? "★ " : "") + (p?.name ?? "Jugador")}
+                </span>
+                {civ && <span key={i} style={{ fontSize: "clamp(10px, 0.95vw, 14px)", color: "rgba(207,200,221,0.8)" }}>{civNameEs(civ)}</span>}
+              </div>
+            );
+          })}
+          <div style={{
+            display: "inline-flex", alignItems: "center", gap: 7,
+            padding: "0.6vh 1.2vw", borderRadius: 999, marginTop: "0.6vh",
+            border: "1.5px solid rgba(74,222,128,0.5)", background: "rgba(34,197,94,0.12)",
+            fontSize: "clamp(10px, 0.95vw, 14px)", fontWeight: 700, letterSpacing: "2px",
+            textTransform: "uppercase", color: "#4ade80",
+          }}>
+            <CheckCircle2 style={{ width: "1em", height: "1em" }} /> Ready
+          </div>
+        </div>
+      ) : declared ? (
+        // Declaró pero no confirmó: ya se ve quién juega y la asignación.
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.8vh", alignItems: "center" }}>
+          {lineup.map((pid) => {
+            const p = players.find((x) => x.id === pid);
+            const civ = civAssign[pid];
+            return (
+              <div key={pid} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+                {civ && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={`/civs/${civ}.webp`} alt="" style={{ width: "clamp(26px, 2.4vw, 40px)", height: "clamp(26px, 2.4vw, 40px)", borderRadius: 8, objectFit: "cover", border: `1.5px solid ${accent}` }} />
+                )}
+                <span style={{ fontSize: "clamp(12px, 1.2vw, 18px)", fontWeight: 600, color: "var(--vertigo-text, #efeaf7)" }}>
+                  {(p?.isCaptain ? "★ " : "") + (p?.name ?? "Jugador")}
+                </span>
+                {civ && <span style={{ fontSize: "clamp(10px, 0.95vw, 14px)", color: "rgba(207,200,221,0.8)" }}>{civNameEs(civ)}</span>}
+              </div>
+            );
+          })}
+          <div style={{ fontSize: "clamp(10px, 0.9vw, 13px)", letterSpacing: "2px", textTransform: "uppercase", color: "rgba(207,200,221,0.6)", marginTop: "0.5vh" }}>
+            Confirmando…
+          </div>
+        </div>
+      ) : (
+        // Sin declarar: qué está en juego (civs sorteadas) mientras elige.
+        <div style={{ display: "flex", flexDirection: "column", gap: "1vh", alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+            {civsPool.length > 0 ? civsPool.map((civ) => (
+              <div key={civ} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={`/civs/${civ}.webp`} alt="" style={{ width: "clamp(30px, 2.8vw, 46px)", height: "clamp(30px, 2.8vw, 46px)", borderRadius: 9, objectFit: "cover", border: `1.5px solid ${accent}`, opacity: 0.9 }} />
+                <span style={{ fontSize: "clamp(9px, 0.8vw, 12px)", color: "rgba(207,200,221,0.75)" }}>{civNameEs(civ)}</span>
+              </div>
+            )) : (
+              <span style={{ fontSize: "clamp(11px, 1vw, 15px)", color: "rgba(207,200,221,0.6)", fontStyle: "italic" }}>
+                Sin civs sorteadas
+              </span>
+            )}
+          </div>
+          <div style={{
+            display: "inline-flex", alignItems: "center", gap: 7,
+            padding: "0.6vh 1.2vw", borderRadius: 999,
+            border: `1.5px dashed ${accent}`, background: "rgba(10,6,17,0.45)",
+            fontSize: "clamp(10px, 0.95vw, 14px)", fontWeight: 600, letterSpacing: "2px",
+            textTransform: "uppercase", color: "rgba(207,200,221,0.7)",
+          }}>
+            <Swords style={{ width: "1em", height: "1em" }} /> Eligiendo lineup…
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** CARTA ÉPICA de comodín — la secuencia cinematográfica del tutorial
+ *  (luz converge → carta entra → impacto/shockwave → nombre SLAM →
+ *  estandarte del reino) disparada cuando el CAPITÁN ejecuta el comodín.
+ *  El stream la muestra fullscreen: es EL momento del stream. */
+function ComodinEpicStream({
+  comodinType,
+  team,
+  targetName,
+}: {
+  comodinType: string;
+  team: StreamTeam | null;
+  targetName: string | null;
+}) {
+  const META: Record<string, { img: string; name: string; sub: string }> = {
+    reroll: { img: "/brand/icons/comodin-regirar.png", name: "RE-GIRAR", sub: "LA FASE SE VUELVE A SORTEAR" },
+    anular: { img: "/brand/icons/comodin-anular.png", name: "ANULAR", sub: "JUGADOR ANULADO" },
+    elegir_rival: { img: "/brand/icons/comodin-elegir.png", name: "ELEGIR RIVAL", sub: "RIVAL IMPUESTO" },
+    invocar_pro: { img: "/brand/icons/comodin-invocar.png", name: "INVOCAR PRO", sub: "EL PRO ENTRA AL CHAT" },
+  };
+  const meta = META[comodinType] ?? META.reroll;
+  // Partículas en órbita (deterministas — el overlay no necesita aleatorio)
+  const particles = Array.from({ length: 36 }, (_, i) => ({
+    angle: (i / 36) * 360,
+    r: 150 + ((i * 53) % 110),
+    dur: 2.4 + ((i * 0.17) % 2.6),
+    delay: (i * 0.11) % 1.6,
+    size: 2 + ((i * 7) % 5),
+    color: ["#D4AF37", "#7c3aed", "#a78bfa", "#c4b5fd"][i % 4],
+  }));
+
+  return (
+    <div className="tut-epic">
+      <div className="tut-epic-flash" />
+      <div className="tut-epic-rays" />
+      <div className="tut-epic-glow" />
+      <div className="tut-epic-center">
+        <div className="tut-epic-beam" />
+        <div className="tut-epic-orbit">
+          {particles.map((p, i) => (
+            <i
+              key={i}
+              className="tut-particle"
+              style={{
+                "--p-angle": `${p.angle}deg`,
+                "--p-r": `${p.r}px`,
+                "--p-dur": `${p.dur}s`,
+                "--p-delay": `-${p.delay}s`,
+                width: p.size, height: p.size,
+                background: p.color,
+                boxShadow: `0 0 8px ${p.color}`,
+              } as React.CSSProperties}
+            />
+          ))}
+        </div>
+        <div className="tut-epic-shock"><i /><i /><i /></div>
+        <div className="tut-epic-aura" />
+        <div className="tut-epic-enter">
+          <div className="tut-epic-3d">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="tut-epic-art" src={meta.img} alt={meta.name} />
+          </div>
+        </div>
+        <div className="tut-epic-pedestal" />
+        <div className="tut-epic-name">{meta.name}</div>
+        <div className="tut-epic-divider"><i /></div>
+        {team && (
+          <div className="tut-epic-team">
+            {team.emblemUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={team.emblemUrl} alt="" />
+            ) : (
+              <Shield style={{ width: 34, height: 34 }} strokeWidth={1.2} />
+            )}
+            {team.name}
+          </div>
+        )}
+        <div className="tut-epic-sub">
+          {targetName ? `${meta.sub} · ${targetName.toUpperCase()}` : "COMODÍN ACTIVADO"}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Countdown vivo de la ventana de comodines (5 min desde la publicación). */
+function ComodinCountdown({ expiresAt }: { expiresAt: string | null }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 500);
+    return () => clearInterval(t);
+  }, []);
+  if (!expiresAt) {
+    return <BottomNote color="#fbbf24">Ventana de comodines abierta</BottomNote>;
+  }
+  const left = Math.max(0, new Date(expiresAt).getTime() - now);
+  const mm = Math.floor(left / 60000);
+  const ss = Math.floor((left % 60000) / 1000);
+  const done = left <= 0;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.8vh" }}>
+      <BottomLabel>Ventana de comodines</BottomLabel>
+      <BigCountdown danger={done || left < 60000}>
+        {String(mm).padStart(2, "0")}:{String(ss).padStart(2, "0")}
+      </BigCountdown>
+      {done && <BottomNote color="var(--vertigo-muted)">Cerrando — el admin arranca la partida</BottomNote>}
+    </div>
+  );
+}
+
+/** Nombre legible de civ para el stream (id del pool → español). */
+function civNameEs(id: string): string {
+  const map: Record<string, string> = {
+    britons: "Britanos", franks: "Francos", goths: "Godos", teutons: "Teutones",
+    japanese: "Japoneses", chinese: "Chinos", byzantines: "Bizantinos", persians: "Persas",
+    saracens: "Sarracenos", mongols: "Mongoles", koreans: "Coreanos", hindustanis: "Hindúes",
+    ethiopians: "Etíopes", khmer: "Jémer", magyars: "Magiares", wei: "Wei",
+    incas: "Incas", mayans: "Mayas", jurchens: "Yurchen", turks: "Turcos", vikings: "Vikingos",
+    aztecs: "Aztecas", huns: "Hunos", spanish: "Españoles", malians: "Malíes",
+    berbers: "Bereberes", bulgarians: "Búlgaros", cumans: "Cumanos", lithuanians: "Lituanos",
+    poles: "Polacos", burgundians: "Borgoñones", sicilians: "Sicilianos", tatars: "Tártaros",
+    slavs: "Eslavos", vietnamese: "Vietnamitas", burmese: "Birmanos", malay: "Malayos",
+    italians: "Italianos", indians: "Indios", portuguese: "Portugueses", dravidians: "Drávidas",
+    bengalis: "Bengalíes", gurjaras: "Gurjaras", avars: "Ávaros", romans: "Romanos",
+    shu: "Shu", wu: "Wu",
+  };
+  return map[id] ?? id;
 }

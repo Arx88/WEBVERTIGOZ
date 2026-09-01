@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseServer } from "@/lib/supabase/server";
+import { getSupabaseServer, getSupabaseServiceRole } from "@/lib/supabase/server";
 
 /**
  * GET /api/draw/live?match_id=...
@@ -49,12 +49,23 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ found: false, reason: "Sorteo aún no revelado" }, { status: 200 });
     }
 
-    // Preset
-    const { data: preset } = (await supabase
-      .from("preset_version")
-      .select("config")
-      .eq("id", draw.preset_version_id)
-      .maybeSingle()) as { data: any };
+    // Preset: se lee con service role porque preset_version no tiene SELECT
+    // público (RLS), pero su config NO es secreta — es el set de opciones de la
+    // ruleta que el resultado ya expone. Si fallara la lectura con la sesión
+    // anónima, la ruleta del viewer usaría la config default y el forced del
+    // server no matchearía las opciones → giraría a un resultado RANDOM.
+    let preset: any = null;
+    try {
+      const service = getSupabaseServiceRole() as any;
+      const { data: presetRow } = (await service
+        .from("preset_version")
+        .select("config")
+        .eq("id", draw.preset_version_id)
+        .maybeSingle()) as { data: any };
+      preset = presetRow?.config ?? null;
+    } catch {
+      preset = null;
+    }
 
     return NextResponse.json({
       found: true,
@@ -62,7 +73,7 @@ export async function GET(req: NextRequest) {
       gameStatus: game.status,
       drawStatus: draw.status,
       result: draw.result,
-      preset: preset?.config ?? null,
+      preset: preset ?? null,
     });
   } catch (e) {
     return NextResponse.json(

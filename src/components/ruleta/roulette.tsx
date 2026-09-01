@@ -487,15 +487,22 @@ export function Roulette(props: RouletteProps = {}) {
     }
   },[phase,activeModes,dynIsV,setVFadeAnim,spinV,spinH,s]);
 
-  // Demo/tutorial: con `autoStart` el primer giro se dispara solo
+  // Demo/tutorial/live: con `autoStart` el primer giro se dispara solo
   // (las fases siguientes ya avanzan automáticamente).
+  // OJO StrictMode: el ref se marca recién DENTRO del timeout, no antes —
+  // si se marcara sincrónico, el doble-invoke del dev cancelaría el giro
+  // (primera pasada agenda, cleanup la cancela, segunda pasada ve el ref y
+  // nunca vuelve a agendar) y la ruleta quedaría congelada para siempre.
   useEffect(() => {
-    if (!props.autoStart || autoStartedRef.current) return;
+    if (!props.autoStart) return;
     const hasForced = !!props.forced;
     // sin forced (ruleta libre): la demo no avanza sola, el humano gira
     if (!hasForced) return;
-    autoStartedRef.current = true;
-    const t = window.setTimeout(() => handleSpinClick(), 1600);
+    const t = window.setTimeout(() => {
+      if (autoStartedRef.current) return;
+      autoStartedRef.current = true;
+      handleSpinClick();
+    }, 1600);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.autoStart, props.forced]);

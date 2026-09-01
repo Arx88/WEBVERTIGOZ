@@ -2154,31 +2154,104 @@ html:has(.vertigo-page) {
    ============================================================ */
 
 .vertigo-loader {
-  min-height: 60vh;
+  position: relative;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 18px;
+  overflow: hidden;
+  /* Azul oscuro del sitio (en vez del negro puro heredado) */
+  background: #070310;
+  background-image:
+    radial-gradient(1200px 700px at 50% 42%, rgba(30, 40, 90, 0.35), transparent 70%),
+    radial-gradient(ellipse at center, rgba(7, 3, 16, 0.55) 0%, #070310 100%);
+  color: var(--vertigo-text);
 }
 
-.vertigo-loader-ring {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 2px solid var(--vertigo-line);
-  border-top-color: var(--vertigo-primary);
-  animation: vertigo-loader-spin 0.9s linear infinite;
+/* Fondo StreamConvergence (WebGL) — detrás del contenido */
+.vertigo-loader .stream-convergence-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.7;
+  /* Se funde con el fondo del sitio en los bordes */
+  mask-image: radial-gradient(ellipse at center, #000 35%, transparent 80%);
+  -webkit-mask-image: radial-gradient(ellipse at center, #000 35%, transparent 80%);
+}
+.vertigo-loader .stream-convergence-bg canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Contenido (logo + barrita + label) por encima del fondo */
+.vertigo-loader-inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 40px 24px;
+}
+
+/* Logo de la marca — igual lenguaje que el del navbar, con glow violeta */
+.vertigo-loader-logo {
+  height: 96px;
+  width: auto;
+  display: block;
+  filter: drop-shadow(0 0 18px rgba(124, 58, 237, 0.5));
+  animation: vertigo-loader-logo-float 2.8s ease-in-out infinite;
+}
+
+@keyframes vertigo-loader-logo-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+/* Barrita de carga fucsia indeterminada (unas cuantas veces a lo largo) */
+.vertigo-loader-bar {
+  width: 220px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 46, 158, 0.16);
+  overflow: hidden;
+  position: relative;
+}
+.vertigo-loader-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -40%;
+  width: 40%;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ff2e9e, #e879f9, #ff2e9e);
+  box-shadow: 0 0 12px rgba(255, 46, 158, 0.8);
+  animation: vertigo-loader-bar-run 1.3s ease-in-out infinite;
+}
+
+@keyframes vertigo-loader-bar-run {
+  0% { left: -40%; }
+  100% { left: 100%; }
 }
 
 .vertigo-loader-label {
   font-family: Cinzel, serif;
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 600;
   letter-spacing: 3px;
   text-transform: uppercase;
-  color: var(--vertigo-faint);
+  color: var(--vertigo-text);
   text-align: center;
+  text-shadow: 0 0 10px rgba(124, 58, 237, 0.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vertigo-loader-logo { animation: none; }
+  .vertigo-loader-bar::after { animation-duration: 3s; }
 }
 
 @keyframes vertigo-loader-spin {

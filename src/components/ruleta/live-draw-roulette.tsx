@@ -24,6 +24,8 @@ const Roulette = dynamic(() => import("@/components/ruleta/roulette").then((m) =
 });
 
 const POLL_INTERVAL_MS = 3000;
+/** Segundos que el resultado queda en pantalla antes de ceder la escena. */
+const HOLD_RESULT_S = 8;
 
 interface LiveDrawRouletteProps {
   matchId: string;
@@ -31,6 +33,18 @@ interface LiveDrawRouletteProps {
   onDone?: () => void;
   /** Si true, el admin ve controles extra (futuro: re-girar fase) */
   isAdmin?: boolean;
+  /**
+   * ANIMAR vs ESTÁTICO. La action persiste el draw YA revelado antes de
+   * marcar el match como "drawing", así que el timing del fetch no sirve
+   * para distinguir un sorteo en vivo de uno ya pasado: para cualquiera
+   * que monte la ruleta después del click el resultado "ya existía".
+   * La señal correcta es el contexto de montaje del overlay:
+   *  - live=true: esta pantalla VIÓ el status pasar a drawing (cargó en
+   *    open/scheduled y el Realtime lo trajo) → animar.
+   *  - live=false: la pantalla cargó YA en drawing (re-entrada, reload,
+   *    OBS prendido tarde) → el sorteo ya pasó, panel estático.
+   */
+  live?: boolean;
 }
 
 type LiveState =
@@ -39,7 +53,7 @@ type LiveState =
   | { kind: "ready"; result: any; preset: any }
   | { kind: "error"; message: string };
 
-export default function LiveDrawRoulette({ matchId, onDone, isAdmin }: LiveDrawRouletteProps) {
+export default function LiveDrawRoulette({ matchId, onDone, isAdmin, live }: LiveDrawRouletteProps) {
   const [state, setState] = useState<LiveState>({ kind: "loading" });
   const [forced, setForced] = useState<any>(null);
   const fetchedOnce = useRef(false);
@@ -75,12 +89,14 @@ export default function LiveDrawRoulette({ matchId, onDone, isAdmin }: LiveDrawR
     fetchLive();
   }, [fetchLive]);
 
-  // Realtime: cuando el draw cambia a revealed/published, refrescar
+  // Realtime: cuando el match cambia a drawing (o la partida activa se
+  // actualiza), refrescar el resultado. roulette_draw NO está en la
+  // publicación Realtime (verificado empíricamente): suscribirse a esa tabla
+  // era un canal muerto — el draw llega vía match/match_game + polling.
   useEffect(() => {
     const supabase = getSupabaseBrowser();
     const channel = supabase
       .channel(`live-draw-${matchId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "roulette_draw" }, () => { void fetchLive(); })
       .on("postgres_changes", { event: "*", schema: "public", table: "match", filter: `id=eq.${matchId}` }, () => { void fetchLive(); })
       .on("postgres_changes", { event: "*", schema: "public", table: "match_game", filter: `match_id=eq.${matchId}` }, () => { void fetchLive(); })
       .subscribe();
@@ -98,6 +114,18 @@ export default function LiveDrawRoulette({ matchId, onDone, isAdmin }: LiveDrawR
     onDone?.();
   }, [onDone]);
 
+  // ¿Esta pantalla vio el sorteo EN VIVO (cargó antes de que el status
+  // pasara a drawing)? Solo entonces corresponde animar la ruleta. Si
+  // cargó ya en drawing (re-entrada/reload/OBS tarde) el sorteo YA PASÓ:
+  // panel estático que se auto-cierra tras HOLD_RESULT_S. Nunca re-animamos
+  // un sorteo viejo.
+  const showStatic = state.kind === "ready" && !live;
+  useEffect(() => {
+    if (state.kind !== "ready" || live) return;
+    const t = setTimeout(() => onDone?.(), HOLD_RESULT_S * 1000);
+    return () => clearTimeout(t);
+  }, [live, state.kind, onDone]);
+
   if (state.kind === "loading" || state.kind === "waiting") {
     return <DrawLoader text={state.kind === "loading" ? "Preparando el sorteo…" : "Esperando al server…"} />;
   }
@@ -105,6 +133,10 @@ export default function LiveDrawRoulette({ matchId, onDone, isAdmin }: LiveDrawR
     return (
       <DrawLoader text={`Error: ${state.message}`} isError />
     );
+  }
+
+  if (showStatic) {
+    return <RevealedDrawPanel result={state.result} />;
   }
 
   return (
@@ -151,6 +183,73 @@ function DrawLoader({ text, isError }: { text: string; isError?: boolean }) {
         {text}
       </div>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
+}
+
+/**
+ * Panel estático del sorteo ya realizado (re-entradas al overlay): el
+ * resultado en tarjetas legibles + "SORTEO FINALIZADO" — la ruleta no se
+ * re-anima porque el sorteo ya pasó. Mismo lenguaje visual que la escena
+ * de results de la ruleta (eyebrow dorado + tarjetas con imagen).
+ */
+function RevealedDrawPanel({ result }: { result: any }) {
+  const steps = [
+    { key: "mode", label: "MODO", title: result?.gameMode?.title, img: result?.gameMode?.img, color: "#c4b5fd" },
+    { key: "antimeta", label: "ANTIMETA", title: result?.antimetaMode?.title, img: result?.antimetaMode?.img, color: "#fbbf24" },
+    { key: "player", label: "FORMATO", title: result?.playerMode?.title, img: result?.playerMode?.img, color: "#a5b4fc" },
+    { key: "llave", label: "LLAVE", title: result?.llave?.title, img: result?.llave?.img, color: "#e9d18a" },
+    { key: "map", label: "MAPA", title: result?.map?.title, img: result?.map?.img, color: result?.map?.color ?? "#e9d18a" },
+  ].filter((s) => !!s.title);
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 90, background: "#050505",
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "3.5vh",
+      padding: "4vh 4vw", textAlign: "center",
+    }}>
+      <div style={{
+        fontFamily: "Cinzel, serif", letterSpacing: "0.4em", fontSize: "clamp(11px, 1.2vw, 18px)",
+        textTransform: "uppercase", color: "#e9d18a", textShadow: "0 0 22px rgba(212,175,55,0.4)",
+      }}>
+        ◆ SORTEO FINALIZADO
+      </div>
+      <div style={{
+        display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "clamp(12px, 1.6vw, 28px)",
+        maxWidth: "92vw",
+      }}>
+        {steps.map((s) => (
+          <div key={s.key} style={{
+            width: "clamp(150px, 17vw, 260px)", borderRadius: 14, overflow: "hidden",
+            border: `1.5px solid ${s.color}55`, background: "rgba(13,9,19,0.85)",
+            boxShadow: `0 12px 34px rgba(0,0,0,0.6), 0 0 22px ${s.color}22`,
+          }}>
+            {s.img ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={s.img} alt={s.title} style={{ width: "100%", height: "clamp(84px, 10vw, 150px)", objectFit: "cover", display: "block" }} />
+            ) : (
+              <div style={{ width: "100%", height: "clamp(84px, 10vw, 150px)", background: `${s.color}18`, display: "block" }} />
+            )}
+            <div style={{ padding: "12px 14px", textAlign: "center" }}>
+              <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "3px", color: "rgba(207,200,221,0.55)", marginBottom: 4, textTransform: "uppercase" }}>
+                {s.label}
+              </div>
+              <div style={{
+                fontFamily: "Cinzel, serif", fontSize: "clamp(13px, 1.4vw, 20px)", fontWeight: 700,
+                color: "var(--vertigo-text, #efeaf7)", lineHeight: 1.15, overflowWrap: "anywhere",
+              }}>
+                {s.title}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{
+        fontSize: "clamp(10px, 1vw, 15px)", letterSpacing: "3px", textTransform: "uppercase",
+        color: "rgba(207,200,221,0.55)",
+      }}>
+        Esperando la fase de lineup…
+      </div>
     </div>
   );
 }
