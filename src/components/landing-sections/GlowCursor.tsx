@@ -76,9 +76,25 @@ void main() {
   float colorWeight = 0.0;
   vec3 colorSum = vec3(0.0);
 
+  // Trail envolvente: los puntos viven en [min, max] de uPoints; descartar
+  // píxeles lejos de esa caja evita correr el loop completo de segmentos
+  // en el ~95% de la pantalla que la estela no toca. La caja sigue siendo
+  // válida durante el fade (los puntos no se mueven cuando se desvanecen).
+  vec2 lo = uPoints[0];
+  vec2 hi = uPoints[0];
+  for (int i = 1; i < MAX_POINTS; i++) {
+    lo = min(lo, uPoints[i]);
+    hi = max(hi, uPoints[i]);
+  }
+  float pad = uTrailWidth * (uGlowSpread * 1.4 + 1.6) + 4.0;
+  if (pixel.x < lo.x - pad || pixel.x > hi.x + pad || pixel.y < lo.y - pad || pixel.y > hi.y + pad) {
+    discard;
+  }
+
   for (int i = 0; i < MAX_POINTS - 1; i++) {
     float index = float(i);
     float active = 1.0 - step(uPointCount - 1.0, index);
+    if (active < 0.5) break; // puntos inactivos: todos los siguientes también
     vec2 start = uPoints[i];
     vec2 end = uPoints[i + 1];
     vec2 toPixel = pixel - start;
@@ -102,11 +118,11 @@ void main() {
     colorWeight += intensity;
   }
 
-  float grain = filmGrain(pixel, uTime);
-  float noiseAmount = (1.0 - exp(-uNoiseStrength * 2.2)) * 0.4;
   float alpha = clamp(strongest * uOpacity * uFade, 0.0, 1.0);
   if (alpha < 0.0005) discard;
 
+  float grain = filmGrain(pixel, uTime);
+  float noiseAmount = (1.0 - exp(-uNoiseStrength * 2.2)) * 0.4;
   vec3 color = colorSum / max(colorWeight, 0.0001);
   color = mix(color, vec3(1.0), smoothstep(0.25, 0.95, strongestCore) * uHotspot);
   float luminance = sRGB(clamp(strongest * uBrightness, 0.0, 1.0));
@@ -166,7 +182,7 @@ export default function GlowCursor({
   maxDevicePixelRatio = 1.5,
   enabled = true,
 }: GlowCursorProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const hostRef = useRef<HTMLDivElement>(null);
   const configRef = useRef({
     color, secondaryColor, trailLength, trailWidth, trailTaper, followSpeed,
     glowIntensity, glowSpread, hotspot, brightness, opacity, pulseSpeed,
@@ -179,16 +195,44 @@ export default function GlowCursor({
   };
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const host = hostRef.current;
+    if (!host) return;
+
+    // Canvas IMPERATIVO, siempre recién creado: el contexto WebGL vive y
+    // muere con este efecto. Reusar el canvas de React tras un
+    // loseContext() devuelve un contexto ya muerto y el link del
+    // programa falla (ogl deja uniformLocations undefined → TypeError
+    // en el primer render). Canvas propio por montaje = contexto limpio.
+    const canvas = document.createElement("canvas");
+    canvas.style.position = "fixed";
+    canvas.style.inset = "0";
+    canvas.style.width = "100%";
+    canvas.style.height = "100%";
+    canvas.style.pointerEvents = "none";
+    canvas.style.zIndex = "60";
+    canvas.style.mixBlendMode = "screen";
+    host.appendChild(canvas);
 
     const cfg = configRef.current;
-    const renderer = new Renderer({
-      canvas,
-      alpha: true,
-      dpr: Math.min(window.devicePixelRatio || 1, maxDevicePixelRatio),
-    });
+    // Sin WebGL (GPU bloqueada, headless, etc.) ogl lanza al construir el
+    // Renderer con gl nulo — la estela es decorativa: no debe tumbar la
+    // landing entera en el error boundary. Fallamos en silencio.
+    let renderer: Renderer;
+    try {
+      renderer = new Renderer({
+        canvas,
+        alpha: true,
+        dpr: Math.min(window.devicePixelRatio || 1, maxDevicePixelRatio),
+      });
+    } catch {
+      host.removeChild(canvas);
+      return;
+    }
     const gl = renderer.gl;
+    if (!gl) {
+      host.removeChild(canvas);
+      return;
+    }
     gl.clearColor(0, 0, 0, 0);
 
     const pointData = Array(MAX_POINTS * 2).fill(0);
@@ -303,7 +347,16 @@ export default function GlowCursor({
       program.uniforms.uTime.value = now * 0.001;
       program.uniforms.uFade.value = fade;
 
-      renderer.render({ scene: mesh });
+      // El contexto puede morir en pleno uso (reciclaje del navegador):
+      // ogl no tolera un render sobre contexto perdido (uniformLocations
+      // undefined → TypeError). La estela es decorativa: si muere, se
+      // apaga en silencio en vez de tumbar la landing.
+      if (gl.isContextLost()) return;
+      try {
+        renderer.render({ scene: mesh });
+      } catch {
+        return;
+      }
       if (!destroyed) raf = requestAnimationFrame(render);
     };
 
@@ -323,15 +376,9 @@ export default function GlowCursor({
       mesh.geometry.remove();
       program.remove();
       renderer.gl.getExtension("WEBGL_lose_context")?.loseContext();
+      canvas.remove();
     };
   }, [maxDevicePixelRatio]);
 
-  return (
-    <canvas
-      ref={canvasRef}
-      aria-hidden="true"
-      className="pointer-events-none fixed inset-0 z-[60] hidden h-full w-full select-none md:block"
-      style={{ mixBlendMode: "screen" }}
-    />
-  );
+  return <div ref={hostRef} aria-hidden="true" className="pointer-events-none fixed inset-0 z-[60] hidden md:block" />;
 }

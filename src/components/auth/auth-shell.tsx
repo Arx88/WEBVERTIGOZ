@@ -40,24 +40,28 @@ export default function AuthShell({
         </Link>
 
         <section className="content auth-content">
-          <div className="auth-logo">
-            <img src="/landing/logo.png" alt="VÉRTIGO Cup" />
-          </div>
-
-          <div className="auth-header">
-            <span className="p-kicker">{kicker}</span>
-            <h2 className="p-title">{title}</h2>
-            <div className="p-divider">
-              <span></span>
-              <i></i>
-              <span></span>
+          <div className="auth-brand">
+            <div className="auth-logo">
+              <img src="/landing/logo.png" alt="VÉRTIGO Cup" />
             </div>
-            {description ? <p className="p-desc">{description}</p> : null}
+
+            <div className="auth-header">
+              <span className="p-kicker">{kicker}</span>
+              <h2 className="p-title">{title}</h2>
+              <div className="p-divider">
+                <span></span>
+                <i></i>
+                <span></span>
+              </div>
+              {description ? <p className="p-desc">{description}</p> : null}
+            </div>
           </div>
 
-          {children}
+          <div className="auth-main">
+            {children}
 
-          {footer ? <div className="auth-footer">{footer}</div> : null}
+            {footer ? <div className="auth-footer">{footer}</div> : null}
+          </div>
         </section>
       </div>
 
@@ -66,39 +70,40 @@ export default function AuthShell({
         .link-hover { transition: color .3s; }
         .link-hover:hover { color: var(--purple-pale) !important; }
 
-        /* El shell no bloquea el viewport: si la tarjeta es más alta que la
-           pantalla, scrollea la página (el video queda fixed detrás). */
+        /* El shell llena la ventana exacta: el modal NUNCA genera scroll de
+           página. Si el contenido crece, scrollea DENTRO de la tarjeta. */
         .wizard-page.auth-shell {
-          height: auto;
+          height: 100vh;
           min-height: 100vh;
-          align-items: stretch;
+          align-items: center;
           justify-content: center;
-          overflow: visible;
-          padding: 44px 16px;
+          overflow: hidden;
+          padding: 26px 16px;
         }
         html:has(.wizard-page.auth-shell),
         body:has(.wizard-page.auth-shell) {
-          height: auto !important;
-          overflow-x: hidden !important;
-          overflow-y: auto !important;
+          overflow: hidden !important;
           background: #070310 !important;
           margin: 0 !important;
           padding: 0 !important;
         }
 
-        /* Tarjeta única centrada — margin:auto centra sin recortar arriba.
+        /* Tarjeta centrada, SIEMPRE dentro de la ventana.
            z-index:2 es CRÍTICO: el overlay del video tiene z-index:1 y, al
            pintarse después que un posicionado con z-index auto, lo cubría
            con su velo oscuro (por eso la tarjeta se veía apagada). */
         .auth-shell .modal {
           width: min(480px, 100%);
           height: auto;
-          max-height: none;
+          /* Nunca más alta que la ventana menos el aire del padding: si el
+             contenido excede, .content scrollea interno (no la página). */
+          max-height: calc(100vh - 52px);
           margin: auto;
           display: flex;
           flex-direction: column;
           position: relative;
           z-index: 2;
+          overflow: hidden;
           background:
             linear-gradient(180deg, rgba(139, 92, 246, 0.30), rgba(124, 58, 237, 0.07) 45%),
             #1a1328;
@@ -111,8 +116,16 @@ export default function AuthShell({
         }
         .auth-shell .content {
           padding: 42px 42px 32px;
-          overflow: visible;
+          overflow-y: auto;
+          overscroll-behavior: contain;
           display: block;
+        }
+        /* Scrollbar discreto acorde al tema (solo si el contenido excede) */
+        .auth-shell .content::-webkit-scrollbar { width: 6px; }
+        .auth-shell .content::-webkit-scrollbar-track { background: transparent; }
+        .auth-shell .content::-webkit-scrollbar-thumb {
+          background: rgba(124, 58, 237, 0.35);
+          border-radius: 999px;
         }
 
         /* Blancos reales y contraste de lectura */
@@ -229,6 +242,7 @@ export default function AuthShell({
           gap: 14px;
           text-align: center;
         }
+
         .auth-footer-title {
           font-size: 13px;
           color: #cfc7dc;
@@ -292,6 +306,76 @@ export default function AuthShell({
         }
         .auth-chip:hover svg { color: #ff2e9e; }
         @media (max-width: 420px) { .auth-alt { grid-template-columns: 1fr; } }
+
+        /* ===== LAYOUT HORIZONTAL (desktop ≥880px) =====
+           La tarjeta se ensancha a 2 columnas: panel de marca a la
+           izquierda (logo + título + descripción) y el flujo del form a la
+           derecha. Con esto el modal entra holgado en una ventana normal
+           (720px de alto) sin scroll de página ni scroll interno. */
+        @media (min-width: 880px) {
+          .auth-shell .modal { width: min(880px, 100%); }
+          .auth-shell .content {
+            display: grid;
+            grid-template-columns: 340px 1fr;
+            gap: 0;
+            padding: 48px;
+            overflow-y: auto;
+          }
+          .auth-shell .auth-brand {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: center;
+            padding-right: 44px;
+            text-align: left;
+            position: relative;
+          }
+          /* Hairline vertical que separa marca de formulario */
+          .auth-shell .auth-brand::after {
+            content: "";
+            position: absolute;
+            top: 6%;
+            right: 0;
+            bottom: 6%;
+            width: 1px;
+            background: linear-gradient(
+              180deg,
+              transparent,
+              rgba(167, 139, 250, 0.35),
+              transparent
+            );
+          }
+          .auth-shell .auth-logo { text-align: left; margin-bottom: 26px; }
+          .auth-shell .auth-logo img { width: 88px; margin: 0; }
+          .auth-shell .auth-header { text-align: left; margin-bottom: 0; }
+          .auth-shell .auth-header .p-kicker { text-align: left; }
+          .auth-shell .auth-header .p-title { text-align: left; font-size: 30px; }
+          .auth-shell .auth-header .p-divider { margin: 16px 0; max-width: 240px; }
+          .auth-shell .auth-header .p-desc {
+            text-align: left;
+            max-width: 300px;
+            margin: 0;
+            font-size: 13.5px;
+            line-height: 1.65;
+          }
+          .auth-shell .auth-main { padding-left: 44px; min-width: 0; }
+          .auth-shell .auth-footer { margin-top: 16px; }
+          /* Footer compacto en desktop: título + CTA principal en una fila,
+             chips debajo. Ahorra ~90px de alto en la columna del form. */
+          .auth-shell .auth-footer { flex-direction: column; }
+          .auth-shell .auth-footer-title { display: none; }
+          .auth-shell .auth-footer .auth-footer-cta { margin-bottom: 10px; }
+          .auth-shell .auth-footer .auth-alt { margin-top: 0; }
+        }
+
+        /* Mobile/tablet (<880px): columna compacta con airchico */
+        @media (max-width: 879px) {
+          .wizard-page.auth-shell { padding: 20px 14px; }
+          .auth-shell .content { padding: 36px 24px 26px; }
+          .auth-shell .auth-logo img { width: 68px; }
+          .auth-shell .auth-header .p-title { font-size: 23px; }
+          .auth-shell .auth-footer { margin-top: 20px; }
+        }
 
         @media (prefers-reduced-motion: reduce) {
           .wizard-page.auth-shell .content > *,

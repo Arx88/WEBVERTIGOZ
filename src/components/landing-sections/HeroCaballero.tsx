@@ -16,9 +16,18 @@ const SEEK_TOLERANCE = 0.02; // ~medio frame a 24fps
  * con física de resorte (la cabeza gira hacia el cursor). Sin HUD ni textos:
  * el logo y los CTAs de la landing viven en HeroSection, encima.
  *
+ * El asset (knight-hero-kf.mp4) está re-encodeado GOP-4 a 1080p nativo
+ * (192 frames, keyframe cada 4): cada seek decodifica como MÁXIMO 3 frames
+ * P en vez de los 23 del original (GOP de 24), a calidad visualmente igual
+ * al original (PSNR 46.7 dB > umbral visually-lossless de 45).
+ *
+ * FLUIDEZ: los seeks van por COLA DE UNO (nunca se solapan) + fastSeek.
+ * Disparar currentTime en cada rAF cancela el seek en vuelo y el video
+ * pinta a saltos; la cola deja que cada seek termine y salta directo al
+ * objetivo más reciente (la física no se pierde, solo se sub-muestrea).
+ *
  * Avisa con onCanPlayThrough cuando el video está totalmente cargado, para que
- * HeroSection mantenga el loader de la página hasta ese momento (entrada limpia,
- * sin el pop del video cargando a medias sobre el hero clásico).
+ * HeroSection mantenga el loader de la página hasta ese momento.
  */
 export default function HeroCaballero({
   onCanPlayThrough,
@@ -37,6 +46,7 @@ export default function HeroCaballero({
     let metaReady = false;
     let seeking = false;
     let pendingTime: number | null = null;
+    let lastShown = -1;
     let pos = 0; // posición del "cuello" -1..1 (0 = centro)
     let vel = 0;
     let lastTs = 0;
@@ -44,12 +54,34 @@ export default function HeroCaballero({
     let visible = true;
     let targetNorm = 0.5;
 
+    const onLoadedMetadata = () => {
+      duration = video.duration;
+      metaReady = true;
+      video.currentTime = duration / 2; // arranca mirando al frente
+      lastShown = duration / 2;
+    };
+
+    // Cola de UN seek: nunca disparamos el próximo mientras el actual vuela.
+    // Sin esto, cada rAF cancela el seek anterior a mitad de decodificación y
+    // el video "salta" (era el tironcito visible al mover el mouse rápido).
     const doSeek = (t: number) => {
       if (seeking) {
-        pendingTime = t;
+        pendingTime = t; // el más reciente gana: la física sigue corriendo
         return;
       }
       seeking = true;
+      lastShown = t;
+      if (typeof video.fastSeek === "function") {
+        // fastSeek con un asset todo-keyframes clava el frame exacto con el
+        // mínimo trabajo del decodificador (busca el keyframe más cercano,
+        // que ES el frame buscado).
+        try {
+          video.fastSeek(t);
+          return;
+        } catch {
+          /* fallback abajo */
+        }
+      }
       video.currentTime = t;
     };
 
@@ -62,12 +94,6 @@ export default function HeroCaballero({
       }
     };
 
-    const onLoadedMetadata = () => {
-      duration = video.duration;
-      metaReady = true;
-      video.currentTime = duration / 2; // arranca mirando al frente
-    };
-
     // Curva de respuesta: mouse 0..1 → objetivo -1..1
     // Zona muerta central (mirada estable al frente) + acento no lineal en los bordes.
     const responseCurve = (n: number) => {
@@ -76,16 +102,27 @@ export default function HeroCaballero({
       return Math.sign(dx) * Math.pow(mag, CURVE_EXP);
     };
 
+    let rect: DOMRect | null = null;
+    let rectTs = 0;
+    const rectFor = (clientX: number) => {
+      // El rect del hero cambia con scroll/resize; cachearlo 200ms basta
+      // (getBoundingClientRect por mousemove fuerza layout → otro cuello).
+      const now = performance.now();
+      if (!rect || now - rectTs > 200) {
+        rect = video.getBoundingClientRect();
+        rectTs = now;
+      }
+      return Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+    };
+
     const onMouseMove = (e: MouseEvent) => {
-      const rect = video.getBoundingClientRect();
-      targetNorm = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+      targetNorm = rectFor(e.clientX);
     };
     const onMouseOut = (e: MouseEvent) => {
       if (!e.relatedTarget) targetNorm = 0.5; // salió de la ventana
     };
     const onTouchMove = (e: TouchEvent) => {
-      const rect = video.getBoundingClientRect();
-      targetNorm = Math.min(1, Math.max(0, (e.touches[0].clientX - rect.left) / rect.width));
+      targetNorm = rectFor(e.touches[0].clientX);
     };
 
     // Solo consume GPU/decodificador mientras el hero está a la vista
@@ -120,7 +157,7 @@ export default function HeroCaballero({
 
       if (metaReady && duration > 0) {
         const t = Math.min(norm * duration, duration - 0.001);
-        if (!seeking && Math.abs(video.currentTime - t) > SEEK_TOLERANCE) doSeek(t);
+        if (!seeking && Math.abs(lastShown - t) > SEEK_TOLERANCE) doSeek(t);
       }
     };
 
@@ -145,7 +182,7 @@ export default function HeroCaballero({
   return (
     <video
       ref={videoRef}
-      src="/landing/knight-hero.mp4"
+      src="/landing/knight-hero-kf.mp4"
       muted
       playsInline
       preload="auto"

@@ -83,7 +83,7 @@ export default function HeroSection() {
           height={120}
           priority
           className={`drop-shadow-[0_0_18px_rgba(255,46,158,0.35)] ${
-            knight ? "w-[170px] md:w-[220px]" : "w-[210px] md:w-[280px]"
+            knight ? "w-[224px] md:w-[291px]" : "w-[210px] md:w-[280px]"
           }`}
         />
       </div>

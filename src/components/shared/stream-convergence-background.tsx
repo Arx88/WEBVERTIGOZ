@@ -9,64 +9,39 @@
  * Es WebGL puro (sin three.js): un canvas a pantalla completa con un
  * shader que dibuja ondas convergiendo.
  *
- * Fiabilidad:
- *  - Al desmontar se libera el contexto (WEBGL_lose_context) para no agotar
- *    el tope de contextos del navegador.
- *  - En React StrictMode (dev) el mismo canvas se remonta justo después de
- *    un loseContext(): getContext() devuelve el contexto PERDIDO. En ese caso
- *    se pide restoreContext() y se reinicializa todo en webglcontextrestored.
- *  - Si el navegador recicla el contexto en pleno uso, se reinicializa igual.
- *  - Red de seguridad CSS: .vertigo-loader::before lleva un gradiente animado
- *    detrás del canvas (el canvas es opaco cuando funciona, así que solo se
- *    ve si WebGL falla).
+ * Fiabilidad — el loader JAMÁS debe quedarse sin el fondo 3D. Este
+ * componente pasa por remontajes constantes (loading.tsx por navegación,
+ * StrictMode en dev, loader del hero del caballero) y cada desmonte libera
+ * el contexto con WEBGL_lose_context para no agotar el tope del navegador.
+ * Eso deja 4 modos de falla en el remonte, TODOS cubiertos por un watchdog
+ * unificado (HEARTBEAT_MS) que corre mientras el fondo no esté sano y se
+ * apaga solo cuando todo dibuja:
+ *
+ *  1. getContext("webgl") devuelve null (tope de contextos vivos).
+ *  2. El contexto llega PERDIDO (dev StrictMode: getContext devuelve el
+ *     contexto que el montaje anterior acaba de loseContext()). Se pide
+ *     restoreContext() y el evento webglcontextrestored NO siempre llega
+ *     (GPU ocupada con el video del hero + GlowCursor).
+ *  3. webglcontextrestored llega pero initGL() falla (compile/link con la
+ *     GPU ocupada): ready queda false y nada lo reintentaba.
+ *  4. El contexto muere en pleno uso (reciclaje del navegador).
+ *
+ * Escalada del watchdog: reintenta init sobre el canvas actual (1 y 3),
+ * pide restoreContext (2) y, si el canvas no revive, LO REEMPLAZA por uno
+ * nuevo en el DOM (un canvas recién creado siempre obtiene un contexto
+ * limpio — cubre 1 y 2 rebeldes). canvasRef/glHost se mantienen
+ * sincronizados con el canvas vivo, no con el que React renderizó.
+ *
+ * Red de seguridad CSS: .stream-convergence-bg lleva un gradiente animado
+ * detrás del canvas (solo se ve si WebGL no puede iniciar).
  */
 import { useEffect, useRef } from "react";
-
-const STREAM_CONVERGENCE_VERTEX_SHADER = `
-  attribute vec2 position;
-  varying vec2 vUv;
-  void main() {
-    vUv = position * 0.5 + 0.5;
-    gl_Position = vec4(position, 0.0, 1.0);
-  }
-`;
-
-const STREAM_CONVERGENCE_FRAGMENT_SHADER = `
-  uniform float u_time;
-  uniform vec2 u_resolution;
-  uniform float u_interactive_fidelity;
-  varying vec2 vUv;
-
-  mat2 rotate2d(float _angle){
-    return mat2(cos(_angle),-sin(_angle),
-                sin(_angle),cos(_angle));
-  }
-
-  void main() {
-    vec2 p = vUv * 2.0 - 1.0;
-    p.x *= u_resolution.x / u_resolution.y;
-    p = rotate2d(0.55) * p;
-
-    vec3 color = vec3(0.0);
-    float spread = 0.06 * (0.3 + u_interactive_fidelity * 0.7);
-
-    for(int i = 0; i < 3; i++) {
-      float offset = float(1 - i) * spread;
-      float y = p.y + offset + (sin(p.x * 2.5 - u_time * 1.5) * 0.12);
-      float wave = smoothstep(0.85, 0.99, sin(y * 6.0 + u_time * 2.0) * 0.5 + 0.5);
-
-      // Mezcla de color del tema violeta-índigo
-      if(i == 0) color.r += wave * 1.2;
-      if(i == 1) color.g += wave * 0.5;
-      if(i == 2) color.b += wave * 1.8;
-    }
-
-    float vignette = exp(-length(vUv * 2.0 - 1.0) * 0.8);
-    color *= vignette;
-
-    gl_FragColor = vec4(color, 1.0);
-  }
-`;
+import {
+  STREAM_CONVERGENCE_VERTEX_SHADER,
+  STREAM_CONVERGENCE_FRAGMENT_SHADER,
+  STREAM_CONVERGENCE_DEFAULT_SPEED,
+  STREAM_CONVERGENCE_DEFAULT_FIDELITY,
+} from "@/components/shared/stream-convergence-bootstrap";
 
 function compile(gl: WebGLRenderingContext, type: number, source: string) {
   const shader = gl.createShader(type);
@@ -79,6 +54,16 @@ function compile(gl: WebGLRenderingContext, type: number, source: string) {
     throw new Error(info ?? "Stream Convergence shader compilation failed");
   }
   return shader;
+}
+
+// Watchdog: mientras el fondo no esté sano (contexto vivo + programa
+// inicializado), re-chequea cada HEARTBEAT_MS y escala el rescate.
+const HEARTBEAT_MS = 300;
+
+// Estructura que expone el bootstrap pre-hidratación sobre el host
+// (ver stream-convergence-bootstrap.ts).
+interface VertigoBoot {
+  stop: () => void;
 }
 
 export default function StreamConvergenceBackground({
@@ -99,14 +84,16 @@ export default function StreamConvergenceBackground({
 
   useEffect(() => {
     const host = hostRef.current;
-    const canvas = canvasRef.current;
-    if (!host || !canvas) return undefined;
+    if (!host || !canvasRef.current) return undefined;
 
-    let gl: WebGLRenderingContext | null = canvas.getContext("webgl", {
-      alpha: true,
-      antialias: false,
-    });
-    if (!gl) return undefined;
+    // El canvas que React renderizó (para liberar su contexto en el
+    // cleanup aunque el activo sea el de rescate).
+    const reactCanvas: HTMLCanvasElement = canvasRef.current;
+
+    // Canvas VIVO: puede no ser el que React renderizó si el watchdog
+    // hizo un swap (getContext fresco). Todo el efecto habla con este.
+    let glHost: HTMLCanvasElement | null = canvasRef.current;
+    let gl: WebGLRenderingContext | null = null;
 
     let program: WebGLProgram | null = null;
     let buffer: WebGLBuffer | null = null;
@@ -116,11 +103,35 @@ export default function StreamConvergenceBackground({
     let ready = false;
     let frame = 0;
     let visible = true;
+    let disposed = false;
+    let heartbeat: ReturnType<typeof setInterval> | null = null;
+    // Cuántos restoreContext() seguidos tolerar antes de reemplazar el canvas.
+    let restoreAttempts = 0;
+    const MAX_RESTORES = 3;
+    // Tope TOTAL de pases del watchdog (cada pase = trabajo GPU). Sin esto,
+    // una GPU colgada = compilación de shaders eterna cada 300ms.
+    let heartAttempts = 0;
+    const MAX_HEART_ATTEMPTS = 20; // ~6s de rescate, luego gradiente CSS
 
-    // (Re)inicializa shaders/program/buffer. Se llama en el montaje inicial y
-    // cada vez que el contexto se restaura (StrictMode, reciclaje del navegador).
-    const initGL = () => {
-      if (!gl || gl.isContextLost()) return;
+    // ADOPCIÓN del bootstrap pre-hidratación: el script inline del
+    // PageLoader ya arrancó el WebGL sobre este canvas (antes de que
+    // React existiera). Al hidratar, frenamos SU loop y nos quedamos con
+    // el mismo contexto — así no hay dos loops dibujando sobre el mismo
+    // canvas ni un flash de fondo sólido al transicionar.
+    const hostBoot = host as HTMLDivElement & { __vertigoBoot?: VertigoBoot };
+    const boot = hostBoot.__vertigoBoot;
+    if (boot) {
+      boot.stop();
+      hostBoot.__vertigoBoot = undefined;
+    }
+    // El contexto del bootstrap es el mismo que getContext() devuelve:
+    // el programa del bootstrap queda huérfano y el efecto crea el suyo.
+
+    // (Re)inicializa shaders/program/buffer sobre el contexto actual. Se
+    // llama en el montaje y en cada restore. Devuelve true si quedó listo
+    // para dibujar.
+    const initGL = (): boolean => {
+      if (!gl || gl.isContextLost()) return false;
       try {
         const vertex = compile(gl, gl.VERTEX_SHADER, STREAM_CONVERGENCE_VERTEX_SHADER);
         const fragment = compile(
@@ -132,7 +143,7 @@ export default function StreamConvergenceBackground({
         if (!prog) {
           gl.deleteShader(vertex);
           gl.deleteShader(fragment);
-          return;
+          return false;
         }
         gl.attachShader(prog, vertex);
         gl.attachShader(prog, fragment);
@@ -141,7 +152,7 @@ export default function StreamConvergenceBackground({
         gl.deleteShader(fragment);
         if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
           gl.deleteProgram(prog);
-          return;
+          return false;
         }
         gl.useProgram(prog);
 
@@ -164,27 +175,30 @@ export default function StreamConvergenceBackground({
         buffer = buf;
         ready = true;
         resize();
+        return true;
       } catch {
         ready = false;
+        return false;
       }
     };
 
     const resize = () => {
-      if (!gl || !ready) return;
+      if (!gl || !ready || !glHost) return;
       const bounds = host.getBoundingClientRect();
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      canvas.width = Math.max(1, Math.round(bounds.width * dpr));
-      canvas.height = Math.max(1, Math.round(bounds.height * dpr));
-      gl.viewport(0, 0, canvas.width, canvas.height);
-      if (uResolution) gl.uniform2f(uResolution, canvas.width, canvas.height);
+      glHost.width = Math.max(1, Math.round(bounds.width * dpr));
+      glHost.height = Math.max(1, Math.round(bounds.height * dpr));
+      gl.viewport(0, 0, glHost.width, glHost.height);
+      if (uResolution) gl.uniform2f(uResolution, glHost.width, glHost.height);
     };
 
     const render = (now: number) => {
-      if (!gl || gl.isContextLost()) {
+      if (disposed || !gl || gl.isContextLost()) {
         frame = 0;
         return;
       }
-      // Contexto vivo pero aún no inicializado (esperando restore): seguir en el loop
+      // Contexto vivo pero aún no inicializado (esperando restore): seguir
+      // en el loop para no perder el tick de readiness.
       if (!ready) {
         frame = visible && !document.hidden ? requestAnimationFrame(render) : 0;
         return;
@@ -200,26 +214,142 @@ export default function StreamConvergenceBackground({
       if (!frame && visible && !document.hidden) frame = requestAnimationFrame(render);
     };
 
+    const stopHeartbeat = () => {
+      if (heartbeat) {
+        clearInterval(heartbeat);
+        heartbeat = null;
+      }
+      // El watchdog se apaga al sanar (o tras agotar los intentos): la
+      // próxima caída lo rearma desde los event handlers.
+      heartAttempts = 0;
+    };
+
+    const scheduleHeartbeat = () => {
+      if (heartbeat || disposed) return;
+      // Tope de trabajo: cada pase fallido compila shaders / pide contextos
+      // (trabajo GPU). Sin tope, una GPU colgada significaba recompilar
+      // shaders cada 300ms para siempre = fuga de CPU/GPU en loaders
+      // viejos que quedan colgados. Agotado el tope, el fondo queda en el
+      // gradiente CSS de respaldo (aceptable: es el último recurso).
+      if (heartAttempts >= MAX_HEART_ATTEMPTS) return;
+      heartbeat = setInterval(heart, HEARTBEAT_MS);
+    };
+
+    // Pase de rescate: devuelve true si el fondo quedó sano (y por ende
+    // programa el watchdog para el próximo problema).
+    const heart = (): boolean => {
+      if (disposed) return false;
+      heartAttempts += 1;
+      if (heartAttempts >= MAX_HEART_ATTEMPTS) {
+        stopHeartbeat();
+        return false; // gradient CSS de respaldo: fin del rescate
+      }
+      // 1) ¿El canvas actual tiene un contexto vivo e inicializado?
+      if (gl && !gl.isContextLost() && ready) {
+        stopHeartbeat();
+        return true;
+      }
+      // 2) Contexto perdido: pedir restauración. Si el evento no llega (GPU
+      //    ocupada) el heartbeat lo reintenta; tras MAX_RESTORES intentos
+      //    seguidos sin revivir, escala directo al paso 4 (canvas nuevo).
+      if (gl && gl.isContextLost()) {
+        restoreAttempts += 1;
+        if (restoreAttempts <= MAX_RESTORES) {
+          gl.getExtension("WEBGL_lose_context")?.restoreContext();
+          return false;
+        }
+        // restoreContext estéril: tratar el canvas como irrecuperable y
+        // pasar al reemplazo (paso 4 abajo).
+        gl = null;
+      } else {
+        restoreAttempts = 0;
+      }
+      // 3) Sin contexto (null o se esfumó): probar el canvas actual…
+      if (glHost) {
+        const ctx = glHost.getContext("webgl", { alpha: true, antialias: false });
+        if (ctx && !ctx.isContextLost()) {
+          gl = ctx;
+          if (initGL()) {
+            start();
+            return true;
+          }
+          return false; // initGL falló (GPU ocupada): reintenta el próximo tick
+        }
+      }
+      // 4) Canvas irrecuperable: crear uno NUEVO propio y adjuntarlo junto
+      //    al de React (sin tocar su DOM). Un canvas recién creado SIEMPRE
+      //    obtiene un contexto limpio, y React puede desmontar el suyo sin
+      //    que elNotFoundError del replaceChild rompa el unmount.
+      const old = glHost;
+      const fresh = document.createElement("canvas");
+      fresh.style.width = "100%";
+      fresh.style.height = "100%";
+      fresh.style.display = "block";
+      // Paridad visual con el canvas de React (ver return del JSX).
+      fresh.style.opacity = String(optionsRef.current.opacity);
+      if (old && old.parentElement) {
+        old.parentElement.appendChild(fresh);
+        // El canvas roto queda invisible detrás del nuevo. Liberarle el
+        // contexto YA: acumular contextos WebGL muertos en remounts seguidos
+        // agota el tope del navegador (y su memoria GPU).
+        old.style.display = "none";
+        old.removeEventListener("webglcontextlost", onContextLost);
+        old.removeEventListener("webglcontextrestored", onContextRestored);
+        if (gl) {
+          const lose = gl.getExtension("WEBGL_lose_context");
+          lose?.loseContext();
+        }
+      } else {
+        host.appendChild(fresh);
+      }
+      glHost = fresh;
+      canvasRef.current = fresh;
+      bindContextEvents(fresh);
+      restoreAttempts = 0;
+      const freshCtx = fresh.getContext("webgl", { alpha: true, antialias: false });
+      if (freshCtx && !freshCtx.isContextLost()) {
+        gl = freshCtx;
+        if (initGL()) {
+          start();
+          return true;
+        }
+      }
+      return false;
+    };
+
+    // Buscar la salud una vez por tick hasta que esté sana; al lograrlo,
+    // el watchdog queda armado para cualquier caída futura.
+    scheduleHeartbeat();
+
     const onContextLost = (event: Event) => {
       event.preventDefault();
-      ready = false;
       if (frame) {
         cancelAnimationFrame(frame);
         frame = 0;
       }
+      ready = false;
+      scheduleHeartbeat();
     };
 
     const onContextRestored = () => {
-      initGL();
-      start();
+      if (initGL()) start();
     };
+
+    function bindContextEvents(target: HTMLCanvasElement) {
+      target.addEventListener("webglcontextlost", onContextLost);
+      target.addEventListener("webglcontextrestored", onContextRestored);
+    }
 
     const onVisibilityChange = () => {
       if (!document.hidden) start();
     };
 
-    canvas.addEventListener("webglcontextlost", onContextLost);
-    canvas.addEventListener("webglcontextrestored", onContextRestored);
+    if (glHost) bindContextEvents(glHost);
+
+    // Primera pasada inmediata: montaje normal o StrictMode (contexto
+    // perdido recién llegado). heart() maneja ambos.
+    heart();
+
     document.addEventListener("visibilitychange", onVisibilityChange);
 
     const resizeObserver = new ResizeObserver(() => resize());
@@ -235,30 +365,34 @@ export default function StreamConvergenceBackground({
     resizeObserver.observe(host);
     intersection.observe(host);
 
-    if (gl.isContextLost()) {
-      // React StrictMode: el montaje anterior llamó loseContext() sobre este
-      // mismo canvas y getContext() devuelve ese contexto perdido. Pedimos
-      // restaurarlo; initGL + start ocurren en webglcontextrestored.
-      gl.getExtension("WEBGL_lose_context")?.restoreContext();
-    } else {
-      initGL();
-      start();
-    }
-
     return () => {
+      disposed = true;
+      stopHeartbeat();
       if (frame) cancelAnimationFrame(frame);
       resizeObserver.disconnect();
       intersection.disconnect();
-      canvas.removeEventListener("webglcontextlost", onContextLost);
-      canvas.removeEventListener("webglcontextrestored", onContextRestored);
       document.removeEventListener("visibilitychange", onVisibilityChange);
+      if (glHost) {
+        glHost.removeEventListener("webglcontextlost", onContextLost);
+        glHost.removeEventListener("webglcontextrestored", onContextRestored);
+      }
       if (gl && !gl.isContextLost()) {
         if (program) gl.deleteProgram(program);
         if (buffer) gl.deleteBuffer(buffer);
         // Liberar el contexto explícitamente para no agotar el tope del navegador.
         gl.getExtension("WEBGL_lose_context")?.loseContext();
       }
+      // El contexto del canvas ORIGINAL de React (cuando el activo es el de
+      // rescate) también hay que liberarlo: quedaba vivo y acumulándose en
+      // cada navegación (loading.tsx se monta/desmonta todo el tiempo).
+      if (glHost !== reactCanvas) {
+        const origCtx = reactCanvas.getContext("webgl", { alpha: true, antialias: false });
+        if (origCtx && !origCtx.isContextLost()) {
+          origCtx.getExtension("WEBGL_lose_context")?.loseContext();
+        }
+      }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
