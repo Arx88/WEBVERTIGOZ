@@ -1699,16 +1699,22 @@ input::placeholder, textarea::placeholder {
 /* Pestañas del informe de la serie (una por partida) — banda segmentada:
    columnas iguales de grilla (el ancho no depende del texto, así nada se
    re-acomoda al cambiar de pestaña), número en caja como los asientos del
-   lineup, y hairline inferior que separa la banda del bloque de la partida. */
+   lineup, y hairline inferior que separa la banda del bloque de la partida.
+   El contador de columnas va por clase (cols-N): repeat(var()) no es portable. */
 .game-tabs {
-  --gt-n: 2;
   display: grid;
-  grid-template-columns: repeat(var(--gt-n), 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 8px;
   padding: 12px 14px;
   background: rgba(19, 15, 27, 0.5);
   border-bottom: 1px solid var(--vertigo-line);
 }
+.game-tabs.cols-1 { grid-template-columns: 1fr; }
+.game-tabs.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.game-tabs.cols-4 { grid-template-columns: repeat(4, 1fr); }
+.game-tabs.cols-5 { grid-template-columns: repeat(5, 1fr); }
+.game-tabs.cols-6 { grid-template-columns: repeat(6, 1fr); }
+.game-tabs.cols-7 { grid-template-columns: repeat(7, 1fr); }
 .game-tab {
   display: flex;
   align-items: center;
@@ -1775,22 +1781,13 @@ input::placeholder, textarea::placeholder {
 }
 .game-tab.locked .st { color: var(--vertigo-faint); font-style: italic; }
 
-/* Con más de 3 partidas la banda no entra en una fila: se reparte en
-   renglones de columnas iguales, así los anchos siguen estables. */
-.game-tabs.cols-4, .game-tabs.cols-5, .game-tabs.cols-6, .game-tabs.cols-7 {
-  grid-template-columns: repeat(var(--gt-n), minmax(0, 1fr));
-}
-.game-tabs.cols-4 { --gt-n: 4; }
-.game-tabs.cols-5 { --gt-n: 5; }
-.game-tabs.cols-6 { --gt-n: 6; }
-.game-tabs.cols-7 { --gt-n: 7; }
-
-/* Móvil: las partidas van de a pares (2 columnas), una fila por renglón. */
+/* Móvil: mismas columnas iguales, pero cada pestaña apila el número sobre
+   el texto — a 82px de ancho el texto horizontal no entra. */
 @media (max-width: 760px) {
-  .game-tabs { --gt-n: 2; gap: 6px; padding: 10px; }
-  .game-tab { min-height: 48px; gap: 8px; padding: 6px 8px; }
+  .game-tabs { gap: 6px; padding: 10px; }
+  .game-tab { min-height: 64px; flex-direction: column; gap: 6px; padding: 8px 4px; }
   .game-tab .n { width: 30px; height: 30px; font-size: 14px; }
-  .game-tab .st { font-size: 11px; }
+  .game-tab .st { font-size: 10px; white-space: normal; text-align: center; }
 }
 
 /* Cuerpo de la pestaña activa: separado de la banda de pestañas por su
@@ -2221,3 +2218,577 @@ input::placeholder, textarea::placeholder {
   padding: 16px 28px 0;
 }
 .partido-msb .msb-timer-slot .vertigo-stat { margin: 0; text-align: center; }
+
+/* ============================================================
+   NOTIFICACIONES — campana + panel (logueados) y banner de cupos
+   (visitantes). El contenedor de marca es el frame neón con el
+   escudo V (/brand/notification-frame.png, fondo negro): se funde
+   con el sitio vía mix-blend-mode: screen.
+   ============================================================ */
+
+.notif-root {
+  /* La campana vive DENTRO del header junto al chip de sesión (AuthBadge en
+     el landing, header-right en las páginas internas) — nunca flotando
+     sobre el contenido. El panel cae absoluto desde acá. */
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.notif-bell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  cursor: pointer;
+  color: #ffb4dc;
+  background: rgba(10, 0, 17, 0.75);
+  border: 1px solid rgba(255, 46, 158, 0.28);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 0.25s var(--vertigo-ease, ease);
+}
+.notif-bell:hover {
+  border-color: rgba(255, 46, 158, 0.8);
+  box-shadow: 0 0 18px rgba(255, 46, 158, 0.3);
+  color: #fff;
+}
+
+/* Campana que oscila al llegar una notificación nueva (pivote superior). */
+.notif-bell-icon {
+  width: 16px;
+  height: 16px;
+}
+.notif-bell.is-ringing .notif-bell-icon {
+  animation: notifRing 0.9s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  transform-origin: 50% 4px;
+}
+@keyframes notifRing {
+  0%, 100% { transform: rotate(0deg); }
+  12% { transform: rotate(16deg); }
+  28% { transform: rotate(-14deg); }
+  44% { transform: rotate(10deg); }
+  60% { transform: rotate(-7deg); }
+  76% { transform: rotate(4deg); }
+  90% { transform: rotate(-2deg); }
+}
+
+.notif-bell-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: Inter, system-ui, sans-serif;
+  color: #fff;
+  background: linear-gradient(180deg, #ff2e9e, #c026d3);
+  border-radius: 999px;
+  box-shadow: 0 0 10px rgba(255, 46, 158, 0.6);
+  animation: notifBadgePop 2.6s ease-in-out infinite;
+}
+@keyframes notifBadgePop {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.12); }
+}
+
+/* Panel desplegable */
+.notif-panel {
+  position: absolute;
+  top: 52px;
+  right: 0;
+  z-index: 90;
+  width: min(320px, calc(100vw - 32px));
+  max-height: min(60vh, 440px);
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(10, 5, 18, 0.92);
+  border: 1px solid rgba(255, 46, 158, 0.3);
+  box-shadow:
+    0 18px 50px rgba(0, 0, 0, 0.6),
+    0 0 24px rgba(255, 46, 158, 0.18);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  animation: notifPanelIn 0.22s var(--vertigo-ease, ease) both;
+}
+@keyframes notifPanelIn {
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Cabecera compacta: hairline de marca (gradiente fucsia) + título.
+   El frame grande queda para el banner de visitantes. */
+.notif-panel-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 12px;
+  background: linear-gradient(180deg, rgba(255, 46, 158, 0.10), rgba(10, 5, 18, 0));
+  border-bottom: 1px solid rgba(255, 46, 158, 0.25);
+}
+.notif-panel-header::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255, 46, 158, 0.9), rgba(124, 58, 237, 0.6), transparent);
+  pointer-events: none;
+}
+.notif-panel-title {
+  font-family: Cinzel, serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 0 12px rgba(255, 46, 158, 0.7);
+}
+.notif-mark-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #ffb4dc;
+  background: rgba(255, 46, 158, 0.12);
+  border: 1px solid rgba(255, 46, 158, 0.35);
+  border-radius: 999px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.notif-mark-all:hover { background: rgba(255, 46, 158, 0.22); color: #fff; }
+
+.notif-list {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 46, 158, 0.3) transparent;
+}
+.notif-empty {
+  padding: 28px 20px;
+  text-align: center;
+  font-size: 12.5px;
+  color: #9a92a6;
+}
+
+.notif-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 9px 12px;
+  border-bottom: 1px solid rgba(124, 58, 237, 0.14);
+  text-decoration: none;
+  transition: background 0.18s ease;
+}
+.notif-row:last-child { border-bottom: none; }
+.notif-row:hover { background: rgba(124, 58, 237, 0.09); }
+.notif-row.is-unread { background: rgba(255, 46, 158, 0.055); }
+.notif-row.is-unread:hover { background: rgba(255, 46, 158, 0.1); }
+
+.notif-row-icon {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(124, 58, 237, 0.25);
+}
+.notif-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.notif-row-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #f2eef7;
+  font-family: Inter, system-ui, sans-serif;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.notif-unread-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ff2e9e;
+  box-shadow: 0 0 6px rgba(255, 46, 158, 0.8);
+}
+.notif-row-body {
+  font-size: 11px;
+  line-height: 1.4;
+  color: #9a92a6;
+  font-family: Inter, system-ui, sans-serif;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.notif-row-time {
+  flex: none;
+  font-size: 9.5px;
+  color: #6b6378;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Pagina de historial /notificaciones ---------- */
+.notif-page {
+  min-height: 60vh;
+  padding: 104px 16px 48px;
+  max-width: 720px;
+  margin: 0 auto;
+}
+.notif-page-card {
+  background: linear-gradient(165deg, rgba(26, 10, 40, 0.85), rgba(10, 4, 22, 0.9));
+  border: 1px solid rgba(255, 46, 158, 0.25);
+  border-radius: 18px;
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.5),
+    0 0 30px rgba(255, 46, 158, 0.12);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  overflow: hidden;
+}
+.notif-page-head {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid rgba(255, 46, 158, 0.15);
+}
+.notif-page-title-row { display: flex; align-items: center; gap: 10px; }
+.notif-page-count {
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #fff;
+  background: linear-gradient(180deg, #ff2e9e, #c026d3);
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+.notif-page-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.notif-page-list { max-height: none; overflow: visible; }
+.notif-page-date {
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 10px;
+  color: #6b6378;
+}
+.notif-page-more { display: flex; justify-content: center; padding: 14px; }
+
+/* ---------- Toast de entrada (logueados) ---------- */
+.notif-toast {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 98;
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  max-width: min(400px, calc(100vw - 40px));
+  padding: 14px 42px 14px 14px;
+  border-radius: 16px;
+  background: linear-gradient(160deg, rgba(31, 13, 48, 0.97), rgba(10, 4, 22, 0.98));
+  border: 1px solid rgba(255, 46, 158, 0.45);
+  box-shadow:
+    0 22px 54px rgba(0, 0, 0, 0.6),
+    0 0 26px rgba(255, 46, 158, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  animation: notifBannerUpIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.notif-toast.is-leaving { animation: notifBannerOut 0.35s ease both; }
+.notif-toast-body {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+  text-decoration: none;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+.notif-toast-icon {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: rgba(255, 46, 158, 0.12);
+  border: 1px solid rgba(255, 46, 158, 0.3);
+  box-shadow: inset 0 0 18px rgba(255, 46, 158, 0.08);
+}
+.notif-toast-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.notif-toast-kicker {
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: #ff2e9e;
+  line-height: 1;
+}
+.notif-toast-title {
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.25;
+}
+.notif-toast-body-text {
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #c9b8e8;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.notif-toast-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  cursor: pointer;
+  color: #ffb4dc;
+  background: rgba(10, 0, 17, 0.55);
+  border: 1px solid rgba(255, 46, 158, 0.3);
+  transition: all 0.2s ease;
+}
+.notif-toast-close:hover { color: #fff; border-color: rgba(255, 46, 158, 0.8); }
+
+/* Herramientas del panel: filtro de no leidas + link a historial */
+.notif-panel-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 12px 8px;
+  border-bottom: 1px solid rgba(255, 46, 158, 0.12);
+}
+.notif-filter {
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #8f7fae;
+  background: transparent;
+  border: 1px solid rgba(255, 46, 158, 0.25);
+  border-radius: 999px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.notif-filter.is-on {
+  color: #fff;
+  background: rgba(255, 46, 158, 0.18);
+  border-color: rgba(255, 46, 158, 0.6);
+}
+.notif-history-link {
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #ffb4dc;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+.notif-history-link:hover { color: #fff; }
+
+/* ---------- Banner de cupos para VISITANTES ---------- */
+.notif-slots-banner {
+  /* La caja es el contenedor de marca adjuntado (frame + escudo V),
+     fijo en la esquina INFERIOR IZQUIERDA. Entra con fade-in desde
+     abajo; despues respira con un pulso de neon muy leve. */
+  position: fixed;
+  left: 18px;
+  bottom: 18px;
+  right: auto;
+  z-index: 97;
+  width: min(418px, calc(100vw - 36px));
+  aspect-ratio: 2152 / 731;
+  animation:
+    notifBannerUpIn 1.15s cubic-bezier(0.22, 1, 0.36, 1) both,
+    notifBannerPulse 5.5s ease-in-out 5s infinite;
+  will-change: transform, filter;
+}
+@keyframes notifBannerUpIn {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: none; }
+}
+/* Salida al cerrar: baja y se desvanece (380ms, fwd para quedarse oculto). */
+.notif-slots-banner.is-leaving {
+  animation: notifBannerOut 0.38s ease both !important;
+  pointer-events: none;
+}
+@keyframes notifBannerOut {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(14px); }
+}
+@keyframes notifBannerPulse {
+  0%, 85%, 100% { filter: drop-shadow(0 0 14px rgba(255, 46, 158, 0.2)); }
+  94% { filter: drop-shadow(0 0 26px rgba(255, 46, 158, 0.5)); }
+}
+
+
+/* Todo el banner es un enlace al wizard de registro; la X vive encima. */
+.notif-slots-link {
+  position: absolute;
+  inset: 0;
+  display: block;
+  text-decoration: none;
+  cursor: pointer;
+  border-radius: inherit;
+}
+.notif-slots-link:hover .notif-slots-frame {
+  filter: brightness(1.22) saturate(1.12);
+}
+.notif-slots-link:hover .notif-slots-title {
+  text-shadow: 0 0 22px rgba(255, 46, 158, 0.8);
+}
+/* El frame de marca a ancho completo: el negro desaparece contra el
+   sitio oscuro (mix-blend screen) y queda el neon del escudo V
+   (izquierda) + el panel de vidrio (derecha) donde vive el texto. */
+.notif-slots-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  user-select: none;
+}
+
+.notif-slots-content {
+  position: absolute;
+  /* Medido sobre el asset: el panel de vidrio va de x~30% a x~95%.
+     Acotamos el texto entre 33% y 92% (margen del borde neon derecho)
+     y lo centramos verticalmente: jamas se sale de la caja. */
+  left: 33%;
+  right: 12%;
+  /* Panel de vidrio medido en el asset: y 6.4%..83.3% (centro 44.9%).
+     Anclamos el bloque de texto con su CENTRO en 44.9% del alto, asi
+     el margen queda identico arriba y abajo del vidrio. */
+  top: 44.9%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+}
+.notif-slots-kicker {
+  font-family: Inter, system-ui, sans-serif;
+  font-size: clamp(8.5px, 0.95vw, 9px);
+  font-weight: 700;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: #d8b4fe;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.notif-slots-title {
+  font-family: Cinzel, serif;
+  font-weight: 800;
+  font-size: clamp(14px, 1.8vw, 18px);
+  line-height: 1.12;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 0 16px rgba(255, 46, 158, 0.5);
+  white-space: nowrap;
+}
+.notif-slots-title em {
+  font-style: normal;
+  color: #ff2e9e;
+  text-shadow: 0 0 18px rgba(255, 46, 158, 0.9);
+}
+.notif-slots-sub {
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: #c9b6e8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.notif-slots-cta {
+  margin-top: 2%;
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
+  color: #fff;
+  text-decoration: none;
+  padding: 0.45em 1.3em;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 46, 158, 0.9), rgba(192, 38, 211, 0.9));
+  box-shadow: 0 0 14px rgba(255, 46, 158, 0.45);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.notif-slots-cta:hover { transform: translateY(-1px); box-shadow: 0 0 22px rgba(255, 46, 158, 0.7); }
+
+.notif-slots-close {
+  position: absolute;
+  top: 12%;
+  right: 1%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  cursor: pointer;
+  color: #ffb4dc;
+  background: rgba(10, 0, 17, 0.6);
+  border: 1px solid rgba(255, 46, 158, 0.3);
+  z-index: 2;
+  transition: all 0.2s ease;
+}
+.notif-slots-close:hover { color: #fff; border-color: rgba(255, 46, 158, 0.8); }

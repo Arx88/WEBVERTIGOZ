@@ -2,6 +2,7 @@ import Link from "next/link";
 import { LogIn } from "lucide-react";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import UserMenu from "@/components/auth/user-menu";
+import NotificationCenter from "@/components/notifications/notification-center";
 
 /**
  * Píldora de sesión fija arriba a la derecha en todas las páginas públicas.
@@ -16,7 +17,8 @@ export default async function AuthBadge() {
 
   if (!user) {
     return (
-      <div className="fixed top-4 right-4 z-[100]">
+      <div className="fixed top-4 right-4 z-[100] flex items-center gap-2">
+        <NotificationCenter />
         <Link
           href="/login"
           className="group flex items-center gap-2 rounded-full border border-[rgba(255,46,158,0.28)] bg-[rgba(10,0,17,0.75)] px-5 py-2.5 backdrop-blur-md transition-all duration-300 hover:border-[#ff2e9e]/80 hover:shadow-[0_0_28px_rgba(255,46,158,0.35)]"
@@ -43,7 +45,8 @@ export default async function AuthBadge() {
   const role = (account as { role?: string | null } | null)?.role ?? "";
 
   return (
-    <div className="fixed top-4 right-4 z-[100]">
+    <div className="fixed top-4 right-4 z-[100] flex items-center gap-2">
+      <NotificationCenter />
       <UserMenu displayName={displayName} role={role} />
     </div>
   );

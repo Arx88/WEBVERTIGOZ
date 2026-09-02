@@ -608,6 +608,32 @@ export const bet = pgTable("bet", {
 }));
 
 // ============================================================
+// NOTIFICACIONES IN-APP (migración 2026-09-01)
+// ============================================================
+
+/**
+ * Notificaciones in-app por cuenta. Las filas las generan triggers en la
+ * DB (drizzle/2026-09-01-notifications.sql): apuesta resuelta (won/lost/
+ * voided), llave programada (apertura de apuestas a espectadores + aviso a
+ * capitanes) y resultado de la llave (aviso a capitanes).
+ * Escritura solo vía triggers SECURITY DEFINER o service role; cada cuenta
+ * lee únicamente sus filas (política RLS vía espejo account).
+ */
+export const notification = pgTable("notification", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  accountId: uuid("account_id").notNull().references(() => account.id, { onDelete: "cascade" }),
+  type: varchar("type", { length: 40 }).notNull().default("generic"),
+  title: varchar("title", { length: 160 }).notNull(),
+  body: varchar("body", { length: 400 }),
+  link: varchar("link", { length: 300 }),
+  matchId: uuid("match_id"),
+  readAt: timestamp("read_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  accountCreatedIdx: index("notification_account_created_idx").on(t.accountId, t.createdAt),
+}));
+
+// ============================================================
 // CONFIG ADICIONAL (clave-valor por edición)
 // ============================================================
 

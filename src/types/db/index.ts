@@ -33,6 +33,7 @@ export type Database = {
       dispute: GenericTable;
       spectator_wallet: GenericTable;
       bet: GenericTable;
+      notification: GenericTable;
     };
     Views: Record<string, any>;
     Functions: Record<string, any>;

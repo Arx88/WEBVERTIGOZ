@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServiceRole } from "@/lib/supabase/server";
 import { getEditionForRegistration } from "@/lib/edition";
 import { expireUnpaidRegistrations } from "@/lib/cupo";
@@ -8,10 +8,16 @@ import { expireUnpaidRegistrations } from "@/lib/cupo";
  * Cupo público de equipos de la edición con inscripciones abiertas:
  * lugares totales (max_teams), ocupados (aprobados + pendientes) y libres.
  * No requiere auth — dato público del torneo, usado por el landing.
+ *
+ * ?scope=latest → si no hay edición con inscripciones abiertas, cae a la
+ * edición más reciente (aunque esté active/finished): útil para widgets que
+ * quieren mostrar el cupo vigente sin importar el ciclo (banner de cupos
+ * del centro de notificaciones). Agrega `status` al response.
  */
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const latest = req.nextUrl.searchParams.get("scope") === "latest";
   try {
     // Sweep de cupo (0014): expira inscripciones impagas vencidas antes de
     // contar. En Vercel Hobby el cron corre 1x/día; con este sweep la
@@ -25,7 +31,21 @@ export async function GET() {
 
     const service = getSupabaseServiceRole() as any;
 
-    const edition = await getEditionForRegistration(service);
+    let edition = await getEditionForRegistration(service);
+    let status = edition ? "registration" : null;
+    if (!edition && latest) {
+      // Edición más reciente por fecha de creación, sin importar su status.
+      const { data: last } = await service
+        .from("tournament_edition")
+        .select("id, name, max_teams, status")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (last) {
+        edition = last;
+        status = last.status ?? null;
+      }
+    }
     if (!edition) {
       return NextResponse.json({ open: false });
     }
@@ -41,7 +61,8 @@ export async function GET() {
     const taken = Math.min(count ?? 0, maxTeams);
 
     return NextResponse.json({
-      open: true,
+      open: status === "registration",
+      status,
       editionName: edition.name,
       maxTeams,
       taken,

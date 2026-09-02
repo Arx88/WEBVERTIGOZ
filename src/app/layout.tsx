@@ -3,6 +3,7 @@ import { Cinzel, Anton, Inter, Rajdhani } from "next/font/google";
 import { Toaster } from "@/components/ui/toaster";
 import SoundProvider from "@/components/shared/sound-provider";
 import VideoAutopause from "@/components/shared/video-autopause";
+import SlotsBanner from "@/components/notifications/slots-banner";
 import "./globals.css";
 
 const cinzel = Cinzel({
@@ -66,6 +67,7 @@ export default function RootLayout({
       <body className="bg-bg text-text antialiased min-h-screen">
         {children}
         <Toaster />
+        <SlotsBanner />
         <SoundProvider />
         <VideoAutopause />
       </body>

@@ -3,6 +3,7 @@ import { LogIn } from "lucide-react";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import UserMenu from "@/components/auth/user-menu";
 import SoundToggle from "@/components/shared/sound-toggle";
+import NotificationCenter from "@/components/notifications/notification-center";
 import { SiteNavLinks, type NavItem } from "./site-nav-links";
 import { NavProgress } from "./nav-progress";
 
@@ -102,6 +103,7 @@ export default async function SiteNav() {
 
       <div className="vertigo-header-right">
         <SoundToggle />
+        <NotificationCenter />
         {user ? (
           <UserMenu displayName={displayName} role={role} />
         ) : (
