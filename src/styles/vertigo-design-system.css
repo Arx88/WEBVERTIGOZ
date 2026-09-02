@@ -2154,8 +2154,13 @@ html:has(.vertigo-page) {
    ============================================================ */
 
 .vertigo-loader {
-  position: relative;
-  min-height: 100vh;
+  /* Cobertura total de la ventana: fixed + inset 0 en vez de min-height
+     100vh en flujo. Así el loading NUNCA genera scroll propio: en páginas
+     con nav sticky (80px) el documento quedaba nav+100vh = 80px de scroll
+     feo; y en admin, topbar+sidebar+100vh. Modal overlay = siempre exacto. */
+  position: fixed;
+  inset: 0;
+  z-index: 70;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2210,7 +2215,11 @@ html:has(.vertigo-page) {
   display: block;
 }
 
-/* Contenido (logo + barrita + label) por encima del fondo */
+/* Contenido (logo + barrita + label) por encima del fondo.
+   DESKTOP (≥761px): fila — logo a la izquierda, barra+frase a la derecha
+   (composición horizontal, profesional en pantallas anchas).
+   El wrapper .vertigo-loader-row garantiza que el loader en sí
+   (flex column centrado) no fuerza alturas: la fila es un solo bloque. */
 .vertigo-loader-inner {
   position: relative;
   z-index: 1;
@@ -2219,6 +2228,56 @@ html:has(.vertigo-page) {
   align-items: center;
   gap: 20px;
   padding: 40px 24px;
+}
+.vertigo-loader-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  max-width: 92vw;
+}
+@media (min-width: 761px) {
+  .vertigo-loader-row {
+    flex-direction: row;
+    align-items: center;
+    gap: 36px;
+    text-align: left;
+  }
+  .vertigo-loader-row .vertigo-loader-logo {
+    height: 72px;
+  }
+  .vertigo-loader-row .vertigo-loader-text {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .vertigo-loader-text .vertigo-loader-bar {
+    width: 240px;
+  }
+}
+
+/* MOBILE (≤760px): columna como siempre, frase acotada al ancho */
+@media (max-width: 760px) {
+  .vertigo-loader-row .vertigo-loader-logo {
+    height: 64px;
+  }
+  .vertigo-loader-row .vertigo-loader-text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+  }
+  .vertigo-loader-row .vertigo-loader-bar {
+    width: min(240px, 64vw);
+  }
+  .vertigo-loader-row .vertigo-loader-label {
+    font-size: 11.5px;
+    letter-spacing: 2px;
+    line-height: 1.5;
+    max-width: 78vw;
+    overflow-wrap: break-word;
+  }
 }
 
 /* Logo de la marca — igual lenguaje que el del navbar, con glow violeta */
