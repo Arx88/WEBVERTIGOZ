@@ -634,6 +634,29 @@ export const notification = pgTable("notification", {
 }));
 
 // ============================================================
+// HISTORIAL DE BROADCASTS DEL STAFF (migración 2026-09-05)
+// ============================================================
+
+/**
+ * Cada envío masivo del panel /admin/notificaciones queda registrado acá
+ * con su emisor. Escritura/lectura solo service role (sin policies RLS).
+ */
+export const broadcastLog = pgTable("broadcast_log", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sentByAccountId: uuid("sent_by_account_id").references(() => account.id, { onDelete: "set null" }),
+  audience: varchar("audience", { length: 20 }).notNull(),
+  type: varchar("type", { length: 40 }).notNull().default("broadcast"),
+  title: varchar("title", { length: 160 }).notNull(),
+  body: varchar("body", { length: 400 }),
+  link: varchar("link", { length: 300 }),
+  emailSent: boolean("email_sent").notNull().default(false),
+  targets: integer("targets").notNull().default(0),
+  sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  sentIdx: index("broadcast_log_sent_idx").on(t.sentAt),
+}));
+
+// ============================================================
 // CONFIG ADICIONAL (clave-valor por edición)
 // ============================================================
 
@@ -673,6 +696,48 @@ export const cupoWaitlist = pgTable("cupo_waitlist", {
   uniqueEditionEmail: uniqueIndex("cupo_waitlist_unique_edition_email").on(t.tournamentEditionId, t.email),
   editionIdx: index("cupo_waitlist_edition_idx").on(t.tournamentEditionId, t.createdAt),
 }));
+
+// ============================================================
+// WEB PUSH (suscripciones + cola de envío)
+// ============================================================
+
+/**
+ * Suscripción push de un navegador/dispositivo (Push API + VAPID).
+ * Un usuario puede tener varias (Chrome, Edge, Android...).
+ * Escritura solo vía service role (la hace /api/push/subscribe con la
+ * sesión verificada); lectura: solo filas propias (política RLS).
+ */
+export const pushSubscription = pgTable("push_subscription", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  accountId: uuid("account_id").notNull().references(() => account.id, { onDelete: "cascade" }),
+  endpoint: text("endpoint").notNull(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+}, (t) => ({
+  uniqueEndpoint: uniqueIndex("push_subscription_endpoint_unique").on(t.endpoint),
+  accountIdx: index("push_subscription_account_idx").on(t.accountId),
+}));
+
+/**
+ * Cola de pushes pendientes de enviar (la produce el trigger sobre
+ * `notification`; la drena la Edge Function notify-push).
+ */
+export const pushQueue = pgTable("push_queue", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  accountId: uuid("account_id").notNull().references(() => account.id, { onDelete: "cascade" }),
+  title: varchar("title", { length: 160 }).notNull(),
+  body: varchar("body", { length: 400 }),
+  link: varchar("link", { length: 300 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  error: text("error"),
+}, (t) => ({
+  pendingIdx: index("push_queue_pending_idx").on(t.sentAt),
+}));
+
 
 // ============================================================
 // RELACIONES

@@ -55,6 +55,7 @@ export default function RegistroCasterPage() {
       kicker="CASTERS"
       title="Quiero castear"
       description="Creá tu perfil de caster y quedá visible en la página de casters. Cargá al menos un canal."
+      mainLabel="Nueva cuenta"
       footer={
         <>
           <p className="auth-footer-title">¿Ya tenés cuenta?</p>

@@ -333,7 +333,7 @@ export async function scheduleMatchAction(formData: FormData): Promise<{ ok: boo
   // Leer match a programar
   const { data: match } = await service
     .from("match")
-    .select("id, round_id, scheduled_at_start, ready_a_at, ready_b_at, status, winner_team_id")
+    .select("id, round_id, scheduled_at_start, ready_a_at, ready_b_at, status, winner_team_id, team_a_id, team_b_id")
     .eq("id", matchId)
     .single();
   if (!match) return { ok: false, error: "Match no encontrado." };
@@ -371,6 +371,18 @@ export async function scheduleMatchAction(formData: FormData): Promise<{ ok: boo
     })
     .eq("id", matchId);
   if (error) return { ok: false, error: error.message };
+
+  // La ventana ESTOY LISTO se abre al momento exacto calculado: agendamos un
+  // disparo único (QStash) para ese instante, solo si la llave tiene equipos.
+  if (match.team_a_id && match.team_b_id) {
+    try {
+      const { scheduleReadyWindowNotification } = await import("@/server/notify/ready-window-schedule");
+      await scheduleReadyWindowNotification(matchId, start.toISOString());
+    } catch (e) {
+      console.error("[notify-ready] al agendar QStash:", e);
+      // El agendado no debe romper la acción de programar el partido.
+    }
+  }
 
   revalidatePath("/admin/jornadas");
   revalidatePath("/admin/bracket");

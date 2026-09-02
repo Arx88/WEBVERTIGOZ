@@ -56,6 +56,7 @@ export default function RegistroEspectadorPage() {
           apostar a qué equipo gana cada llave.
         </>
       }
+      mainLabel="Nueva cuenta"
       footer={
         <>
           <p className="auth-footer-title">¿Ya tenés cuenta?</p>

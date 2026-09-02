@@ -73,7 +73,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
         {label}
       </label>
       {children}
-      {hint && <p className="mt-1.5 text-[10px] leading-relaxed text-[var(--vertigo-faint)]">{hint}</p>}
+      {hint && <p className="vertigo-hint">{hint}</p>}
     </div>
   );
 }
@@ -129,7 +129,7 @@ function ComodinCard({
         <span className="text-[12px] font-bold text-[var(--vertigo-text)]">{label}</span>
       </div>
       {children}
-      <p className="mt-auto text-[10px] leading-relaxed text-[var(--vertigo-faint)]">{hint}</p>
+      <p className="vertigo-hint mt-auto">{hint}</p>
     </div>
   );
 }

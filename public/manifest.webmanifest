@@ -1,0 +1,13 @@
+{
+  "name": "VÉRTIGO Cup",
+  "short_name": "VÉRTIGO",
+  "description": "Torneo de Age of Empires — apuestas, llaves y tu equipo.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0416",
+  "theme_color": "#0a0416",
+  "icons": [
+    { "src": "/brand/logo-vertigo.webp", "sizes": "192x192", "type": "image/webp" },
+    { "src": "/brand/logo-vertigo.webp", "sizes": "512x512", "type": "image/webp" }
+  ]
+}

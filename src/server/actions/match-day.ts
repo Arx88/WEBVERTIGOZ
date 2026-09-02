@@ -14,6 +14,7 @@
 import { revalidatePath } from "next/cache";
 import { getSupabaseServer, getSupabaseServiceRole } from "@/lib/supabase/server";
 import { startDrawAction, rerollDrawPhaseAction, rerollDrawPhaseInternal } from "./tournament";
+import { notifyMatchCaptains } from "@/server/notify/notify-captains";
 
 export async function requireAdminAccount() {
   const supabase = (await getSupabaseServer()) as any;
@@ -226,6 +227,8 @@ export async function confirmLineupReadyAction(formData: FormData): Promise<{ ok
       comodin_window_expires_at: expiresAt,
       updated_at: now,
     }).eq("id", matchId);
+    // Avisar a los capitanes que se abrió la ventana de comodines (5 min).
+    await notifyMatchCaptains(matchId, "comodin_window");
   }
 
   revalidatePath(`/partido/${matchId}`);
@@ -648,6 +651,8 @@ export async function advanceToLineupAction(matchId: string): Promise<{ ok: bool
   const { error } = await service.from("match").update({ status: "lineup", updated_at: new Date().toISOString() }).eq("id", matchId);
   await service.from("match_game").update({ status: "lineup", updated_at: new Date().toISOString() }).eq("match_id", matchId).eq("status", "drawing");
   if (error) return { ok: false, error: error.message };
+  // Avisar a los capitanes que toca declarar el lineup.
+  await notifyMatchCaptains(matchId, "lineup");
   revalidatePath(`/partido/${matchId}`);
   revalidatePath(`/admin/partido/${matchId}`);
   return { ok: true };

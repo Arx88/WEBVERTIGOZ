@@ -13,7 +13,7 @@ import { getSupabaseServiceRole } from "@/lib/supabase/server";
  */
 export const dynamic = "force-dynamic";
 
-const AUDIENCES = ["all", "captains", "bettors", "players", "team"] as const;
+const AUDIENCES = ["all", "captains", "bettors", "players", "casters", "team"] as const;
 type Audience = (typeof AUDIENCES)[number];
 
 export async function POST(req: NextRequest) {
@@ -63,6 +63,13 @@ export async function POST(req: NextRequest) {
       query = query.eq("role", "spectator");
     } else if (audience === "players") {
       query = query.eq("role", "player");
+    } else if (audience === "casters") {
+      // Los casters registrados viven en la tabla `caster` (el role de
+      // account puede seguir siendo owner): resolver por esa tabla, no por rol.
+      const { data: casters } = await service.from("caster").select("account_id");
+      const ids = [...new Set((casters ?? []).map((c: any) => c.account_id))];
+      if (ids.length === 0) return NextResponse.json({ ok: true, sent: 0 });
+      query = query.in("id", ids);
     } else if (audience === "team") {
       const { data: team } = await service
         .from("team_account")
@@ -94,6 +101,24 @@ export async function POST(req: NextRequest) {
     }));
     const { error: notifErr } = await service.from("notification").insert(rows);
     if (notifErr) throw new Error(notifErr.message);
+
+    // ── 2b. Registrar en el historial del staff (quién, qué, cuándo) ──
+    try {
+      await service.from("broadcast_log").insert({
+        sent_by_account_id: account.id,
+        audience,
+        type,
+        title,
+        body: text || null,
+        link: body.link?.trim() || null,
+        email_sent: !!body.email,
+        targets: accounts.length,
+        sent_at: now,
+      });
+    } catch (logErr) {
+      console.error("[broadcast] broadcast_log:", (logErr as Error).message);
+      // el envío ya quedó registrado en las cuentas; el log no lo rompe
+    }
 
     // ── 3. Email opcional: encolar en email_queue ─────────────────────
     let emails = 0;

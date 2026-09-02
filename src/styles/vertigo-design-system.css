@@ -563,6 +563,32 @@ html:has(.vertigo-page) {
   color: var(--vertigo-purple-pale);
 }
 
+/* Ayuda/ejemplo bajo un campo: nunca pegado al margen — lleva su propio
+   rango visual: rombo de marca + indent + tamaño de nota. */
+.vertigo-hint {
+  margin-top: 8px;
+  padding-left: 15px;
+  position: relative;
+  font: 400 11.5px/1.5 Inter, system-ui, sans-serif;
+  color: var(--vertigo-faint);
+}
+.vertigo-hint::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.62em;
+  width: 5px;
+  height: 5px;
+  transform: rotate(45deg);
+  background: var(--vertigo-purple-soft);
+  opacity: 0.75;
+}
+
+.vertigo-hint-inline {
+  font: 400 11.5px/1.5 Inter, system-ui, sans-serif;
+  color: var(--vertigo-faint);
+}
+
 /* ============================================================
    INPUTS DEL PANEL — .vertigo-input / .vertigo-select / .vertigo-textarea
    (los <input className="vertigo-input"> del panel no tenían estilo:

@@ -78,7 +78,7 @@ export default function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column" }}>
-      <div className="field" style={{ marginBottom: "20px" }}>
+      <div className="field" style={{ marginBottom: "14px" }}>
         <label htmlFor="email">Email</label>
         <div className="input-wrap">
           <Mail className="input-icon" size={16} />
@@ -95,7 +95,7 @@ export default function LoginForm() {
         </div>
       </div>
 
-      <div className="field" style={{ marginBottom: "26px" }}>
+      <div className="field" style={{ marginBottom: "18px" }}>
         <label htmlFor="password">Contraseña</label>
         <div className="input-wrap">
           <Lock className="input-icon" size={16} />
@@ -131,7 +131,7 @@ export default function LoginForm() {
         style={{
           width: "100%",
           justifyContent: "center",
-          padding: "16px 34px",
+          padding: "13px 34px",
           opacity: bloqueado ? 0.5 : 1,
           cursor: bloqueado ? "not-allowed" : "pointer",
         }}

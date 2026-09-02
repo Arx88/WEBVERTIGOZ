@@ -55,6 +55,7 @@ export default async function LoginPage({
       kicker="INGRESAR"
       title="Iniciar sesión"
       description="Accedé a tu cuenta para gestionar tu equipo, ver tus partidos y administrar el torneo."
+      mainLabel="Acceso rápido"
       footer={
         <>
           <p className="auth-footer-title">¿No tenés equipo inscripto?</p>

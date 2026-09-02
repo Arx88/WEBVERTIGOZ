@@ -78,3 +78,6 @@ scripts/db-cleanup/tmp-*
 
 # captures d'ecran des scripts QA E2E
 /shots/
+
+# cache temporal del CLI de Supabase (project-ref, pooler-url, etc.)
+supabase/.temp/

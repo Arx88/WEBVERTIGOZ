@@ -45,6 +45,9 @@ export default function VertigoSelect({
   const popRef = useRef<HTMLUListElement>(null);
 
   const selected = options.find((o) => o.value === value);
+  // La opción vacía "" (p. ej. "Elegí un equipo…") es un placeholder:
+  // se muestra en gris como texto de ejemplo, nunca en blanco de valor real.
+  const showingPlaceholder = !selected || value === "";
 
   function placePopup() {
     const r = btnRef.current?.getBoundingClientRect();
@@ -154,7 +157,7 @@ export default function VertigoSelect({
           compact ? "min-h-0 py-1.5 text-[12px]" : "min-h-[46px] py-2.5 text-[14px]"
         } ${disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer"}`}
       >
-        <span className={`truncate ${selected ? "" : "text-[#5f5870]"}`}>
+        <span className={`truncate ${showingPlaceholder ? "text-[#5f5870]" : ""}`}>
           {selected?.label ?? "— Elegí una opción —"}
         </span>
         <ChevronDown

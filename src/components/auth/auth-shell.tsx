@@ -4,17 +4,24 @@ import "@/styles/wizard-referencia.css";
 
 /**
  * Shell compartido de las páginas de autenticación (/login, /registro-caster,
- * /registro-espectador): video de fondo + una única tarjeta centrada.
+ * /registro-espectador): video de fondo a página completa + una tarjeta
+ * dividida en DOS zonas con un eje cada una:
  *
- * Reutiliza los estilos del wizard (wizard-referencia.css) anclándose a la
- * clase .wizard-page, pero relaja el lock de viewport para que el contenido
- * largo haga scroll de página en vez de recortarse.
+ *   · auth-brand (izquierda): panel de marca con video animado de fondo,
+ *     logo grande, kicker, título y descripción — todo CENTRADO.
+ *   · auth-main (derecha): el flujo real (acceso rápido, form, CTAs).
+ *
+ * El botón de cerrar vive EN FLUJO en la fila superior del panel del form
+ * (etiqueta a la izquierda, X a la derecha): nunca flota sobre el
+ * contenido. La tarjeta nunca genera scroll de página: si el contenido
+ * crece, scrollea DENTRO del panel del formulario.
  */
 export default function AuthShell({
   closeHref = "/",
   kicker,
   title,
   description,
+  mainLabel,
   children,
   footer,
 }: {
@@ -22,6 +29,8 @@ export default function AuthShell({
   kicker: string;
   title: string;
   description?: ReactNode;
+  /** Etiqueta de la fila superior del panel del form (p.ej. "Acceso rápido"). */
+  mainLabel?: string;
   children: ReactNode;
   footer?: ReactNode;
 }) {
@@ -33,19 +42,24 @@ export default function AuthShell({
       <div className="wizard-bg-overlay" />
 
       <div className="modal auth-card">
-        <Link href={closeHref} className="auth-close" aria-label="Cerrar">
-          <svg viewBox="0 0 24 24">
-            <path d="M6 6l12 12M18 6L6 18" />
-          </svg>
-        </Link>
-
         <section className="content auth-content">
-          <div className="auth-brand">
-            <div className="auth-logo">
-              <img src="/landing/logo.png" alt="VÉRTIGO Cup" />
-            </div>
-
-            <div className="auth-header">
+          <aside className="auth-brand">
+            <video
+              className="auth-brand-video"
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="auto"
+              poster="/landing/auth-brand-poster.jpg"
+            >
+              <source src="/landing/auth-brand-loop.mp4" type="video/mp4" />
+            </video>
+            <div className="auth-brand-veil" aria-hidden="true" />
+            <div className="auth-brand-inner">
+              <div className="auth-logo">
+                <img src="/landing/logo.png" alt="VÉRTIGO Cup" />
+              </div>
               <span className="p-kicker">{kicker}</span>
               <h2 className="p-title">{title}</h2>
               <div className="p-divider">
@@ -55,11 +69,23 @@ export default function AuthShell({
               </div>
               {description ? <p className="p-desc">{description}</p> : null}
             </div>
-          </div>
+          </aside>
 
           <div className="auth-main">
-            {children}
+            <div className="auth-main-head">
+              {mainLabel ? (
+                <span className="auth-main-eyebrow">{mainLabel}</span>
+              ) : (
+                <span aria-hidden="true" />
+              )}
+              <Link href={closeHref} className="auth-close" aria-label="Cerrar">
+                <svg viewBox="0 0 24 24">
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </Link>
+            </div>
 
+            {children}
             {footer ? <div className="auth-footer">{footer}</div> : null}
           </div>
         </section>
@@ -67,6 +93,14 @@ export default function AuthShell({
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes authRise {
+          from { opacity: 0; transform: translateY(10px); }
+          to   { opacity: 1; transform: none; }
+        }
+        @keyframes brandIn {
+          from { opacity: 0; transform: scale(1.035); }
+          to   { opacity: 1; transform: none; }
+        }
         .link-hover { transition: color .3s; }
         .link-hover:hover { color: var(--purple-pale) !important; }
 
@@ -78,7 +112,7 @@ export default function AuthShell({
           align-items: center;
           justify-content: center;
           overflow: hidden;
-          padding: 26px 16px;
+          padding: 16px;
         }
         html:has(.wizard-page.auth-shell),
         body:has(.wizard-page.auth-shell) {
@@ -88,52 +122,179 @@ export default function AuthShell({
           padding: 0 !important;
         }
 
-        /* Tarjeta centrada, SIEMPRE dentro de la ventana.
-           z-index:2 es CRÍTICO: el overlay del video tiene z-index:1 y, al
-           pintarse después que un posicionado con z-index auto, lo cubría
-           con su velo oscuro (por eso la tarjeta se veía apagada). */
+        /* Fondo a página completa. z-index:2 en la tarjeta es CRÍTICO: el
+           overlay del video (z:1) la cubriría con su velo si no. */
+        .wizard-page.auth-shell .wizard-bg-video { opacity: 1; }
+        .auth-shell .wizard-bg-overlay { opacity: 0.55; }
+
         .auth-shell .modal {
-          width: min(480px, 100%);
+          width: min(920px, 100%);
           height: auto;
-          /* Nunca más alta que la ventana menos el aire del padding: si el
-             contenido excede, .content scrollea interno (no la página). */
-          max-height: calc(100vh - 52px);
+          max-height: calc(100vh - 32px);
           margin: auto;
           display: flex;
           flex-direction: column;
           position: relative;
           z-index: 2;
           overflow: hidden;
-          background:
-            linear-gradient(180deg, rgba(139, 92, 246, 0.30), rgba(124, 58, 237, 0.07) 45%),
-            #1a1328;
-          border-color: rgba(196, 181, 253, 0.44);
+          background: #0f0b18;
+          border-color: rgba(167, 139, 250, 0.30);
           box-shadow:
-            inset 0 1px 0 rgba(255, 255, 255, 0.12),
-            0 30px 80px rgba(0, 0, 0, 0.55),
-            0 0 90px rgba(124, 58, 237, 0.38),
-            0 0 42px rgba(255, 46, 158, 0.16);
+            inset 0 1px 0 rgba(255, 255, 255, 0.10),
+            0 40px 110px rgba(0, 0, 0, 0.62),
+            0 0 90px rgba(124, 58, 237, 0.30);
         }
-        .auth-shell .content {
-          padding: 42px 42px 32px;
+        .auth-shell .auth-content {
+          display: flex;
+          flex-direction: row;
+          flex: 1;
+          min-height: 0;
+          padding: 0;
+          overflow: hidden;
+        }
+
+        /* --- Zona de marca (izquierda): video animado + todo centrado --- */
+        .auth-shell .auth-brand {
+          position: relative;
+          flex: 0 0 42%;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          overflow: hidden;
+          background: #0a0714;
+          border-right: 1px solid rgba(167, 139, 250, 0.22);
+          animation: brandIn .8s var(--ease) both;
+        }
+        .auth-shell .auth-brand-video {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          pointer-events: none;
+        }
+        .auth-shell .auth-brand-veil {
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(
+            130% 100% at 50% 40%,
+            rgba(7, 3, 16, 0.55) 0%,
+            rgba(7, 3, 16, 0.16) 52%,
+            rgba(7, 3, 16, 0.62) 100%
+          );
+        }
+        .auth-shell .auth-brand-inner {
+          position: relative;
+          z-index: 1;
+          padding: 34px 30px;
+          text-align: center;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        }
+        .auth-shell .auth-logo img {
+          width: 123px;
+          display: block;
+          margin: 0 auto;
+          filter: drop-shadow(0 10px 36px rgba(124, 58, 237, 0.48));
+        }
+        .auth-shell .auth-brand-inner .p-kicker {
+          display: block;
+          margin: 22px 0 9px;
+          color: #d8c7ff;
+          text-align: center;
+        }
+        .auth-shell .auth-brand-inner .p-title {
+          font-size: 28px;
+          text-align: center;
+          color: #ffffff;
+          text-shadow: 0 2px 24px rgba(124, 58, 237, 0.55);
+        }
+        .auth-shell .auth-brand-inner .p-divider { margin: 18px auto; max-width: 210px; }
+        .auth-shell .auth-brand-inner .p-desc {
+          text-align: center;
+          font-size: 13px;
+          line-height: 1.65;
+          max-width: 280px;
+          margin: 0;
+          color: #d3cce2;
+        }
+
+        /* --- Zona del formulario (derecha): fondo sólido, un solo eje --- */
+        .auth-shell .auth-main {
+          flex: 1;
+          min-width: 0;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          padding: 26px 46px 22px;
           overflow-y: auto;
           overscroll-behavior: contain;
-          display: block;
         }
-        /* Scrollbar discreto acorde al tema (solo si el contenido excede) */
-        .auth-shell .content::-webkit-scrollbar { width: 6px; }
-        .auth-shell .content::-webkit-scrollbar-track { background: transparent; }
-        .auth-shell .content::-webkit-scrollbar-thumb {
+        .auth-shell .auth-main::-webkit-scrollbar { width: 6px; }
+        .auth-shell .auth-main::-webkit-scrollbar-track { background: transparent; }
+        .auth-shell .auth-main::-webkit-scrollbar-thumb {
           background: rgba(124, 58, 237, 0.35);
           border-radius: 999px;
         }
 
-        /* Blancos reales y contraste de lectura */
-        .auth-shell .auth-header .p-title { color: #ffffff; text-shadow: 0 2px 18px rgba(124, 58, 237, 0.45); }
-        .auth-shell .auth-header .p-kicker { color: #d8c7ff; }
-        .auth-shell .auth-header .p-desc { color: #d5cde3; }
+        /* Fila superior del panel: etiqueta a la izquierda, cerrar a la
+           derecha. La X vive EN FLUJO — nunca flota sobre el contenido. */
+        .auth-shell .auth-main-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          min-height: 38px;
+          margin: 0 0 14px;
+        }
+        .auth-shell .auth-main-eyebrow {
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+          color: #b9a8e8;
+        }
+        .auth-close {
+          flex: none;
+          width: 38px;
+          height: 38px;
+          border-radius: 10px;
+          border: 1px solid rgba(196, 181, 253, 0.28);
+          background: rgba(10, 6, 18, 0.62);
+          backdrop-filter: blur(4px);
+          cursor: pointer;
+          display: grid;
+          place-items: center;
+          transition: all .35s var(--ease);
+        }
+        .auth-close svg {
+          width: 14px; height: 14px; stroke: #d5cee2; stroke-width: 2;
+          stroke-linecap: round; fill: none; transition: all .35s var(--ease);
+        }
+        .auth-close:hover { border-color: #a78bfa; background: rgba(30, 18, 52, 0.85); }
+        .auth-close:hover svg { stroke: #fff; }
+
+        /* En pantallas touch (sin hover) la X de olvidar cuenta vive
+           siempre visible — no hay hover para revelarla. */
+        @media (hover: none) {
+          .auth-shell .qa-forget { opacity: 1; }
+        }
+
+        /* Entrada escalonada del contenido de la tarjeta */
+        .wizard-page.auth-shell .auth-main > * { animation: authRise .55s var(--ease) backwards; }
+        .wizard-page.auth-shell .auth-main > :nth-child(1) { animation-delay: .08s; }
+        .wizard-page.auth-shell .auth-main > :nth-child(2) { animation-delay: .16s; }
+        .wizard-page.auth-shell .auth-main > :nth-child(3) { animation-delay: .24s; }
+        .wizard-page.auth-shell .auth-main > :nth-child(4) { animation-delay: .32s; }
+
+        /* Blancos reales y contraste de lectura en el form */
         .auth-shell .field label { color: #cdc4dc; }
         .auth-shell .field input {
+          height: 46px;
           background: #241b3d;
           border-color: #4a3f66;
           color: #ffffff;
@@ -145,7 +306,6 @@ export default function AuthShell({
           background: #2a2047;
           box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.20);
         }
-        .auth-shell .auth-close svg { stroke: #d5cee2; }
 
         /* Inputs con ícono a la izquierda (email, contraseña, nombre) */
         .wizard-page.auth-shell .input-wrap { position: relative; }
@@ -160,18 +320,6 @@ export default function AuthShell({
         }
         .wizard-page.auth-shell .input-wrap:focus-within .input-icon { color: var(--purple-soft); }
         .wizard-page.auth-shell .input-wrap input { padding-left: 42px; }
-
-        /* Entrada escalonada del contenido de la tarjeta */
-        @keyframes authRise {
-          from { opacity: 0; transform: translateY(12px); }
-          to   { opacity: 1; transform: none; }
-        }
-        .wizard-page.auth-shell .content > * { animation: authRise .55s var(--ease) backwards; }
-        .wizard-page.auth-shell .content > :nth-child(1) { animation-delay: .05s; }
-        .wizard-page.auth-shell .content > :nth-child(2) { animation-delay: .13s; }
-        .wizard-page.auth-shell .content > :nth-child(3) { animation-delay: .21s; }
-        .wizard-page.auth-shell .content > :nth-child(4) { animation-delay: .29s; }
-        .wizard-page.auth-shell .content > :nth-child(5) { animation-delay: .37s; }
 
         /* Botón principal: brillo que barre + micro-elevación */
         .wizard-page.auth-shell .btn.primary {
@@ -200,51 +348,17 @@ export default function AuthShell({
           transform: translateY(0) scale(.985);
         }
 
-        /* Botón cerrar */
-        .auth-close {
-          position: absolute; top: 18px; right: 18px; z-index: 3;
-          width: 38px; height: 38px; border-radius: 10px;
-          border: 1px solid var(--input-border); background: transparent;
-          cursor: pointer; display: grid; place-items: center;
-          transition: all .35s var(--ease);
-        }
-        .auth-close svg {
-          width: 14px; height: 14px; stroke: #b7b0c2; stroke-width: 2;
-          stroke-linecap: round; fill: none; transition: all .35s var(--ease);
-        }
-        .auth-close:hover { border-color: #4a3f60; background: rgba(255,255,255,.03); }
-        .auth-close:hover svg { stroke: #fff; }
-
-        /* Encabezado estándar */
-        .auth-logo { text-align: center; margin-bottom: 22px; }
-        .auth-logo img {
-          width: 76px; margin: 0 auto; display: block;
-          filter: drop-shadow(0 0 16px rgba(196, 181, 253, 0.28));
-        }
-        .auth-header { text-align: center; margin-bottom: 26px; }
-        .auth-header .p-kicker { display: block; text-align: center; margin-bottom: 10px; }
-        .auth-header .p-title { font-size: 26px; text-align: center; }
-        .auth-header .p-divider { margin: 16px auto 16px; max-width: 300px; }
-        .auth-header .p-desc { text-align: center; font-size: 13px; max-width: 360px; margin: 0 auto; color: #b5adc4; }
-
-        /* Fondo legible detrás de la tarjeta pero con el video realmente visible:
-           el video va a opacidad completa y el velo baja a 0.45 — antes (0.8 + video
-           al 0.8) el fondo quedaba en ~35% de brillo y parecía negro sin animación. */
-        .wizard-page.auth-shell .wizard-bg-video { opacity: 1; }
-        .auth-shell .wizard-bg-overlay { opacity: 0.45; }
-
         .auth-footer {
-          margin-top: 26px;
-          padding-top: 20px;
-          border-top: 1px solid var(--line-soft);
+          margin-top: 18px;
+          padding-top: 14px;
+          border-top: 1px solid rgba(167, 139, 250, 0.16);
           display: flex;
           flex-direction: column;
-          gap: 14px;
+          gap: 9px;
           text-align: center;
         }
-
         .auth-footer-title {
-          font-size: 13px;
+          font-size: 12.5px;
           color: #cfc7dc;
           letter-spacing: .01em;
         }
@@ -256,7 +370,7 @@ export default function AuthShell({
           justify-content: center;
           gap: 9px;
           width: 100%;
-          padding: 13px 16px;
+          padding: 11px 16px;
           border-radius: 12px;
           border: 1px solid rgba(167, 139, 250, 0.40);
           background: rgba(124, 58, 237, 0.14);
@@ -288,7 +402,7 @@ export default function AuthShell({
           align-items: center;
           justify-content: center;
           gap: 8px;
-          padding: 11px 12px;
+          padding: 9px 12px;
           border-radius: 10px;
           border: 1px solid rgba(167, 139, 250, 0.22);
           background: rgba(124, 58, 237, 0.07);
@@ -307,93 +421,54 @@ export default function AuthShell({
         .auth-chip:hover svg { color: #ff2e9e; }
         @media (max-width: 420px) { .auth-alt { grid-template-columns: 1fr; } }
 
-        /* ===== LAYOUT HORIZONTAL (desktop ≥880px) =====
-           La tarjeta se ensancha a 2 columnas: panel de marca a la
-           izquierda (logo + título + descripción) y el flujo del form a la
-           derecha. Con esto el modal entra holgado en una ventana normal
-           (720px de alto) sin scroll de página ni scroll interno. */
-        @media (min-width: 880px) {
-          .auth-shell .modal { width: min(880px, 100%); }
-          .auth-shell .content {
-            display: grid;
-            grid-template-columns: 340px 1fr;
-            gap: 0;
-            padding: 48px;
-            overflow-y: auto;
+        /* Mobile/tablet (<900px): columna — la marca como header compacto */
+        @media (max-width: 899px) {
+          .wizard-page.auth-shell { padding: 16px 12px; }
+          .auth-shell .modal {
+            width: min(460px, 100%);
+            max-height: calc(100vh - 32px);
           }
+          .auth-shell .auth-content { flex-direction: column; }
           .auth-shell .auth-brand {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            justify-content: center;
-            padding-right: 44px;
-            text-align: left;
-            position: relative;
+            flex: none;
+            border-right: none;
+            border-bottom: 1px solid rgba(167, 139, 250, 0.22);
           }
-          /* Hairline vertical que separa marca de formulario */
-          .auth-shell .auth-brand::after {
-            content: "";
-            position: absolute;
-            top: 6%;
-            right: 0;
-            bottom: 6%;
-            width: 1px;
-            background: linear-gradient(
-              180deg,
-              transparent,
-              rgba(167, 139, 250, 0.35),
-              transparent
-            );
+          .auth-shell .auth-brand-inner { padding: 22px 20px 20px; }
+          .auth-shell .auth-logo img { width: 74px; }
+          .auth-shell .auth-brand-inner .p-kicker { margin: 13px 0 6px; font-size: 10.5px; }
+          .auth-shell .auth-brand-inner .p-title { font-size: 21px; }
+          .auth-shell .auth-brand-inner .p-divider { margin: 12px auto; }
+          .auth-shell .auth-brand-inner .p-desc { font-size: 12px; max-width: 330px; }
+          .auth-shell .auth-main {
+            justify-content: flex-start;
+            padding: 20px 22px 18px;
           }
-          .auth-shell .auth-logo { text-align: left; margin-bottom: 26px; }
-          .auth-shell .auth-logo img { width: 88px; margin: 0; }
-          .auth-shell .auth-header { text-align: left; margin-bottom: 0; }
-          .auth-shell .auth-header .p-kicker { text-align: left; }
-          .auth-shell .auth-header .p-title { text-align: left; font-size: 30px; }
-          .auth-shell .auth-header .p-divider { margin: 16px 0; max-width: 240px; }
-          .auth-shell .auth-header .p-desc {
-            text-align: left;
-            max-width: 300px;
-            margin: 0;
-            font-size: 13.5px;
-            line-height: 1.65;
-          }
-          .auth-shell .auth-main { padding-left: 44px; min-width: 0; }
-          .auth-shell .auth-footer { margin-top: 16px; }
-          /* Footer compacto en desktop: título + CTA principal en una fila,
-             chips debajo. Ahorra ~90px de alto en la columna del form. */
-          .auth-shell .auth-footer { flex-direction: column; }
-          .auth-shell .auth-footer-title { display: none; }
-          .auth-shell .auth-footer .auth-footer-cta { margin-bottom: 10px; }
-          .auth-shell .auth-footer .auth-alt { margin-top: 0; }
-        }
-
-        /* Mobile/tablet (<880px): columna compacta con airchico */
-        @media (max-width: 879px) {
-          .wizard-page.auth-shell { padding: 20px 14px; }
-          .auth-shell .content { padding: 36px 24px 26px; }
-          .auth-shell .auth-logo img { width: 68px; }
-          .auth-shell .auth-header .p-title { font-size: 23px; }
-          .auth-shell .auth-footer { margin-top: 20px; }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .wizard-page.auth-shell .content > *,
-          .wizard-page.auth-shell .modal { animation: none !important; }
+          /* En mobile el form entra denso: menos aire entre cuentas y campos */
+          .auth-shell .auth-main .btn.primary { padding: 12px 30px; }
+          .auth-shell .auth-footer-cta { padding: 10px 14px; }
+          .auth-shell .auth-chip { padding: 8px 10px; }
         }
 
         @media (max-width: 520px) {
-          .wizard-page.auth-shell { padding: 24px 12px; }
-          .auth-shell .content { padding: 34px 22px 24px; }
+          .wizard-page.auth-shell { padding: 12px 8px; }
+          .auth-shell .modal { max-height: calc(100vh - 24px); }
+          .auth-shell .auth-main { padding: 22px 18px 20px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .wizard-page.auth-shell .auth-main > *,
+          .wizard-page.auth-shell .auth-brand,
+          .wizard-page.auth-shell .modal { animation: none !important; }
         }
       `}</style>
 
       {/* Fallback de autoplay: si el navegador bloqueó el autoplay (ahorro de
           batería, política empresarial, etc.), reintentamos en la primera
-          interacción del usuario para que el fondo se anime igual. */}
+          interacción del usuario para que el fondo y el panel se animen igual. */}
       <script
         dangerouslySetInnerHTML={{
-          __html: `(function(){var v=document.querySelector('video.wizard-bg-video');if(!v)return;var t=function(){if(v.paused){var p=v.play();if(p&&p.catch)p.catch(function(){})}};['pointerdown','keydown','touchstart','wheel'].forEach(function(e){window.addEventListener(e,t,{passive:true})});v.addEventListener('loadeddata',t)})();`,
+          __html: `(function(){var vs=document.querySelectorAll('video.wizard-bg-video, video.auth-brand-video');if(!vs.length)return;var t=function(){for(var i=0;i<vs.length;i++){var v=vs[i];if(v.paused){var p=v.play();if(p&&p.catch)p.catch(function(){})}}};['pointerdown','keydown','touchstart','wheel'].forEach(function(e){window.addEventListener(e,t,{passive:true})});for(var i=0;i<vs.length;i++){vs[i].addEventListener('loadeddata',t)}})();`,
         }}
       />
     </div>

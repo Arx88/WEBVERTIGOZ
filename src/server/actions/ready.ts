@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getSupabaseServer, getSupabaseServiceRole } from "@/lib/supabase/server";
 import { READY_WINDOW_MIN, GRACE_MIN } from "@/lib/match-rules";
+import { notifyMatchCaptains } from "@/server/notify/notify-captains";
 
 export interface ReadyActionState {
   error?: string;
@@ -121,6 +122,8 @@ export async function confirmReadyAction(
       .from("match")
       .update({ status: "open", updated_at: now })
       .eq("id", matchId);
+    // Avisar a los dos capitanes que la llave quedó habilitada (in-app).
+    await notifyMatchCaptains(matchId, "open");
   }
 
   revalidatePath("/mis-partidos");

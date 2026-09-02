@@ -16,20 +16,38 @@
 import { createPortal } from "react-dom";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  AlarmClock,
   Bell,
+  BellPlus,
+  BellRing,
   CalendarClock,
   CheckCheck,
   Coins,
+  ListChecks,
   Megaphone,
   RotateCcw,
+  ShieldCheck,
   Swords,
   TrendingDown,
   TrendingUp,
   Trophy,
+  Wand2,
   X,
 } from "lucide-react";
 import { playSound, type SoundName } from "@/lib/sounds";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
+/**
+ * Convierte la VAPID key (URL-safe base64) al Uint8Array que exige
+ * pushManager.subscribe({ applicationServerKey }).
+ */
+function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
+  const padding = "=".repeat((4 - (base64.length % 4)) % 4);
+  const raw = atob((base64 + padding).replace(/-/g, "+").replace(/_/g, "/"));
+  const out = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
+
 export interface NotificationRow {
   id: string;
   type: string;
@@ -52,13 +70,21 @@ export function iconFor(type: string) {
     case "bet_voided":
       return { Icon: RotateCcw, className: "text-[#fbbf24]" };
     case "bet_open":
-      return { Icon: Coins, className: "text-[#ff2e9e]" };
+      return { Icon: Coins, className: "text-[#a78bfa]" };
     case "match_scheduled":
       return { Icon: CalendarClock, className: "text-[#a78bfa]" };
     case "match_phase":
       return { Icon: Swords, className: "text-[#f0abfc]" };
     case "match_result":
       return { Icon: Swords, className: "text-[#c4b5fd]" };
+    case "match_ready":
+      return { Icon: AlarmClock, className: "text-[#fbbf24]" };
+    case "match_open":
+      return { Icon: ShieldCheck, className: "text-[#4ade80]" };
+    case "match_lineup":
+      return { Icon: ListChecks, className: "text-[#a78bfa]" };
+    case "comodin_open":
+      return { Icon: Wand2, className: "text-[#c4b5fd]" };
     case "broadcast":
       return { Icon: Megaphone, className: "text-[#fbbf24]" };
     default:
@@ -81,6 +107,14 @@ export function labelFor(type: string) {
       return "NUEVA FASE";
     case "match_result":
       return "RESULTADO";
+    case "match_ready":
+      return "ESTOY LISTO";
+    case "match_open":
+      return "LLAVE HABILITADA";
+    case "match_lineup":
+      return "LINEUP";
+    case "comodin_open":
+      return "COMODINES";
     case "broadcast":
       return "AVISO DEL STAFF";
     default:
@@ -118,6 +152,8 @@ export default function NotificationCenter() {
   const [toastLeaving, setToastLeaving] = useState(false);
   const [filterUnread, setFilterUnread] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [pushState, setPushState] = useState<"unsupported" | "idle" | "requesting" | "on" | "off" | "denied">("idle");
+  const [pushBusy, setPushBusy] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const knownIdsRef = useRef<Set<string>>(new Set());
   const firstLoadRef = useRef(true);
@@ -261,6 +297,95 @@ export default function NotificationCenter() {
       /* el polling reconcilia */
     }
   };
+  /**
+   * Activa/desactiva las notificaciones push de este navegador.
+   * Estado pushState: unsupported (sin Push API) | on/off/denied.
+   */
+  const togglePush = useCallback(async () => {
+    if (pushBusy) return;
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      setPushState("unsupported");
+      return;
+    }
+    const reg = await navigator.serviceWorker.getRegistration().catch(() => null);
+    if (!reg) {
+      // Sin SW registrado aún: registralo en el momento (dev: sin flag también)
+      try {
+        const r = await navigator.serviceWorker.register("/sw.js");
+        await navigator.serviceWorker.ready;
+        return togglePush();
+      } catch {
+        setPushState("unsupported");
+        return;
+      }
+    }
+
+    setPushBusy(true);
+    try {
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        // Ya está activo → dar de baja en el navegador y en la DB
+        await sub.unsubscribe();
+        await fetch("/api/push/unsubscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ endpoint: sub.endpoint }),
+        });
+        setPushState("off");
+        return;
+      }
+
+      const permission = await Notification?.requestPermission?.();
+      if (permission !== "granted") {
+        setPushState(permission === "denied" ? "denied" : "off");
+        return;
+      }
+
+      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      if (!vapidKey) {
+        setPushState("unsupported");
+        return;
+      }
+      const newSub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidKey),
+      });
+      const json = newSub.toJSON();
+      await fetch("/api/push/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          endpoint: json.endpoint,
+          p256dh: json.keys?.p256dh,
+          auth: json.keys?.auth,
+        }),
+      });
+      setPushState("on");
+    } finally {
+      setPushBusy(false);
+    }
+  }, [pushBusy]);
+
+  // Estado inicial: ya hay suscripción activa en este navegador?
+  useEffect(() => {
+    if (authenticated !== true) return;
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      setPushState("unsupported");
+      return;
+    }
+    navigator.serviceWorker
+      .getRegistration()
+      .then(async (reg) => {
+        if (!reg) {
+          setPushState("idle");
+          return;
+        }
+        const sub = await reg.pushManager.getSubscription();
+        setPushState(sub ? "on" : "off");
+      })
+      .catch(() => setPushState("unsupported"));
+  }, [authenticated]);
+
   // Visitante o sesión desconocida: sin campana (el banner es SlotsBanner).
   if (authenticated !== true) return null;
   return (
@@ -346,6 +471,38 @@ export default function NotificationCenter() {
               Ver historial
             </a>
           </div>
+
+          {pushState !== "unsupported" && pushState !== "idle" && (
+            <div className="notif-push-row">
+              <button
+                type="button"
+                className={`notif-push-btn${pushState === "on" ? " is-on" : ""}`}
+                onClick={togglePush}
+                disabled={pushBusy}
+                title={
+                  pushState === "denied"
+                    ? "Permiso bloqueado por el navegador: activalo en la configuración del sitio"
+                    : undefined
+                }
+              >
+                {pushState === "on" ? (
+                  <>
+                    <BellRing className="h-3.5 w-3.5" />
+                    Notificaciones de escritorio activadas
+                  </>
+                ) : (
+                  <>
+                    <BellPlus className="h-3.5 w-3.5" />
+                    {pushBusy
+                      ? "Conectando…"
+                      : pushState === "denied"
+                        ? "Permiso bloqueado en el navegador"
+                        : "Activar notificaciones del navegador"}
+                  </>
+                )}
+              </button>
+            </div>
+          )}
 
           <div className="notif-list">
             {notifications.length === 0 && (

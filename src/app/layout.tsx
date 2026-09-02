@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import SoundProvider from "@/components/shared/sound-provider";
 import VideoAutopause from "@/components/shared/video-autopause";
 import SlotsBanner from "@/components/notifications/slots-banner";
+import { PushBootstrap } from "@/components/notifications/push-bootstrap";
 import "./globals.css";
 
 const cinzel = Cinzel({
@@ -68,6 +69,7 @@ export default function RootLayout({
         {children}
         <Toaster />
         <SlotsBanner />
+        <PushBootstrap />
         <SoundProvider />
         <VideoAutopause />
       </body>
