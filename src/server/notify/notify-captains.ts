@@ -164,8 +164,13 @@ export async function notifyReadyWindow(matchId: string, expectedScheduledAtStar
     .maybeSingle()) as { data: { id: string; status: string; scheduled_at_start: string | null; team_a_id: string | null; team_b_id: string | null } };
 
   if (!match) return { sent: 0, skipped: "no-match" as const };
-  if (expectedScheduledAtStart && match.scheduled_at_start !== expectedScheduledAtStart) {
-    return { sent: 0, skipped: "stale-time" as const };
+  // Comparar por valor de tiempo (no string): Postgres devuelve "+00:00" y el
+  // payload de QStash lleva "Z" — mismo instante, distinto formato.
+  if (expectedScheduledAtStart != null) {
+    const ok =
+      match.scheduled_at_start != null &&
+      new Date(expectedScheduledAtStart).getTime() === new Date(match.scheduled_at_start).getTime();
+    if (!ok) return { sent: 0, skipped: "stale-time" as const };
   }
   if (match.status !== "scheduled") return { sent: 0, skipped: "not-scheduled" as const };
   if (!isReadyWindowOpen(match.scheduled_at_start, Date.now())) {
