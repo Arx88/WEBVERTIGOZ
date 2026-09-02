@@ -1,6 +1,15 @@
 /** @type {import('next').NextConfig} */
+import path from "path";
+
 const nextConfig = {
   output: "standalone",
+  // Root explícito de Turbopack: hay un package-lock.json huérfano en el HOME
+  // del usuario y Next lo elegía como workspace root, haciendo que el file
+  // watcher escanee todo el home -> compilaciones de 20s+ y fuga de memoria
+  // del dev server (6-10GB). Acá lo anclamos al proyecto.
+  turbopack: {
+    root: path.resolve("."),
+  },
   reactStrictMode: true,
   // No revelar el framework en respuestas (X-Powered-By: Next.js)
   poweredByHeader: false,
