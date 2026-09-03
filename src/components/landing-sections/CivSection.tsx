@@ -46,14 +46,15 @@ export default function CivSection() {
   return (
     <section data-testid="civ-section" className="relative w-full overflow-hidden bg-[#0a0011]">
       <div className="relative w-full">
+        {/* La ruleta: el video se descarga recién cuando play() lo arranca al
+            entrar en viewport (preload none = cero bytes antes de eso). */}
         <video
           ref={videoRef}
           data-testid="roulette-video"
           className="block w-full h-auto"
           muted
           playsInline
-          autoPlay
-          preload="auto"
+          preload="none"
           poster="/landing/ruleta-poster.jpg"
         >
           <source src="/landing/ruleta.webm" type="video/webm" />

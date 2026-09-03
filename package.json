@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "check:env": "node scripts/check-env.mjs",
     "type-check": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",

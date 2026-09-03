@@ -278,6 +278,9 @@ export async function requestComodinAction(formData: FormData): Promise<{ ok: bo
   // ANULAR / ELEGIR RIVAL requieren un jugador objetivo del RIVAL
   if (comodinType === "anular" || comodinType === "elegir_rival") {
     if (!targetPlayerId) return { ok: false, error: "Elegí el jugador rival objetivo." };
+    // SPEC 7.3/7.4: solo aplican en 1v1 y 2v2 (no 3v3 ni FUSIÓN).
+    const modeBlock = await activePlayerModeBlock(service, matchId);
+    if (modeBlock) return { ok: false, error: modeBlock };
     const rivalRegId = myReg.id === match.team_a_id ? match.team_b_id : match.team_a_id;
     if (!rivalRegId) return { ok: false, error: "El match no tiene rival definido." };
     const { data: targetPlayer } = (await service
@@ -315,18 +318,25 @@ export async function requestComodinAction(formData: FormData): Promise<{ ok: bo
   if (!field) return { ok: false, error: "Comodín inválido." };
   if ((inv[field] ?? 0) <= 0) return { ok: false, error: "No te quedan usos de este comodín." };
 
-  // Mutua exclusión anular/elegir_rival por llave
+  // Mutua exclusión anular/elegir_rival por llave — SPEC 7.1: es UNA carta de
+  // poder (anular O elegir) por equipo por llave. Se chequea:
+  //  a) que MI equipo no haya usado ya el tipo opuesto, y
+  //  b) que MI equipo no haya usado ya este mismo tipo (1 vez por llave).
   if (comodinType === "anular" || comodinType === "elegir_rival") {
     const otherType = comodinType === "anular" ? "elegir_rival" : "anular";
-    const { data: otherUsed } = (await service
+    const { data: myUsagesThisKey } = (await service
       .from("comodin_usage")
-      .select("id")
+      .select("comodin_type")
       .eq("match_id", matchId)
       .eq("comodin_inventory_id", inv.id)
-      .eq("comodin_type", otherType)
-      .not("status", "in", ["cancelled", "revoked"])
-      .maybeSingle()) as { data: any };
-    if (otherUsed) return { ok: false, error: "Anular y Elegir rival son mutuamente excluyentes en la misma llave." };
+      .in("comodin_type", [comodinType, otherType])
+      .not("status", "in", ["cancelled", "revoked"])) as { data: any };
+    if ((myUsagesThisKey ?? []).some((u: any) => u.comodin_type === otherType)) {
+      return { ok: false, error: "Anular y Elegir rival son mutuamente excluyentes en la misma llave." };
+    }
+    if ((myUsagesThisKey ?? []).some((u: any) => u.comodin_type === comodinType)) {
+      return { ok: false, error: `Ya usaste ${comodinType === "anular" ? "ANULAR" : "ELEGIR RIVAL"} en esta llave (1 vez por llave).` };
+    }
   }
 
   // Crear usage en pending (el admin lo ejecuta)
@@ -391,6 +401,9 @@ export async function useComodinAction(formData: FormData): Promise<{ ok: boolea
   // ANULAR / ELEGIR RIVAL: el objetivo debe ser del rival
   if (comodinType === "anular" || comodinType === "elegir_rival") {
     if (!targetPlayerId) return { ok: false, error: "Elegí el jugador rival objetivo." };
+    // SPEC 7.3/7.4: solo aplican en 1v1 y 2v2 (no 3v3 ni FUSIÓN).
+    const modeBlock = await activePlayerModeBlock(service, matchId);
+    if (modeBlock) return { ok: false, error: modeBlock };
     const rivalRegId = myReg.id === match.team_a_id ? match.team_b_id : match.team_a_id;
     if (!rivalRegId) return { ok: false, error: "El match no tiene rival definido." };
     const { data: targetPlayer } = (await service
@@ -427,18 +440,25 @@ export async function useComodinAction(formData: FormData): Promise<{ ok: boolea
   if (!field) return { ok: false, error: "Comodín inválido." };
   if ((inv[field] ?? 0) <= 0) return { ok: false, error: "No te quedan usos de este comodín." };
 
-  // Mutua exclusión anular/elegir_rival por llave
+  // Mutua exclusión anular/elegir_rival por llave — SPEC 7.1: es UNA carta de
+  // poder (anular O elegir) por equipo por llave. Se chequea:
+  //  a) que MI equipo no haya usado ya el tipo opuesto, y
+  //  b) que MI equipo no haya usado ya este mismo tipo (1 vez por llave).
   if (comodinType === "anular" || comodinType === "elegir_rival") {
     const otherType = comodinType === "anular" ? "elegir_rival" : "anular";
-    const { data: otherUsed } = (await service
+    const { data: myUsagesThisKey } = (await service
       .from("comodin_usage")
-      .select("id")
+      .select("comodin_type")
       .eq("match_id", matchId)
       .eq("comodin_inventory_id", inv.id)
-      .eq("comodin_type", otherType)
-      .not("status", "in", ["cancelled", "revoked"])
-      .maybeSingle()) as { data: any };
-    if (otherUsed) return { ok: false, error: "Anular y Elegir rival son mutuamente excluyentes en la misma llave." };
+      .in("comodin_type", [comodinType, otherType])
+      .not("status", "in", ["cancelled", "revoked"])) as { data: any };
+    if ((myUsagesThisKey ?? []).some((u: any) => u.comodin_type === otherType)) {
+      return { ok: false, error: "Anular y Elegir rival son mutuamente excluyentes en la misma llave." };
+    }
+    if ((myUsagesThisKey ?? []).some((u: any) => u.comodin_type === comodinType)) {
+      return { ok: false, error: `Ya usaste ${comodinType === "anular" ? "ANULAR" : "ELEGIR RIVAL"} en esta llave (1 vez por llave).` };
+    }
   }
 
   // REROLL: fase objetivo obligatoria + partida con sorteo
@@ -521,8 +541,18 @@ async function applyAnularElegirEffect(
     .eq("id", targetPlayerId).maybeSingle()) as { data: any };
   if (!targetPlayer || targetPlayer.team_registration_id !== targetRegId) return null;
 
-  // Marcar en el match (mutuamente excluyentes a nivel llave)
+  // Marcar en el match (mutuamente excluyentes a nivel llave). Si la llave YA
+  // tiene la carta marcada por este equipo, el efecto ya está aplicado: no
+  // re-marcar ni re-aplicar (UNA vez por llave por equipo — SPEC 7.1).
   const matchFlag = comodinType === "anular" ? "anular_used_by_team_id" : "elegir_rival_used_by_team_id";
+  const otherFlag = comodinType === "anular" ? "elegir_rival_used_by_team_id" : "anular_used_by_team_id";
+  const { data: flags } = (await service.from("match").select("anular_used_by_team_id, elegir_rival_used_by_team_id").eq("id", matchId).single()) as { data: any };
+  if (flags?.[matchFlag] === requesterRegId) {
+    return { type: comodinType, duplicate: true, needsRedeclare: false };
+  }
+  if (flags?.[otherFlag]) {
+    return null; // la llave ya tiene la carta opuesta marcada: rechazar
+  }
   await service.from("match").update({ [matchFlag]: requesterRegId, updated_at: new Date().toISOString() }).eq("id", matchId);
 
   // Si el equipo objetivo YA declaró lineup para la partida activa, aplicar
@@ -787,6 +817,26 @@ export async function markForfeitAction(formData: FormData): Promise<{ ok: boole
 // ─────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────
+
+/**
+ * Bloqueo por modo de juego activo de la llave (SPEC 7.3/7.4): ANULAR y
+ * ELEGIR RIVAL solo aplican en 1v1 y 2v2 — no en 3v3 ni FUSIÓN.
+ * Devuelve el mensaje de error, o null si el modo lo permite.
+ */
+async function activePlayerModeBlock(service: any, matchId: string): Promise<string | null> {
+  const { data: game } = (await service
+    .from("match_game")
+    .select("player_mode")
+    .eq("match_id", matchId)
+    .order("game_number", { ascending: false })
+    .limit(1)
+    .maybeSingle()) as { data: any };
+  const mode = game?.player_mode ?? null;
+  if (mode === "3v3" || mode === "fusion") {
+    return `ANULAR y ELEGIR RIVAL no se pueden usar en ${mode === "fusion" ? "FUSIÓN" : "3v3"} (solo 1v1 y 2v2).`;
+  }
+  return null;
+}
 
 /** Cuántos jugadores se esperan por formato. 0 = libre. */
 function playersNeededForMode(mode: string | null): number {

@@ -19,7 +19,7 @@ import { createServerClient } from "@supabase/ssr";
 
 const AUTH_TIMEOUT_MS = 3000;
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   // Rutas protegidas (requieren sesión)
   // IMPORTANTE: NO incluir "/caster" — la página /casters es pública y
   // startsWith("/caster") la mandaba a login. No existen rutas /caster/* privadas.

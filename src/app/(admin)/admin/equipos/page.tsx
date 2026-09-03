@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { approveTeamAction, rejectTeamAction } from "@/server/actions/auth";
 import { toggleRequirementAction, setPaymentConfirmedAction } from "@/server/actions/requirements";
-import { Check, X, Users, Crown, AlertTriangle, Clock, RotateCcw, CreditCard, Hourglass, ShieldCheck, Ban } from "lucide-react";
+import { Check, X, Users, Crown, AlertTriangle, Clock, RotateCcw, CreditCard, Hourglass, ShieldCheck, Ban, Undo2 } from "lucide-react";
 import AdminHero from "@/components/shared/admin-hero";
 import { fmt } from "@/lib/format";
 
@@ -89,7 +89,13 @@ export default async function AdminEquiposPage() {
                 key={reg.id}
                 reg={reg}
                 showActions={false}
-                paymentAction={setPaymentConfirmedAction.bind(null, reg.id, true)}
+                // Pago: si ya está confirmado → acción de CANCELAR la confirmación
+                // (pago rechazado / reversa). Si falta confirmar → Confirmar pago.
+                paymentAction={
+                  reg.payment_confirmed
+                    ? setPaymentConfirmedAction.bind(null, reg.id, false)
+                    : setPaymentConfirmedAction.bind(null, reg.id, true)
+                }
               />
             ))}
           </Section>
@@ -105,6 +111,7 @@ export default async function AdminEquiposPage() {
                     ? setPaymentConfirmedAction.bind(null, reg.id, true)
                     : undefined
                 }
+                showCancelPayment={true}
               />
             ))}
           </Section>
@@ -157,6 +164,7 @@ function TeamCard({
   rejectAction,
   paymentAction,
   graceAction,
+  showCancelPayment,
 }: {
   reg: Reg;
   showActions: boolean;
@@ -164,6 +172,7 @@ function TeamCard({
   rejectAction?: () => Promise<void>;
   paymentAction?: () => Promise<void>;
   graceAction?: () => Promise<void>;
+  showCancelPayment?: boolean;
 }) {
   const team = reg.team_account;
   const edition = reg.tournament_edition;
@@ -342,13 +351,23 @@ function TeamCard({
         <footer className="ad-card-foot">
           {!showActions && (
             <span className="ad-foot-hint">
-              {paymentAction
+              {reg.payment_confirmed
+                ? "El pago está confirmado — podés cancelar la confirmación si el pago fue rechazado."
+                : paymentAction
                 ? "La plaza queda asegurada: el cron deja de contarla como impaga."
                 : "Re-aprueba la inscripción con el pago confirmado, si la edición todavía tiene lugar."}
             </span>
           )}
           <div className="ad-foot-actions">
-            {paymentAction && (
+            {paymentAction && reg.payment_confirmed && (
+              <form action={paymentAction}>
+                <button type="submit" className="vertigo-btn vertigo-btn-ghost ad-btn">
+                  <Undo2 style={{ width: 13, height: 13 }} />
+                  Cancelar confirmación de pago
+                </button>
+              </form>
+            )}
+            {paymentAction && !reg.payment_confirmed && (
               <form action={paymentAction}>
                 <button type="submit" className="vertigo-btn vertigo-btn-success ad-btn">
                   <CreditCard style={{ width: 13, height: 13 }} />
@@ -361,6 +380,15 @@ function TeamCard({
                 <button type="submit" className="vertigo-btn vertigo-btn-success ad-btn">
                   <RotateCcw style={{ width: 13, height: 13 }} />
                   Pago fuera de plazo — reactivar
+                </button>
+              </form>
+            )}
+            {/* Rechazados que pagaron a tiempo (p. ej. revertidos por error) */}
+            {showCancelPayment && reg.payment_confirmed && (
+              <form action={setPaymentConfirmedAction.bind(null, reg.id, false)}>
+                <button type="submit" className="vertigo-btn vertigo-btn-ghost ad-btn">
+                  <Undo2 style={{ width: 13, height: 13 }} />
+                  Cancelar confirmación de pago
                 </button>
               </form>
             )}

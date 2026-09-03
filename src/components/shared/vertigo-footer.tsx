@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ART_BANDERA } from "@/lib/art";
+import LazyVideo from "./lazy-video";
 
 /**
  * VÉRTIGO Cup — Footer cinematográfico.
@@ -24,25 +25,15 @@ export default function VertigoFooter({
         boxShadow: "0 -24px 60px rgba(0,0,0,0.35)",
       }}
     >
-      {/* Arte: la bandera y el campamento, en video loop (poster = imagen estática) */}
-      <video
-        autoPlay
-        muted
-        loop
-        playsInline
+      {/* Arte: la bandera y el campamento, en video loop (poster = imagen estática).
+          LazyVideo: el video se descarga solo cuando el footer se acerca al viewport. */}
+      <LazyVideo
         src="/landing/bandera-loop.mp4"
         poster={ART_BANDERA}
-        aria-hidden
-        tabIndex={-1}
         style={{
-          position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
           objectFit: "cover",
           objectPosition: "center 42%",
           opacity: 0.52,
-          pointerEvents: "none",
         }}
       />
       {/* Fundido vertical: la página se disuelve en la imagen y vuelve a disolverse */}

@@ -12,6 +12,7 @@ import { revalidatePath } from "next/cache";
 import { getSupabaseServer, getSupabaseServiceRole } from "@/lib/supabase/server";
 import { generateBracket, BRACKET_SIZE, BRACKET_ROUNDS } from "@/lib/bracket/engine";
 import { parseWallClockWithOffset } from "@/lib/tz";
+import { notifyMatchCaptains } from "@/server/notify/notify-captains";
 
 // ============================================================
 // Helpers de autorización
@@ -438,7 +439,24 @@ async function loadPresetForEdition(service: any, editionId: string): Promise<{ 
     .eq("id", editionId)
     .single();
   if (!edition?.preset_version_id) {
-    throw new Error("Esta edición no tiene preset de ruleta asignado. Configuralo en /admin/torneo.");
+    // Ediciones creadas sin preset (createEdition no lo asigna): re-enganchá la
+    // última versión existente. Así el primer sorteo la engancha como promete
+    // /admin/ruletas y no rompe con "no tiene preset".
+    const { data: latest } = await service
+      .from("preset_version")
+      .select("id, config")
+      .eq("is_frozen", false)
+      .order("version", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!latest?.config) {
+      throw new Error("Esta edición no tiene preset de ruleta asignado. Configuralo en /admin/ruletas.");
+    }
+    await service
+      .from("tournament_edition")
+      .update({ preset_version_id: latest.id })
+      .eq("id", editionId);
+    return { presetId: latest.id, config: latest.config as PresetConfig };
   }
   const { data: preset } = await service
     .from("preset_version")
@@ -726,6 +744,25 @@ export async function rerollDrawPhaseAction(formData: FormData): Promise<{ ok: b
     await service.from("match").update({ format: next.llave.llaveFormat, updated_at: new Date().toISOString() }).eq("id", matchId);
   }
 
+  // REROLL durante lineup/comodin_window: si la fase re-girada afecta lo que
+  // los equipos declararon (FORMATO cambia cuántos juegan; CIVS cambia el pool
+  // sorteado), los lineups ya declarados quedan inválidos → reabrir la
+  // declaración (status lineup + READY #2 de ambos en null). El admin reabre
+  // la ventana de comodines al confirmar ambos READY de nuevo.
+  if (phase === "FORMATO" || phase === "CIVS") {
+    const { data: m } = await service.from("match").select("status").eq("id", matchId).single();
+    if (m && ["lineup", "comodin_window"].includes(m.status)) {
+      await service.from("match").update({
+        status: "lineup",
+        ready_lineup_a_at: null,
+        ready_lineup_b_at: null,
+        comodin_window_expires_at: null,
+        updated_at: new Date().toISOString(),
+      }).eq("id", matchId);
+      await notifyMatchCaptains(matchId, "lineup");
+    }
+  }
+
   await logDrawEvent(service, draw.id, account.id, "reroll", sha256(next.seed + phase), null, { phase });
 
   revalidatePath(`/partido/${matchId}`);
@@ -802,6 +839,25 @@ export async function rerollDrawPhaseInternal(
 
   if (phase === "LLAVE" && gameNumber === 1 && next.llave?.llaveFormat) {
     await service.from("match").update({ format: next.llave.llaveFormat, updated_at: new Date().toISOString() }).eq("id", matchId);
+  }
+
+  // REROLL durante lineup/comodin_window: si la fase re-girada afecta lo que
+  // los equipos declararon (FORMATO cambia cuántos juegan; CIVS cambia el pool
+  // sorteado), los lineups ya declarados quedan inválidos → reabrir la
+  // declaración (status lineup + READY #2 de ambos en null). Igual que en
+  // rerollDrawPhaseAction (el espejo con auth para el admin).
+  if (phase === "FORMATO" || phase === "CIVS") {
+    const { data: m } = await service.from("match").select("status").eq("id", matchId).single();
+    if (m && ["lineup", "comodin_window"].includes(m.status)) {
+      await service.from("match").update({
+        status: "lineup",
+        ready_lineup_a_at: null,
+        ready_lineup_b_at: null,
+        comodin_window_expires_at: null,
+        updated_at: new Date().toISOString(),
+      }).eq("id", matchId);
+      await notifyMatchCaptains(matchId, "lineup");
+    }
   }
 
   await logDrawEvent(service, draw.id, adminAccountId, "reroll", sha256(next.seed + phase), null, { phase });

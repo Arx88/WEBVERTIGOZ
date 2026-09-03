@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/admin-guard";
-import { getSupabaseServiceRole } from "@/lib/supabase/server";
+import { deliverBroadcast } from "@/lib/broadcast";
 
 /**
  * POST /api/admin/notifications — broadcast del staff.
  * Crea una notificacion in-app para una audiencia completa:
- *   all | captains | bettors | players | team:{teamAccountId}
+ *   all | captains | bettors | players | casters | team:{teamAccountId}
  * Opcional `email: true` → ademas encola un email por destino
  * (tabla email_queue, que drena la Edge Function notify-email).
  *
  * Solo admin/super_admin (requireAdmin). Escritura con service role.
+ * Entrega por tandas de 500 (src/lib/broadcast.ts).
  */
 export const dynamic = "force-dynamic";
 
@@ -30,11 +31,11 @@ export async function POST(req: NextRequest) {
     body?: string;
     link?: string;
     email?: boolean;
+    scheduledFor?: string | null;
   };
 
   const audience = body.audience as Audience;
   const title = (body.title ?? "").trim();
-  const text = (body.body ?? "").trim();
 
   if (!AUDIENCES.includes(audience) || !title) {
     return NextResponse.json({ error: "audience y title son obligatorios" }, { status: 400 });
@@ -43,105 +44,50 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Elegí el equipo para la audiencia team" }, { status: 400 });
   }
 
-  try {
-    const service = getSupabaseServiceRole() as any;
-
-    // ── 1. Resolver la audiencia → account ids ────────────────────────
-    let query = service.from("account").select("id, email");
-    if (audience === "all") {
-      /* todos los accounts */
-    } else if (audience === "captains") {
-      // dueños de team_account (el captain)
-      const { data: owners } = await service
-        .from("team_account")
-        .select("owner_id")
-        .neq("owner_id", null);
-      const ids = [...new Set((owners ?? []).map((o: any) => o.owner_id))];
-      if (ids.length === 0) return NextResponse.json({ ok: true, sent: 0 });
-      query = query.in("id", ids);
-    } else if (audience === "bettors") {
-      query = query.eq("role", "spectator");
-    } else if (audience === "players") {
-      query = query.eq("role", "player");
-    } else if (audience === "casters") {
-      // Los casters registrados viven en la tabla `caster` (el role de
-      // account puede seguir siendo owner): resolver por esa tabla, no por rol.
-      const { data: casters } = await service.from("caster").select("account_id");
-      const ids = [...new Set((casters ?? []).map((c: any) => c.account_id))];
-      if (ids.length === 0) return NextResponse.json({ ok: true, sent: 0 });
-      query = query.in("id", ids);
-    } else if (audience === "team") {
-      const { data: team } = await service
-        .from("team_account")
-        .select("owner_id")
-        .eq("id", body.teamAccountId)
-        .maybeSingle();
-      if (!team?.owner_id) {
-        return NextResponse.json({ error: "Equipo no encontrado" }, { status: 404 });
-      }
-      query = query.eq("id", team.owner_id);
+  // ── Envío programado: se guarda en scheduled_broadcast y el cron lo entrega ──
+  if (body.scheduledFor) {
+    const when = new Date(body.scheduledFor);
+    if (isNaN(when.getTime()) || when.getTime() < Date.now() + 60_000) {
+      return NextResponse.json(
+        { error: "La fecha programada debe ser al menos 1 minuto en el futuro" },
+        { status: 400 }
+      );
     }
-
-    const { data: targets } = await query;
-    const accounts = (targets ?? []) as Array<{ id: string; email: string }>;
-    if (accounts.length === 0) {
-      return NextResponse.json({ ok: true, sent: 0 });
-    }
-
-    // ── 2. Insertar notificaciones in-app ─────────────────────────────
-    const now = new Date().toISOString();
-    const type = (body.type ?? "broadcast") || "broadcast";
-    const rows = accounts.map((a) => ({
-      account_id: a.id,
-      type,
-      title,
-      body: text || null,
-      link: body.link?.trim() || null,
-      created_at: now,
-    }));
-    const { error: notifErr } = await service.from("notification").insert(rows);
-    if (notifErr) throw new Error(notifErr.message);
-
-    // ── 2b. Registrar en el historial del staff (quién, qué, cuándo) ──
     try {
-      await service.from("broadcast_log").insert({
-        sent_by_account_id: account.id,
+      const service = (await import("@/lib/supabase/server")).getSupabaseServiceRole() as any;
+      const { error } = await service.from("scheduled_broadcast").insert({
+        created_by_account_id: account.id,
         audience,
-        type,
+        team_account_id: audience === "team" ? body.teamAccountId : null,
+        type: body.type || "broadcast",
         title,
-        body: text || null,
+        body: (body.body ?? "").trim() || null,
         link: body.link?.trim() || null,
-        email_sent: !!body.email,
-        targets: accounts.length,
-        sent_at: now,
+        email: !!body.email,
+        scheduled_for: when.toISOString(),
+        status: "pending",
       });
-    } catch (logErr) {
-      console.error("[broadcast] broadcast_log:", (logErr as Error).message);
-      // el envío ya quedó registrado en las cuentas; el log no lo rompe
+      if (error) throw new Error(error.message);
+      return NextResponse.json({ ok: true, scheduled: true, scheduledFor: when.toISOString() });
+    } catch (err) {
+      console.error("[broadcast] schedule:", err);
+      return NextResponse.json({ error: (err as Error).message }, { status: 500 });
     }
+  }
 
-    // ── 3. Email opcional: encolar en email_queue ─────────────────────
-    let emails = 0;
-    if (body.email) {
-      try {
-        const { error: mailErr } = await service.from("email_queue").insert(
-          accounts.map((a) => ({
-            to_email: a.email,
-            subject: title,
-            body: text || title,
-            context: "broadcast",
-            created_at: now,
-          })),
-        );
-        if (mailErr) throw new Error(mailErr.message);
-        emails = accounts.length;
-      } catch (err) {
-        console.error("[broadcast] email_queue:", (err as Error).message);
-        // la notificacion in-app ya quedo; el email falla sin romper
-      }
-    }
+  // ── Envío inmediato ────────────────────────────────────────────────
+  try {
+    const result = await deliverBroadcast({
+      audience,
+      teamAccountId: audience === "team" ? body.teamAccountId : undefined,
+      type: body.type || "broadcast",
+      title,
+      body: body.body ?? null,
+      link: body.link ?? null,
+      email: !!body.email,
+    }, { sentByAccountId: account.id, log: true });
 
-    return NextResponse.json({ ok: true, sent: accounts.length, emails });
+    return NextResponse.json({ ok: true, sent: result.sent, emails: result.emails });
   } catch (err) {
     console.error("[broadcast] error:", err);
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });

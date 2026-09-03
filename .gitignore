@@ -81,3 +81,9 @@ scripts/db-cleanup/tmp-*
 
 # cache temporal del CLI de Supabase (project-ref, pooler-url, etc.)
 supabase/.temp/
+
+# logs de dev y build artifacts locales
+*.log
+*.tsbuildinfo
+/test-results/
+/playwright-report/

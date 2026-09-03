@@ -6,7 +6,7 @@ import { useState } from "react";
 import {
   LayoutDashboard, Trophy, Users, Brackets as BracketIcon,
   Calendar, Mic, Shield, BookOpen, AlertTriangle, ScrollText,
-  BellRing, Megaphone, Menu, X, type LucideIcon,
+  BellRing, Megaphone, Menu, X, Dices, UserCog, type LucideIcon,
 } from "lucide-react";
 
 const NAV_ITEMS: { href: string; label: string; icon: LucideIcon; section?: string }[] = [
@@ -19,8 +19,10 @@ const NAV_ITEMS: { href: string; label: string; icon: LucideIcon; section?: stri
   { href: "/admin/casters", label: "Casters", icon: Mic, section: "CONTENIDO" },
   { href: "/admin/emblemas", label: "Emblemas", icon: Shield, section: "CONTENIDO" },
   { href: "/admin/handbook", label: "Handbook", icon: BookOpen, section: "CONTENIDO" },
+  { href: "/admin/ruletas", label: "Ruletas", icon: Dices, section: "CONTENIDO" },
   { href: "/admin/disputas", label: "Disputas", icon: AlertTriangle, section: "SOPORTE" },
   { href: "/admin/notificaciones", label: "Notificaciones", icon: Megaphone, section: "SOPORTE" },
+  { href: "/admin/staff", label: "Staff", icon: UserCog, section: "SOPORTE" },
   { href: "/admin/auditoria", label: "Auditoría", icon: ScrollText, section: "SOPORTE" },
 ];
 

@@ -205,7 +205,7 @@ export default function CastersGrid({
             accent="#ef4444"
             count={liveNow.length}
           />
-          <div className="grid gap-5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(400px, 1fr))" }}>
+          <div className="grid gap-5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(min(400px, 100%), 1fr))" }}>
             {liveNow.map((c) => (
               <CasterCard key={c.id} c={c} all={channelStatuses(c)} lives={liveStatuses(c)} onWatch={watch} featured={c.id === featuredId} />
             ))}
@@ -224,7 +224,7 @@ export default function CastersGrid({
               accent={g.color}
               count={g.items.length}
             />
-            <div className="grid gap-5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(400px, 1fr))" }}>
+            <div className="grid gap-5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(min(400px, 100%), 1fr))" }}>
               {g.items.map((c) => (
                 <CasterCard key={c.id} c={c} all={channelStatuses(c)} lives={liveStatuses(c)} onWatch={watch} featured={c.id === featuredId} />
               ))}

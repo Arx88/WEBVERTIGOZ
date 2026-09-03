@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ChevronsLeft,
@@ -52,18 +52,25 @@ export default function VertigoDateTime({
   required = false,
   disabled = false,
   className = "",
+  onValueChange,
 }: {
   name: string;
   defaultValue?: string;
   required?: boolean;
   disabled?: boolean;
   className?: string;
+  /** Callback opcional para uso fuera de <form> (ej. composer de avisos). */
+  onValueChange?: (value: string) => void;
 }) {
-  const [value, setValue] = useState(defaultValue);
+  const [value, setValueState] = useState(defaultValue);
+  function setValue(next: string) {
+    setValueState(next);
+    onValueChange?.(next);
+  }
   // Offset UTC del browser del admin PARA la fecha elegida (DST-aware).
   // Arranca vacío para que SSR y primer render del cliente coincidan; se
   // llena después del mount.
-  const [tzOffset, setTzOffset] = useState("");
+  // (el offset UTC se deriva abajo con useMemo, ver tzOffset)
   const [open, setOpen] = useState(false);
   const [missing, setMissing] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0 });
@@ -78,8 +85,12 @@ export default function VertigoDateTime({
   const btnRef = useRef<HTMLButtonElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
   const hiddenRef = useRef<HTMLInputElement>(null);
+  // Valor siempre fresco para el handler del submit del form (sin escribir
+  // refs durante el render, que react-hooks/rules-of-hooks prohíbe).
   const valueRef = useRef(value);
-  valueRef.current = value;
+  useEffect(() => {
+    valueRef.current = value;
+  }, [value]);
 
   function placePopup() {
     const r = btnRef.current?.getBoundingClientRect();
@@ -135,12 +146,12 @@ export default function VertigoDateTime({
 
   // Offset del browser para la fecha elegida: la zona puede cambiar con el
   // horario de verano, así que se calcula sobre la fecha concreta y no "ahora".
-  useEffect(() => {
+  // Offset del browser para la fecha elegida (DST-aware), derivado del valor
+  // con useMemo: sin setState en effect (react-hooks/set-state-in-effect).
+  const tzOffset = useMemo(() => {
     const p = parseLocalInput(value);
-    const probe = p
-      ? new Date(p.y, p.mo - 1, p.d, p.hh ?? 0, p.mm ?? 0)
-      : new Date();
-    setTzOffset(String(probe.getTimezoneOffset()));
+    const probe = p ? new Date(p.y, p.mo - 1, p.d, p.hh ?? 0, p.mm ?? 0) : new Date();
+    return String(probe.getTimezoneOffset());
   }, [value]);
 
   const parts = parseLocalInput(value);
