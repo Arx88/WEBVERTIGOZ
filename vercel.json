@@ -10,7 +10,7 @@
     },
     {
       "path": "/api/cron/scheduled-broadcasts",
-      "schedule": "*/5 * * * *"
+      "schedule": "34 3 * * *"
     }
   ]
 }

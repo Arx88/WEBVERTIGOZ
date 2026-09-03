@@ -29,6 +29,65 @@ export interface DeliveryResult {
 }
 
 /**
+ * Drena los avisos programados vencidos (scheduled_broadcast.pending con
+ * scheduled_for <= ahora) entregándolos como cualquier broadcast del panel.
+ *
+ * Lo llaman:
+ *  - GET /api/notifications (drenaje lazy con throttle: el poll que todas
+ *    las páginas hacen cada pocos segundos, así los avisos programados
+ *    salen a la hora exacta sin depender del cron)
+ *  - /api/cron/scheduled-broadcasts (barrido diario de respaldo)
+ *
+ * El claim es atómico (pending → sending con re-check de status), así
+ * corridas en paralelo nunca duplican un envío.
+ */
+export async function drainScheduledBroadcasts(maxRows = 10): Promise<{ delivered: number; failed: number }> {
+  const service = getSupabaseServiceRole() as any;
+  const now = new Date().toISOString();
+
+  const { data: due, error: dueErr } = await service
+    .from("scheduled_broadcast")
+    .select("id, created_by_account_id, audience, team_account_id, type, title, body, link, email")
+    .eq("status", "pending")
+    .lte("scheduled_for", now)
+    .order("scheduled_for", { ascending: true })
+    .limit(maxRows);
+  if (dueErr) throw new Error(dueErr.message);
+  if (!due?.length) return { delivered: 0, failed: 0 };
+
+  const { data: claimed, error: claimErr } = await service
+    .from("scheduled_broadcast")
+    .update({ status: "sending" })
+    .in("id", (due as any[]).map((r) => r.id))
+    .eq("status", "pending")
+    .select("id, created_by_account_id, audience, team_account_id, type, title, body, link, email");
+  if (claimErr) throw new Error(claimErr.message);
+
+  let delivered = 0;
+  let failed = 0;
+  for (const row of claimed ?? []) {
+    try {
+      const payload: BroadcastPayload = {
+        audience: row.audience,
+        teamAccountId: row.team_account_id ?? undefined,
+        type: row.type,
+        title: row.title,
+        body: row.body,
+        link: row.link,
+        email: !!row.email,
+      };
+      await deliverBroadcast(payload, { sentByAccountId: row.created_by_account_id, log: true });
+      await service.from("scheduled_broadcast").update({ status: "sent", sent_at: new Date().toISOString() }).eq("id", row.id);
+      delivered++;
+    } catch (err) {
+      await service.from("scheduled_broadcast").update({ status: "failed", error: (err as Error).message.slice(0, 500) }).eq("id", row.id);
+      failed++;
+    }
+  }
+  return { delivered, failed };
+}
+
+/**
  * Resuelve la audiencia a accounts (id + email). Mismo criterio que
  * usaba la API inline: los casters se resuelven por la tabla caster.
  */

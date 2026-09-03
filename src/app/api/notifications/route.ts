@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer, getSupabaseServiceRole } from "@/lib/supabase/server";
+import { drainScheduledBroadcasts } from "@/lib/broadcast";
 
 /**
  * Notificaciones in-app del usuario autenticado.
@@ -7,6 +8,9 @@ import { getSupabaseServer, getSupabaseServiceRole } from "@/lib/supabase/server
  * GET  → { authenticated, accountId?, role?, displayName?, unread, notifications[] }
  *        (últimas 30, más recientes primero). accountId se expone para filtrar
  *        el canal realtime (postgres_changes) desde el cliente.
+ *        Además drena (throttled) los avisos programados vencidos: como este
+ *        poll lo hace todo el mundo cada pocos segundos, los scheduled_broadcast
+ *        se entregan a la hora exacta sin depender del cron (barrido diario).
  * POST → { id } marca una como leída, o { all: true } las marca todas.
  *
  * Sin sesión → { authenticated: false } (el cliente muestra el banner de cupos).
@@ -16,8 +20,25 @@ import { getSupabaseServer, getSupabaseServiceRole } from "@/lib/supabase/server
 
 export const dynamic = "force-dynamic";
 
+// Throttle del drenaje lazy: a lo sumo una pasada cada 30s por instancia,
+// aunque el poll sea más frecuente. El claim en DB es atómico, así que
+// correrlo desde varias instancias a la vez es seguro (no duplica envíos).
+let lastDrainAt = 0;
+
 export async function GET(req: NextRequest) {
   try {
+    // Drenaje lazy de avisos programados vencidos — antes del fetch, así
+    // el propio poll que lo disparó ya los ve como notificaciones. Un
+    // fallo acá NO rompe el poll: se reintenta en la siguiente ventana.
+    if (Date.now() - lastDrainAt > 30_000) {
+      lastDrainAt = Date.now();
+      try {
+        await drainScheduledBroadcasts(10);
+      } catch (drainErr) {
+        console.error("[notifications] drain scheduled:", (drainErr as Error).message);
+      }
+    }
+
     // Paginación: ?limit (default 30, max 100) + ?offset (default 0).
     const params = req.nextUrl.searchParams;
     const limit = Math.min(100, Math.max(1, Number(params.get("limit")) || 30));
