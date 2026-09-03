@@ -15,6 +15,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { fmt } from "@/lib/format";
 import {
   History,
   Mail,
@@ -162,13 +163,7 @@ export default function BroadcastHistory({
                   {AUDIENCE_LABEL[s.audience] ?? s.audience}
                   <span className="sep">·</span>
                   se envía el{" "}
-                  {new Date(s.scheduled_for).toLocaleString("es-AR", {
-                    weekday: "long",
-                    day: "2-digit",
-                    month: "short",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+                  {fmt.weekdayShortTime(s.scheduled_for)}
                   {s.email ? (
                     <>
                       <span className="sep">·</span>
@@ -250,12 +245,7 @@ export default function BroadcastHistory({
                         por <b>{sender}</b>
                       </span>
                       <span className="sep">·</span>
-                      {new Date(r.sent_at).toLocaleString("es-AR", {
-                        day: "2-digit",
-                        month: "short",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      {fmt.dayMonTime(r.sent_at)}
                     </span>
                   </span>
                   <ChevronDown size={15} className="bcast-hist-chev" />

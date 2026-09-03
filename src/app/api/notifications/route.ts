@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer, getSupabaseServiceRole } from "@/lib/supabase/server";
 import { drainScheduledBroadcasts } from "@/lib/broadcast";
+import { drainPushQueue } from "@/lib/push";
 
 /**
  * Notificaciones in-app del usuario autenticado.
@@ -27,15 +28,21 @@ let lastDrainAt = 0;
 
 export async function GET(req: NextRequest) {
   try {
-    // Drenaje lazy de avisos programados vencidos — antes del fetch, así
-    // el propio poll que lo disparó ya los ve como notificaciones. Un
-    // fallo acá NO rompe el poll: se reintenta en la siguiente ventana.
+    // Drenaje lazy de avisos programados vencidos y de la cola push —
+    // antes del fetch, así el propio poll que lo disparó ya los ve
+    // (notificaciones in-app nuevas + push nativo al instante). Un fallo
+    // acá NO rompe el poll: se reintenta en la siguiente ventana.
     if (Date.now() - lastDrainAt > 30_000) {
       lastDrainAt = Date.now();
       try {
         await drainScheduledBroadcasts(10);
       } catch (drainErr) {
         console.error("[notifications] drain scheduled:", (drainErr as Error).message);
+      }
+      try {
+        await drainPushQueue(25);
+      } catch (drainErr) {
+        console.error("[notifications] drain push:", (drainErr as Error).message);
       }
     }
 

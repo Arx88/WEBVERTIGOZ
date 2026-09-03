@@ -36,6 +36,7 @@ import {
 import VertigoSelect from "@/components/admin/vertigo-select";
 import type { VertigoOption } from "@/components/admin/vertigo-select";
 import VertigoDateTime from "@/components/admin/vertigo-date-time";
+import { fmt } from "@/lib/format";
 import { iconFor, labelFor } from "@/components/notifications/notification-center";
 
 const AUDIENCES: VertigoOption[] = [
@@ -202,14 +203,7 @@ export default function BroadcastComposer({
       if (!res.ok) {
         setResult({ ok: false, msg: data.error ?? "Error al enviar" });
       } else if (data.scheduled) {
-        const when = new Date(data.scheduledFor).toLocaleString("es-AR", {
-          weekday: "long",
-          day: "2-digit",
-          month: "short",
-          hour: "2-digit",
-          minute: "2-digit",
-        });
-        setResult({ ok: true, msg: `Aviso programado para ${when}. El cron lo entrega solo.` });
+        setResult({ ok: true, msg: `Aviso programado para ${fmt.weekdayShortTime(data.scheduledFor)}. Se entrega solo a la hora programada.` });
         setTitle("");
         setBody("");
         setLink("");
@@ -527,7 +521,7 @@ export default function BroadcastComposer({
                 </div>
                 {scheduledFor && (
                   <p className="vertigo-hint" style={{ marginTop: 8 }}>
-                    Se envía el {new Date(scheduledFor).toLocaleString("es-AR", { weekday: "long", day: "2-digit", month: "long", hour: "2-digit", minute: "2-digit" })} (hora local).
+                    Se envía el {fmt.longDateTime(scheduledFor)} (hora de Argentina).
                   </p>
                 )}
               </div>
@@ -750,13 +744,7 @@ export default function BroadcastComposer({
                 {
                   k: "Cuándo",
                   v: scheduleMode && scheduledFor
-                    ? new Date(scheduledFor).toLocaleString("es-AR", {
-                        weekday: "long",
-                        day: "2-digit",
-                        month: "short",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })
+                    ? fmt.weekdayShortTime(scheduledFor)
                     : "Ahora mismo",
                 },
               ].map((row, i, arr) => (
