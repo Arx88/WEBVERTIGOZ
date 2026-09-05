@@ -13,6 +13,7 @@ import { getSupabaseServer, getSupabaseServiceRole } from "@/lib/supabase/server
 import { generateBracket, BRACKET_SIZE, BRACKET_ROUNDS } from "@/lib/bracket/engine";
 import { parseWallClockWithOffset } from "@/lib/tz";
 import { notifyMatchCaptains } from "@/server/notify/notify-captains";
+import { logAdminAction } from "@/lib/admin-audit";
 
 // ============================================================
 // Helpers de autorización
@@ -245,6 +246,16 @@ export async function generateRealBracketAction(formData: FormData): Promise<{
     revalidatePath("/admin/bracket");
     revalidatePath("/bracket");
 
+    await logAdminAction({
+      supabase: service,
+      accountId: account.id,
+      action: "generate_real_bracket",
+      entityType: "tournament_edition",
+      entityId: editionId,
+      entityLabel: edition.name,
+      payload: { created: { rounds: createdRoundIds.length, matches: createdMatchIds.length, games: createdGameIds.length }, edition_status_before: edition.status },
+    });
+
     return {
       ok: true,
       created: {
@@ -300,6 +311,15 @@ export async function deleteBracketAction(formData: FormData): Promise<{ ok: boo
     await service.from("bracket").delete().eq("id", b.id);
   }
 
+  await logAdminAction({
+    supabase: service,
+    accountId: account.id,
+    action: "delete_bracket",
+    entityType: "tournament_edition",
+    entityId: editionId,
+    payload: { brackets_deleted: brackets.length },
+  });
+
   revalidatePath("/admin/bracket");
   revalidatePath("/bracket");
   return { ok: true };
@@ -312,7 +332,7 @@ export async function deleteBracketAction(formData: FormData): Promise<{ ok: boo
  * El horario llega en la zona del browser del admin y se guarda como UTC.
  */
 export async function scheduleMatchAction(formData: FormData): Promise<{ ok: boolean; error?: string }> {
-  await requireAdminAccount();
+  const { account } = await requireAdminAccount();
   const matchId = String(formData.get("match_id") ?? "").trim();
   const startStr = String(formData.get("scheduled_at_start") ?? "").trim();
   const tzOffsetRaw = formData.get("scheduled_at_start_tz_offset");
@@ -390,6 +410,21 @@ export async function scheduleMatchAction(formData: FormData): Promise<{ ok: boo
   revalidatePath(`/admin/partido/${matchId}`);
   revalidatePath(`/partido/${matchId}`);
   revalidatePath("/mis-partidos");
+
+  await logAdminAction({
+    supabase: service,
+    accountId: account.id,
+    action: "schedule_match",
+    entityType: "match",
+    entityId: matchId,
+    payload: {
+      scheduled_at_start: start.toISOString(),
+      jornada_label: jornada,
+      previous_scheduled_at_start: match.scheduled_at_start ?? null,
+      reset_ready: clearReady || doubleForfeitReset,
+    },
+  });
+
   return { ok: true };
 }
 

@@ -13,6 +13,7 @@
 import { revalidatePath } from "next/cache";
 import { getSupabaseServer, getSupabaseServiceRole } from "@/lib/supabase/server";
 import { uploadHandbookInternal } from "@/lib/handbook-upload";
+import { logAdminAction } from "@/lib/admin-audit";
 
 // ============================================================
 // Helpers
@@ -113,7 +114,7 @@ export async function createEditionAction(
   fd: FormData
 ): Promise<{ ok: boolean; error?: string; editionId?: string }> {
   try {
-    await requireAdminAccount();
+    const { account } = await requireAdminAccount();
     const payload = editionPayload(fd);
     if (!payload.name) return { ok: false, error: "Falta el nombre de la edición." };
 
@@ -163,6 +164,16 @@ export async function createEditionAction(
       .single();
     if (error) return { ok: false, error: `No se pudo crear: ${error.message}` };
 
+    await logAdminAction({
+      supabase: service,
+      accountId: account.id,
+      action: "create_edition",
+      entityType: "tournament_edition",
+      entityId: created.id,
+      entityLabel: payload.name,
+      payload: { slug },
+    });
+
     revalidatePath("/admin/torneo");
     return { ok: true, editionId: created.id };
   } catch (err) {
@@ -178,7 +189,7 @@ export async function updateEditionAction(
   fd: FormData
 ): Promise<{ ok: boolean; error?: string }> {
   try {
-    await requireAdminAccount();
+    const { account } = await requireAdminAccount();
     const editionId = String(fd.get("edition_id") ?? "").trim();
     if (!editionId) return { ok: false, error: "Falta edition_id." };
 
@@ -218,6 +229,16 @@ export async function updateEditionAction(
       .update({ ...payload, updated_at: new Date().toISOString() })
       .eq("id", editionId);
     if (error) return { ok: false, error: `No se pudo guardar: ${error.message}` };
+
+    await logAdminAction({
+      supabase: service,
+      accountId: account.id,
+      action: "update_edition",
+      entityType: "tournament_edition",
+      entityId: editionId,
+      entityLabel: payload.name,
+      payload: { fields: Object.keys(payload) },
+    });
 
     revalidatePath("/admin/torneo");
     revalidatePath("/admin/handbook");
@@ -266,7 +287,7 @@ export async function setEditionStatusAction(
   fd: FormData
 ): Promise<{ ok: boolean; error?: string }> {
   try {
-    await requireAdminAccount();
+    const { account } = await requireAdminAccount();
     const editionId = String(fd.get("edition_id") ?? "").trim();
     const next = String(fd.get("next_status") ?? "").trim();
     const confirmed = fd.get("confirm") != null;
@@ -323,6 +344,16 @@ export async function setEditionStatusAction(
       .eq("id", editionId);
     if (error) return { ok: false, error: `No se pudo cambiar el estado: ${error.message}` };
 
+    await logAdminAction({
+      supabase: service,
+      accountId: account.id,
+      action: "set_edition_status",
+      entityType: "tournament_edition",
+      entityId: editionId,
+      entityLabel: edition.name,
+      payload: { from: edition.status, to: next, confirmed },
+    });
+
     revalidatePath("/admin/torneo");
     revalidatePath("/bracket");
     revalidatePath("/");
@@ -340,13 +371,23 @@ export async function uploadHandbookAction(
   fd: FormData
 ): Promise<{ ok: boolean; error?: string }> {
   try {
-    await requireAdminAccount();
+    const { account } = await requireAdminAccount();
     const editionId = String(fd.get("edition_id") ?? "").trim();
     const file = fd.get("file") as File | null;
     if (!editionId) return { ok: false, error: "Falta edition_id." };
 
     const res = await uploadHandbookInternal(editionId, file as File);
     if (!res.ok) return { ok: false, error: res.error };
+
+    const service = getSupabaseServiceRole() as any;
+    await logAdminAction({
+      supabase: service,
+      accountId: account.id,
+      action: "upload_handbook",
+      entityType: "tournament_edition",
+      entityId: editionId,
+      payload: { file_name: (file as File)?.name ?? null, size: (file as File)?.size ?? null },
+    });
 
     revalidatePath("/admin/handbook");
     revalidatePath("/admin/torneo");
@@ -364,7 +405,7 @@ export async function toggleEmblemAction(
   emblemId: string
 ): Promise<{ ok: boolean; error?: string }> {
   try {
-    await requireAdminAccount();
+    const { account } = await requireAdminAccount();
     const service = getSupabaseServiceRole() as any;
     const { data: emblem } = await service
       .from("emblem")
@@ -379,6 +420,15 @@ export async function toggleEmblemAction(
       .eq("id", emblemId);
     if (error) return { ok: false, error: error.message };
 
+    await logAdminAction({
+      supabase: service,
+      accountId: account.id,
+      action: "toggle_emblem",
+      entityType: "emblem",
+      entityId: emblemId,
+      payload: { from: emblem.is_active, to: !emblem.is_active },
+    });
+
     revalidatePath("/admin/emblemas");
     return { ok: true };
   } catch (err) {
@@ -390,7 +440,7 @@ export async function deleteEmblemAction(
   emblemId: string
 ): Promise<{ ok: boolean; error?: string }> {
   try {
-    await requireAdminAccount();
+    const { account } = await requireAdminAccount();
     const service = getSupabaseServiceRole() as any;
 
     const { data: emblem } = await service
@@ -423,6 +473,15 @@ export async function deleteEmblemAction(
       const path = url.slice(idx + marker.length);
       await service.storage.from("emblems").remove([path]);
     }
+
+    await logAdminAction({
+      supabase: service,
+      accountId: account.id,
+      action: "delete_emblem",
+      entityType: "emblem",
+      entityId: emblemId,
+      payload: { image_url: emblem.image_url ?? null },
+    });
 
     revalidatePath("/admin/emblemas");
     return { ok: true };

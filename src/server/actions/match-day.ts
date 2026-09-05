@@ -15,6 +15,7 @@ import { revalidatePath } from "next/cache";
 import { getSupabaseServer, getSupabaseServiceRole } from "@/lib/supabase/server";
 import { startDrawAction, rerollDrawPhaseAction, rerollDrawPhaseInternal } from "./tournament";
 import { notifyMatchCaptains } from "@/server/notify/notify-captains";
+import { logAdminAction } from "@/lib/admin-audit";
 
 export async function requireAdminAccount() {
   const supabase = (await getSupabaseServer()) as any;
@@ -290,17 +291,33 @@ export async function requestComodinAction(formData: FormData): Promise<{ ok: bo
     if (!targetPlayer || targetPlayer.team_registration_id !== rivalRegId) {
       return { ok: false, error: "El jugador objetivo debe pertenecer al equipo rival." };
     }
-    // ANULAR ya ejecutado sobre ese jugador → no se puede anular dos veces
-    if (comodinType === "anular") {
-      const { data: already } = (await service
-        .from("comodin_usage")
-        .select("id")
-        .eq("match_id", matchId)
-        .eq("comodin_type", "anular")
-        .eq("target_player_id", targetPlayerId)
-        .eq("status", "executed")
-        .maybeSingle()) as { data: any };
-      if (already) return { ok: false, error: "Ese jugador ya fue anulado en esta llave." };
+    // ANULAR ya ejecutado sobre ese jugador → no se puede anular dos veces;
+    // y ELEGIR RIVAL no puede apuntar a un jugador ya anulado (chocarían:
+    // "debe jugar" + "no juega").
+    if (comodinType === "anular" || comodinType === "elegir_rival") {
+      const checkType = comodinType === "anular" ? null : "anular";
+      if (checkType) {
+        const { data: annulled } = (await service
+          .from("comodin_usage")
+          .select("id")
+          .eq("match_id", matchId)
+          .eq("comodin_type", "anular")
+          .eq("target_player_id", targetPlayerId)
+          .eq("status", "executed")
+          .maybeSingle()) as { data: any };
+        if (annulled) return { ok: false, error: "Ese jugador ya fue anulado en esta llave: no puede ser ELEGIDO RIVAL." };
+      }
+      if (comodinType === "anular") {
+        const { data: already } = (await service
+          .from("comodin_usage")
+          .select("id")
+          .eq("match_id", matchId)
+          .eq("comodin_type", "anular")
+          .eq("target_player_id", targetPlayerId)
+          .eq("status", "executed")
+          .maybeSingle()) as { data: any };
+        if (already) return { ok: false, error: "Ese jugador ya fue anulado en esta llave." };
+      }
     }
   }
 
@@ -423,6 +440,18 @@ export async function useComodinAction(formData: FormData): Promise<{ ok: boolea
         .eq("status", "executed")
         .maybeSingle()) as { data: any };
       if (already) return { ok: false, error: "Ese jugador ya fue anulado en esta llave." };
+    } else {
+      // ELEGIR RIVAL no puede apuntar a un jugador ya anulado (chocarían:
+      // "debe jugar" + "no juega" en la misma llave).
+      const { data: annulled } = (await service
+        .from("comodin_usage")
+        .select("id")
+        .eq("match_id", matchId)
+        .eq("comodin_type", "anular")
+        .eq("target_player_id", targetPlayerId)
+        .eq("status", "executed")
+        .maybeSingle()) as { data: any };
+      if (annulled) return { ok: false, error: "Ese jugador ya fue anulado en esta llave: no puede ser ELEGIDO RIVAL." };
     }
   }
 
@@ -541,17 +570,20 @@ async function applyAnularElegirEffect(
     .eq("id", targetPlayerId).maybeSingle()) as { data: any };
   if (!targetPlayer || targetPlayer.team_registration_id !== targetRegId) return null;
 
-  // Marcar en el match (mutuamente excluyentes a nivel llave). Si la llave YA
-  // tiene la carta marcada por este equipo, el efecto ya está aplicado: no
-  // re-marcar ni re-aplicar (UNA vez por llave por equipo — SPEC 7.1).
+  // Marcar en el match. Un comodín de este tipo POR EQUIPO por llave (SPEC 7.1):
+  // el mismo equipo no re-marca; el equipo OPUESTO sí puede jugar su propia
+  // carta (ELEGIR RIVAL es mutuo: cada equipo impone un jugador del rival),
+  // así que la columna registra la última marca y la validación "1 vez por
+  // equipo" vive en comodin_usage (por inventario), no en esta columna.
   const matchFlag = comodinType === "anular" ? "anular_used_by_team_id" : "elegir_rival_used_by_team_id";
   const otherFlag = comodinType === "anular" ? "elegir_rival_used_by_team_id" : "anular_used_by_team_id";
   const { data: flags } = (await service.from("match").select("anular_used_by_team_id, elegir_rival_used_by_team_id").eq("id", matchId).single()) as { data: any };
   if (flags?.[matchFlag] === requesterRegId) {
     return { type: comodinType, duplicate: true, needsRedeclare: false };
   }
-  if (flags?.[otherFlag]) {
-    return null; // la llave ya tiene la carta opuesta marcada: rechazar
+  if (flags?.[otherFlag] === requesterRegId) {
+    // MI equipo ya marcó la carta opuesta en esta llave: exclusión 1 por equipo.
+    return null;
   }
   await service.from("match").update({ [matchFlag]: requesterRegId, updated_at: new Date().toISOString() }).eq("id", matchId);
 
@@ -676,13 +708,20 @@ export async function revokeComodinAction(formData: FormData): Promise<{ ok: boo
 
 /** Admin: pasa el sorteo a fase lineup (los equipos ven el resultado y declaran). */
 export async function advanceToLineupAction(matchId: string): Promise<{ ok: boolean; error?: string }> {
-  await requireAdminAccount();
+  const { account } = await requireAdminAccount();
   const service = getSupabaseServiceRole() as any;
   const { error } = await service.from("match").update({ status: "lineup", updated_at: new Date().toISOString() }).eq("id", matchId);
   await service.from("match_game").update({ status: "lineup", updated_at: new Date().toISOString() }).eq("match_id", matchId).eq("status", "drawing");
   if (error) return { ok: false, error: error.message };
   // Avisar a los capitanes que toca declarar el lineup.
   await notifyMatchCaptains(matchId, "lineup");
+  await logAdminAction({
+    supabase: service,
+    accountId: account.id,
+    action: "advance_to_lineup",
+    entityType: "match",
+    entityId: matchId,
+  });
   revalidatePath(`/partido/${matchId}`);
   revalidatePath(`/admin/partido/${matchId}`);
   return { ok: true };
@@ -690,11 +729,18 @@ export async function advanceToLineupAction(matchId: string): Promise<{ ok: bool
 
 /** Admin: cierra la ventana de comodines y comienza la partida. */
 export async function closeComodinWindowAction(matchId: string): Promise<{ ok: boolean; error?: string }> {
-  await requireAdminAccount();
+  const { account } = await requireAdminAccount();
   const service = getSupabaseServiceRole() as any;
   const { error } = await service.from("match").update({ status: "in_progress", updated_at: new Date().toISOString() }).eq("id", matchId);
   await service.from("match_game").update({ status: "in_progress", started_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("match_id", matchId).in("status", ["lineup", "comodin_window", "drawing", "pending"]);
   if (error) return { ok: false, error: error.message };
+  await logAdminAction({
+    supabase: service,
+    accountId: account.id,
+    action: "close_comodin_window",
+    entityType: "match",
+    entityId: matchId,
+  });
   revalidatePath(`/partido/${matchId}`);
   revalidatePath(`/admin/partido/${matchId}`);
   return { ok: true };
@@ -779,14 +825,25 @@ export async function reportGameResultInternal(
  * Wrapper de auth + formData sobre reportGameResultInternal.
  */
 export async function reportGameResultAction(formData: FormData): Promise<{ ok: boolean; error?: string }> {
-  await requireAdminAccount();
+  const { account } = await requireAdminAccount();
   const matchGameId = String(formData.get("match_game_id") ?? "").trim();
   const winnerTeamId = String(formData.get("winner_team_id") ?? "").trim();
   const replayUrl = String(formData.get("replay_url") ?? "").trim() || null;
   if (!matchGameId || !winnerTeamId) return { ok: false, error: "Faltan campos." };
 
   const service = getSupabaseServiceRole() as any;
-  return reportGameResultInternal(service, { matchGameId, winnerTeamId, replayUrl });
+  const result = await reportGameResultInternal(service, { matchGameId, winnerTeamId, replayUrl });
+  if (result.ok) {
+    await logAdminAction({
+      supabase: service,
+      accountId: account.id,
+      action: "report_game_result",
+      entityType: "match_game",
+      entityId: matchGameId,
+      payload: { winner_team_id: winnerTeamId, replay_url: replayUrl },
+    });
+  }
+  return result;
 }
 
 /** Admin: marcar forfeit por ausencia (ambos no confirmaron, o un equipo no se presentó). */
@@ -806,6 +863,14 @@ export async function markForfeitAction(formData: FormData): Promise<{ ok: boole
     status: "forfeit", winner_team_id: winner, finished_at: new Date().toISOString(), updated_at: new Date().toISOString(),
   }).eq("id", matchId);
   if (error) return { ok: false, error: error.message };
+  await logAdminAction({
+    supabase: service,
+    accountId: account.id,
+    action: "mark_forfeit",
+    entityType: "match",
+    entityId: matchId,
+    payload: { absent_team_id: absentTeamId || null, winner_team_id: winner },
+  });
   revalidatePath(`/admin/partido/${matchId}`);
   revalidatePath(`/partido/${matchId}`);
   revalidatePath("/mis-partidos");

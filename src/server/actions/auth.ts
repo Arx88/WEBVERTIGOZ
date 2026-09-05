@@ -13,6 +13,7 @@ import {
 } from "@/lib/device-trust";
 import { refreshPlayerStatsCache } from "@/lib/aoe2/stats-cache";
 import { notifyWaitlistIfSlotsAvailable } from "@/lib/cupo";
+import { logAdminAction } from "@/lib/admin-audit";
 
 export async function logoutAction() {
   const supabase = await getSupabaseServer();
@@ -119,6 +120,15 @@ export async function approveTeamAction(registrationId: string) {
 
   if (error) throw new Error(`Error: ${error.message}`);
 
+  await logAdminAction({
+    supabase: service,
+    accountId: account.id,
+    action: "approve_team",
+    entityType: "team_registration",
+    entityId: registrationId,
+    payload: { from: reg.status, to: "approved", payment_window_hours: windowHours },
+  });
+
   // Cache inicial de stats Companion (rm_team) para el intel del equipo.
   // No bloquea la aprobación si Companion no responde.
   try {
@@ -170,6 +180,15 @@ export async function rejectTeamAction(registrationId: string, reason?: string) 
     .eq("id", registrationId);
 
   if (error) throw new Error(`Error: ${error.message}`);
+
+  await logAdminAction({
+    supabase: service,
+    accountId: account.id,
+    action: "reject_team",
+    entityType: "team_registration",
+    entityId: registrationId,
+    payload: { from: reg.status, to: "rejected", reason: reason ?? null },
+  });
 
   // Quitar un equipo aprobado libera una plaza: avisar a la waitlist del
   // wizard (si quedó lugar libre). No es fatal si falla el envío.
@@ -288,7 +307,7 @@ export async function generateBracketAction(formData: FormData) {
 }
 
 export async function uploadEmblemAction(formData: FormData) {
-  await requireAdminAccount();
+  const { account } = await requireAdminAccount();
   const name = String(formData.get("name") ?? "").trim();
   const category = String(formData.get("category") ?? "").trim();
   const file = formData.get("file") as File | null;
@@ -336,6 +355,15 @@ export async function uploadEmblemAction(formData: FormData) {
     sort_order: (last?.sort_order ?? 0) + 1,
   });
   if (insErr) throw new Error(`No se pudo registrar el emblema: ${insErr.message}`);
+
+  await logAdminAction({
+    supabase: service,
+    accountId: account.id,
+    action: "upload_emblem",
+    entityType: "emblem",
+    entityLabel: name.slice(0, 60),
+    payload: { image_url: pub?.publicUrl ?? null, category: category || null },
+  });
 
   revalidatePath("/admin/emblemas");
   revalidatePath("/registro");
@@ -456,7 +484,7 @@ export async function registerCasterAction(
 // ============================================================
 
 export async function setCasterTierAction(formData: FormData) {
-  const { supabase } = await requireAdminAccount();
+  const { supabase, account } = await requireAdminAccount();
   const casterId = String(formData.get("caster_id") ?? "");
   const tier = String(formData.get("tier") ?? "");
   if (!casterId) throw new Error("Falta ID del caster");
@@ -467,6 +495,15 @@ export async function setCasterTierAction(formData: FormData) {
     .update({ tier })
     .eq("id", casterId);
   if (error) throw new Error(`Error: ${error.message}`);
+
+  await logAdminAction({
+    supabase,
+    accountId: account.id,
+    action: "set_caster_tier",
+    entityType: "caster",
+    entityId: casterId,
+    payload: { tier },
+  });
 
   revalidatePath("/admin/casters");
   revalidatePath("/casters");
@@ -501,7 +538,7 @@ export async function toggleCasterApprovalAction(formData: FormData) {
 }
 
 export async function deleteCasterAction(formData: FormData) {
-  await requireAdminAccount();
+  const { account } = await requireAdminAccount();
   const casterId = String(formData.get("caster_id") ?? "");
   if (!casterId) throw new Error("Falta ID del caster");
 
@@ -516,6 +553,14 @@ export async function deleteCasterAction(formData: FormData) {
   const { error } = await service.from("caster").delete().eq("id", casterId);
   if (error) throw new Error(`Error: ${error.message}`);
 
+  await logAdminAction({
+    supabase: service,
+    accountId: account.id,
+    action: "delete_caster",
+    entityType: "caster",
+    entityId: casterId,
+  });
+
   revalidatePath("/admin/casters");
   revalidatePath("/casters");
 }
@@ -527,7 +572,7 @@ export async function deleteCasterAction(formData: FormData) {
  * lleva el badge). Toggle: si ya era el destacado, se desmarca.
  */
 export async function setFeaturedCasterAction(formData: FormData) {
-  await requireAdminAccount();
+  const { account } = await requireAdminAccount();
   const casterId = String(formData.get("caster_id") ?? "");
   if (!casterId) throw new Error("Falta ID del caster");
 
@@ -546,6 +591,15 @@ export async function setFeaturedCasterAction(formData: FormData) {
     const { error } = await service.from("caster").update({ featured: true }).eq("id", casterId);
     if (error) throw new Error(`Error: ${error.message}`);
   }
+
+  await logAdminAction({
+    supabase: service,
+    accountId: account.id,
+    action: "set_featured_caster",
+    entityType: "caster",
+    entityId: casterId,
+    payload: { featured: makeFeatured },
+  });
 
   revalidatePath("/admin/casters");
   revalidatePath("/casters");

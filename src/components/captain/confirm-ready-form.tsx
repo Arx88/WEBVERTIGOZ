@@ -16,7 +16,7 @@ export default function ConfirmReadyForm({
   phase,
 }: {
   matchId: string;
-  phase: "open" | "grace";
+  phase: "open" | "grace" | "wo";
 }) {
   const [state, action, pending] = useActionState(confirmReadyAction.bind(null, matchId), null);
 
@@ -33,11 +33,11 @@ export default function ConfirmReadyForm({
       <button
         type="submit"
         disabled={pending}
-        className={`vertigo-btn ${phase === "grace" ? "vertigo-btn-danger" : "vertigo-btn-success"}`}
+        className={`vertigo-btn ${phase === "grace" ? "vertigo-btn-danger" : phase === "wo" ? "vertigo-btn-primary" : "vertigo-btn-success"}`}
         style={{ fontSize: 11, padding: "10px 20px" }}
       >
         <CheckCircle2 style={{ width: 14, height: 14 }} />
-        {pending ? "CONFIRMANDO…" : "ESTOY LISTO"}
+        {pending ? "CONFIRMANDO…" : phase === "wo" ? "ESTOY LISTO — AVANZAR" : "ESTOY LISTO"}
       </button>
       {state?.error && (
         <span

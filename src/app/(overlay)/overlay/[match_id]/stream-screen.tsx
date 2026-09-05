@@ -2,13 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Shield, CheckCircle2, Dices, Swords, Timer } from "lucide-react";
+import { Dices, CheckCircle2, Swords } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import LiveDrawRoulette from "@/components/ruleta/live-draw-roulette";
+import ComodinEpic from "@/components/comodines/comodin-epic";
+import PowerCardStage from "@/components/stream/power-card-stage";
 import { useReadyWindow } from "@/components/shared/ready-deadline-timer";
 import { deriveTeamPalette } from "@/components/team/team-banner-bg";
 import { startDrawFormAction } from "@/server/actions/match-day";
 import { fmt } from "@/lib/format";
+import { ReadyTeamSide, ReadyTimerBoard, StatusBoard } from "@/components/stream/ready-scene";
 
 export interface StreamTeam {
   id: string;
@@ -68,6 +71,9 @@ export interface StreamMatchData {
     comodinType: string;
     teamRegId: string | null;
     targetName: string | null;
+    /** ID del jugador objetivo (ANULAR/ELEGIR RIVAL): el board de lineup
+        lo cruza con el roster para marcar al afectado mientras re-declara. */
+    targetPlayerId: string | null;
   }[];
   teamA: StreamTeam | null;
   teamB: StreamTeam | null;
@@ -132,6 +138,63 @@ export default function StreamScreen({
   // tick (el timeout de 8s nunca disparaba). useCallback lo hace estable.
   const handleRouletteDone = useCallback(() => setRouletteDone(true), []);
   const { phase, msToOpen, msToDeadline } = useReadyWindow(match.scheduledAtStart, match.status);
+
+  // ── CARTA DE PODER EN CURSO: re-declaración de lineup ──
+  // Si una carta ejecutada (ANULAR/ELEGIR RIVAL) apunta a un jugador de uno
+  // de los equipos y el match volvió a "lineup", el stream muestra el
+  // escenario cinematográfico de la carta mientras ese equipo re-declara.
+  // Se resuelve por id de jugador (targetPlayerId) contra cada roster.
+  // ELEGIR RIVAL es MUTUO: si el equipo contrario también ejecutó su carta,
+  // la escena se vuelve duelo (los dos rosters con su víctima marcada).
+  const powerCardLive = (() => {
+    if (match.status !== "lineup") return null;
+    const cards = match.executedComodins.filter(
+      (c) =>
+        (c.comodinType === "anular" || c.comodinType === "elegir_rival") &&
+        c.targetPlayerId != null &&
+        (match.teamA?.players.some((p) => p.id === c.targetPlayerId) ||
+          match.teamB?.players.some((p) => p.id === c.targetPlayerId))
+    );
+    const card = cards[0];
+    if (!card || card.targetPlayerId == null) return null;
+    const targetPlayerId: string = card.targetPlayerId;
+    const affected =
+      match.teamA?.players.some((p) => p.id === card.targetPlayerId) ? match.teamA : match.teamB;
+    if (!affected) return null;
+    const usedBy =
+      card.teamRegId === match.teamA?.id ? match.teamA :
+      card.teamRegId === match.teamB?.id ? match.teamB : null;
+    // La otra carta del match (equipo contrario): duelo de cartas mutuas.
+    const other = cards.find((c) => c !== card && c.targetPlayerId != null);
+    let duel: null | {
+      kind: "anular" | "elegir_rival";
+      targetPlayerId: string;
+      players: StreamTeam["players"];
+      teamName: string;
+      emblemUrl: string | null;
+    } = null;
+    if (other?.targetPlayerId != null) {
+      const otherAffected =
+        match.teamA?.players.some((p) => p.id === other.targetPlayerId) ? match.teamA : match.teamB;
+      if (otherAffected && otherAffected.id !== affected.id) {
+        duel = {
+          kind: other.comodinType as "anular" | "elegir_rival",
+          targetPlayerId: other.targetPlayerId,
+          players: otherAffected.players,
+          teamName: otherAffected.name,
+          emblemUrl: otherAffected.emblemUrl,
+        };
+      }
+    }
+    return {
+      kind: card.comodinType as "anular" | "elegir_rival",
+      targetPlayerId,
+      affectedTeamName: affected.name,
+      affectedEmblemUrl: affected.emblemUrl,
+      affectedPlayers: affected.players,
+      duel,
+    };
+  })();
 
   // ── CARTA ÉPICA de comodín ──
   // El capitán usa el comodín desde /partido y el INSERT llega por realtime
@@ -299,7 +362,6 @@ export default function StreamScreen({
         />
       )}
       {/* ══ FONDO: video de marca + tinte de cada equipo a su lado ══ */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
       <video
         autoPlay
         muted
@@ -362,9 +424,23 @@ export default function StreamScreen({
           display: "flex", alignItems: "center", justifyContent: "center",
           gap: "clamp(24px, 4.5vw, 90px)",
         }}>
-          <TeamSide team={match.teamA} readyAt={match.readyAAt} preMatch={preMatch} />
+          <ReadyTeamSide
+            name={match.teamA?.name ?? "Equipo A"}
+            emblemUrl={match.teamA?.emblemUrl ?? null}
+            accent={colorA}
+            side="A"
+            readyAt={preMatch ? match.readyAAt : null}
+            showState={preMatch}
+          />
           <VsMedallion />
-          <TeamSide team={match.teamB} readyAt={match.readyBAt} preMatch={preMatch} />
+          <ReadyTeamSide
+            name={match.teamB?.name ?? "Equipo B"}
+            emblemUrl={match.teamB?.emblemUrl ?? null}
+            accent={colorB}
+            side="B"
+            readyAt={preMatch ? match.readyBAt : null}
+            showState={preMatch}
+          />
         </section>
 
         {/* INICIAR SORTEO — SOLO visible para el admin (OBS no tiene sesión,
@@ -408,29 +484,33 @@ export default function StreamScreen({
         {/* Franja inferior: ventana de READY, estado o marcador */}
         <footer style={{ textAlign: "center", minHeight: "16vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
           {preMatch && match.status === "open" && (
-            <BottomNote color="var(--vertigo-success)">
-              ✓ Ambos equipos listos — llave habilitada para el sorteo
-            </BottomNote>
+            <StatusBoard
+              label="Ventana cerrada"
+              title="AMBOS LISTOS"
+              success
+              note={`Llave habilitada — el admin inicia el sorteo${match.activeDraw?.playerMode ? ` · ${match.activeDraw.playerMode}` : ""}`}
+            />
           )}
 
           {preMatch && match.status === "scheduled" && phase === "early" && (
-            <>
-              <BottomLabel>El READY se habilita en</BottomLabel>
-              <BigCountdown>{fmtHMS(msToOpen ?? 0)}</BigCountdown>
-            </>
+            <ReadyTimerBoard
+              label="El READY se habilita en"
+              time={fmtHMS(msToOpen ?? 0)}
+              note="Ambos capitanes confirman desde su panel"
+            />
           )}
 
           {preMatch && match.status === "scheduled" && (phase === "open" || phase === "grace") && (
-            <>
-              <BottomLabel danger={phase === "grace"}>
-                {phase === "grace" ? "Tolerancia en curso — W.O. automático en" : "W.O. automático en"}
-              </BottomLabel>
-              <BigCountdown danger={phase === "grace"}>{fmtHMS(msToDeadline ?? 0)}</BigCountdown>
-            </>
+            <ReadyTimerBoard
+              label={phase === "grace" ? "Tolerancia — ventana de decisión en" : "Ventana de decisión de W.O. en"}
+              time={fmtHMS(msToDeadline ?? 0)}
+              danger={phase === "grace"}
+              note={phase === "grace" ? "Últimos minutos: luego, el primero en confirmar avanza o decide el admin" : "Sin ambos READY, la llave entra en ventana de decisión"}
+            />
           )}
 
-          {preMatch && match.status === "scheduled" && phase === "expired" && (
-            <BottomNote color="var(--vertigo-danger)">Tiempo agotado — resolviendo W.O.…</BottomNote>
+          {preMatch && match.status === "scheduled" && phase === "wo" && (
+            <BottomNote color="var(--vertigo-danger)">Ventana de decisión de W.O. — a la espera del admin</BottomNote>
           )}
 
           {preMatch && match.status === "scheduled" && phase === "no-date" && (
@@ -448,14 +528,28 @@ export default function StreamScreen({
           )}
 
           {/* LINEUP: el stream muestra QUIÉNES eligen y las civs — el corazón
-              de la fase, no solo su nombre. Actualiza solo por Realtime. */}
-          {match.status === "lineup" && match.activeDraw && (
+              de la fase, no solo su nombre. Salvo que una CARTA DE PODER
+              obligue a re-declarar: entonces la escena es el escenario
+              cinematográfico de la carta (continuación de la carta épica).
+              Actualiza solo por Realtime. */}
+          {match.status === "lineup" && match.activeDraw && !powerCardLive && (
             <LineupBoard
               draw={match.activeDraw}
               teamA={match.teamA}
               teamB={match.teamB}
               readyLineupAAt={match.readyLineupAAt}
               readyLineupBAt={match.readyLineupBAt}
+            />
+          )}
+          {match.status === "lineup" && powerCardLive && (
+            <PowerCardStage
+              kind={powerCardLive.kind}
+              playerId={powerCardLive.targetPlayerId}
+              players={powerCardLive.affectedPlayers}
+              teamName={powerCardLive.affectedTeamName}
+              emblemUrl={powerCardLive.affectedEmblemUrl}
+              duel={powerCardLive.duel}
+              takeover
             />
           )}
 
@@ -488,53 +582,9 @@ export default function StreamScreen({
 
 /* ── Piezas ─────────────────────────────────────────────── */
 
-function TeamSide({
-  team,
-  readyAt,
-  preMatch,
-}: {
-  team: StreamTeam | null;
-  readyAt: string | null;
-  preMatch: boolean;
-}) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2.2vh", flex: "0 1 30%", minWidth: 0 }}>
-      {/* Escudo */}
-      <div style={{
-        width: "clamp(110px, 11vw, 190px)", height: "clamp(110px, 11vw, 190px)",
-        borderRadius: 24, overflow: "hidden", flexShrink: 0,
-        border: "2px solid rgba(212,175,55,0.55)",
-        background: "rgba(13,9,19,0.85)",
-        boxShadow: "0 16px 44px rgba(0,0,0,0.6), 0 0 34px rgba(212,175,55,0.16)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-      }}>
-        {team?.emblemUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={team.emblemUrl} alt={team.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-        ) : (
-          <Shield style={{ width: "42%", height: "42%", color: "var(--vertigo-purple-soft)" }} strokeWidth={1.1} />
-        )}
-      </div>
-
-      {/* Nombre */}
-      <div
-        className="font-cinzel"
-        style={{
-          fontSize: "clamp(20px, 2.6vw, 44px)", fontWeight: 700,
-          textTransform: "uppercase", letterSpacing: "1px",
-          textAlign: "center", lineHeight: 1.1,
-          textShadow: "0 3px 22px rgba(0,0,0,0.85), 0 0 2px rgba(233,209,138,0.3)",
-          overflowWrap: "anywhere",
-        }}
-      >
-        {team?.name ?? "—"}
-      </div>
-
-      {/* Indicador de READY */}
-      {preMatch && <ReadyPill readyAt={readyAt} />}
-    </div>
-  );
-}
+// TeamSide/ReadyPill reemplazados por ReadyTeamSide (ready-scene.tsx):
+// escudo 3D + placa de nombre de alto fijo + estado reservado — idéntico
+// al tour del admin, cero desalineación por largo de nombre.
 
 function ReadyPill({ readyAt }: { readyAt: string | null }) {
   if (readyAt) {
@@ -730,7 +780,7 @@ function LineupBoard({
   readyLineupBAt: string | null;
 }) {
   return (
-    <div style={{ width: "min(94vw, 1100px)", margin: "0 auto 1.5vh" }}>
+    <div className="sc-lineup-card" style={{ width: "min(94vw, 1100px)", margin: "0 auto 1.5vh" }}>
       <div
         className="font-cinzel"
         style={{
@@ -787,17 +837,15 @@ function LineupSide({
   const declared = lineup.length > 0;
   return (
     <div style={{
-      borderRadius: 14, padding: "1.6vh 1.4vw",
-      border: `1.5px solid ${accent}`,
-      background: "rgba(13,9,19,0.72)",
-      boxShadow: "0 10px 30px rgba(0,0,0,0.55)",
       textAlign: "center", minWidth: 0,
     }}>
+      {/* Nombre con alto FIJO de 2 líneas: las filas de civs arrancan a la
+          misma altura en ambas columnas, sin importar el largo del nombre. */}
       <div className="font-cinzel" style={{
         fontSize: "clamp(12px, 1.2vw, 19px)", fontWeight: 700,
         letterSpacing: "1.5px", textTransform: "uppercase",
         color: "var(--vertigo-text, #efeaf7)", overflowWrap: "anywhere",
-        marginBottom: "1.2vh",
+        height: "2.6em", lineHeight: 1.3, marginBottom: "1.2vh",
       }}>
         {teamName}
       </div>
@@ -811,6 +859,7 @@ function LineupSide({
             : players.map((p, i) => ({ pid: p.id, civ: civAssign[p.id] ?? civsPool[i] }))
           ).map(({ pid, civ }, i) => {
             const p = players.find((x) => x.id === pid);
+            const pName = p?.name ?? "Jugador";
             return (
               <div key={pid} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
                 {civ && (
@@ -818,7 +867,7 @@ function LineupSide({
                   <img src={`/civs/${civ}.webp`} alt="" style={{ width: "clamp(26px, 2.4vw, 40px)", height: "clamp(26px, 2.4vw, 40px)", borderRadius: 8, objectFit: "cover", border: `1.5px solid ${accent}` }} />
                 )}
                 <span style={{ fontSize: "clamp(12px, 1.2vw, 18px)", fontWeight: 700, color: "#4ade80" }}>
-                  {(p?.isCaptain ? "★ " : "") + (p?.name ?? "Jugador")}
+                  {(p?.isCaptain ? "★ " : "") + pName}
                 </span>
                 {civ && <span key={i} style={{ fontSize: "clamp(10px, 0.95vw, 14px)", color: "rgba(207,200,221,0.8)" }}>{civNameEs(civ)}</span>}
               </div>
@@ -840,6 +889,7 @@ function LineupSide({
           {lineup.map((pid) => {
             const p = players.find((x) => x.id === pid);
             const civ = civAssign[pid];
+            const pName = p?.name ?? "Jugador";
             return (
               <div key={pid} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
                 {civ && (
@@ -847,7 +897,7 @@ function LineupSide({
                   <img src={`/civs/${civ}.webp`} alt="" style={{ width: "clamp(26px, 2.4vw, 40px)", height: "clamp(26px, 2.4vw, 40px)", borderRadius: 8, objectFit: "cover", border: `1.5px solid ${accent}` }} />
                 )}
                 <span style={{ fontSize: "clamp(12px, 1.2vw, 18px)", fontWeight: 600, color: "var(--vertigo-text, #efeaf7)" }}>
-                  {(p?.isCaptain ? "★ " : "") + (p?.name ?? "Jugador")}
+                  {(p?.isCaptain ? "★ " : "") + pName}
                 </span>
                 {civ && <span style={{ fontSize: "clamp(10px, 0.95vw, 14px)", color: "rgba(207,200,221,0.8)" }}>{civNameEs(civ)}</span>}
               </div>
@@ -888,89 +938,9 @@ function LineupSide({
   );
 }
 
-/** CARTA ÉPICA de comodín — la secuencia cinematográfica del tutorial
- *  (luz converge → carta entra → impacto/shockwave → nombre SLAM →
- *  estandarte del reino) disparada cuando el CAPITÁN ejecuta el comodín.
- *  El stream la muestra fullscreen: es EL momento del stream. */
-function ComodinEpicStream({
-  comodinType,
-  team,
-  targetName,
-}: {
-  comodinType: string;
-  team: StreamTeam | null;
-  targetName: string | null;
-}) {
-  const META: Record<string, { img: string; name: string; sub: string }> = {
-    reroll: { img: "/brand/icons/comodin-regirar.png", name: "RE-GIRAR", sub: "LA FASE SE VUELVE A SORTEAR" },
-    anular: { img: "/brand/icons/comodin-anular.png", name: "ANULAR", sub: "JUGADOR ANULADO" },
-    elegir_rival: { img: "/brand/icons/comodin-elegir.png", name: "ELEGIR RIVAL", sub: "RIVAL IMPUESTO" },
-    invocar_pro: { img: "/brand/icons/comodin-invocar.png", name: "INVOCAR PRO", sub: "EL PRO ENTRA AL CHAT" },
-  };
-  const meta = META[comodinType] ?? META.reroll;
-  // Partículas en órbita (deterministas — el overlay no necesita aleatorio)
-  const particles = Array.from({ length: 36 }, (_, i) => ({
-    angle: (i / 36) * 360,
-    r: 150 + ((i * 53) % 110),
-    dur: 2.4 + ((i * 0.17) % 2.6),
-    delay: (i * 0.11) % 1.6,
-    size: 2 + ((i * 7) % 5),
-    color: ["#D4AF37", "#7c3aed", "#a78bfa", "#c4b5fd"][i % 4],
-  }));
-
-  return (
-    <div className="tut-epic">
-      <div className="tut-epic-flash" />
-      <div className="tut-epic-rays" />
-      <div className="tut-epic-glow" />
-      <div className="tut-epic-center">
-        <div className="tut-epic-beam" />
-        <div className="tut-epic-orbit">
-          {particles.map((p, i) => (
-            <i
-              key={i}
-              className="tut-particle"
-              style={{
-                "--p-angle": `${p.angle}deg`,
-                "--p-r": `${p.r}px`,
-                "--p-dur": `${p.dur}s`,
-                "--p-delay": `-${p.delay}s`,
-                width: p.size, height: p.size,
-                background: p.color,
-                boxShadow: `0 0 8px ${p.color}`,
-              } as React.CSSProperties}
-            />
-          ))}
-        </div>
-        <div className="tut-epic-shock"><i /><i /><i /></div>
-        <div className="tut-epic-aura" />
-        <div className="tut-epic-enter">
-          <div className="tut-epic-3d">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className="tut-epic-art" src={meta.img} alt={meta.name} />
-          </div>
-        </div>
-        <div className="tut-epic-pedestal" />
-        <div className="tut-epic-name">{meta.name}</div>
-        <div className="tut-epic-divider"><i /></div>
-        {team && (
-          <div className="tut-epic-team">
-            {team.emblemUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={team.emblemUrl} alt="" />
-            ) : (
-              <Shield style={{ width: 34, height: 34 }} strokeWidth={1.2} />
-            )}
-            {team.name}
-          </div>
-        )}
-        <div className="tut-epic-sub">
-          {targetName ? `${meta.sub} · ${targetName.toUpperCase()}` : "COMODÍN ACTIVADO"}
-        </div>
-      </div>
-    </div>
-  );
-}
+/** CARTA ÉPICA de comodín — extraída a src/components/comodines/comodin-epic.tsx
+ *  (se reutiliza en el Stream View del admin). Alias local para no tocar los usos. */
+const ComodinEpicStream = ComodinEpic;
 
 /** Countdown vivo de la ventana de comodines (5 min desde la publicación). */
 function ComodinCountdown({ expiresAt }: { expiresAt: string | null }) {

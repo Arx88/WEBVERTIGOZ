@@ -12,6 +12,17 @@ import {
 import { scheduleMatchFormAction } from "@/server/actions/tournament";
 import { extendReadyWindowFormAction } from "@/server/actions/ready";
 import { enforceMatchIfDue } from "@/server/match-enforcement";
+import { computeReadyPhase } from "@/lib/match-rules";
+
+/** +HH:MM:SS desde ms — para la demora de la ventana de decisión de W.O. */
+function fmtOverdue(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+}
 import { syncAoe2IfDue } from "@/lib/aoe2/match-sync";
 import { linkAoe2MatchFormAction } from "@/server/actions/aoe2-sync";
 import {
@@ -88,7 +99,8 @@ export default async function AdminPartidoPage({
 
   const { id } = await params;
 
-  // W.O. automático lazy: si la tolerancia ya venció, se aplica antes de
+  // Chequeo lazy de la ventana de W.O. (sin auto-resolución: el ganador
+  // sale del primer READY o de la decisión del admin):
   // cargar los datos así la página refleja el resultado real.
   try {
     await enforceMatchIfDue(id);
@@ -137,11 +149,16 @@ export default async function AdminPartidoPage({
   const comodinUsages = match.comodin_usages ?? [];
   const isFinished = match.status === "finished";
   const isScheduled = match.status === "scheduled";
+  const hasDate = !!match.scheduled_at_start;
+  // Fase de la ventana de READY (para el banner de decisión de W.O.).
+  const readyPhaseNow = isScheduled && match.scheduled_at_start
+    ? // eslint-disable-next-line react-hooks/purity -- RSC: se evalúa por request, no hay re-render
+      computeReadyPhase(match.scheduled_at_start, match.status, Date.now())
+    : null;
 
   // Próxima partida a sortear: P1 cuando no hay sorteo todavía,
   // P2/P3 cuando el BO3 quedó 1-1 y la siguiente partida sigue "pending".
   const nextDrawingGame = games.find((g: any) => g.status === "pending" && g.game_number > 1) ?? null;
-  const hasDate = !!match.scheduled_at_start;
   const canStartNextGameDraw = match.status === "in_progress" && !!nextDrawingGame;
 
   // Partida activa con sorteo hecho → nombre de sala AoE2 (derivación pura,
@@ -157,8 +174,7 @@ export default async function AdminPartidoPage({
         gameNumber: lobbyGame.game_number,
         matchId: match.id,
       })
-    : null;
-  const showLobbyBlock =
+    : null;  const showLobbyBlock =
     !!lobbyName && !isFinished && !["disputed", "forfeit", "cancelled"].includes(match.status);
 
   // Stepper: índice de la fase actual dentro del ciclo (forfeit/cancelled no
@@ -373,6 +389,77 @@ export default async function AdminPartidoPage({
                 <Save style={{ width: 13, height: 13 }} /> Programar llave
               </button>
             </form>
+          </div>
+        </section>
+      )}
+
+      {/* ═══ W.O. — VENTANA DE DECISIÓN (tolerancia vencida, llave aún scheduled).
+          Ya no hay auto-ganador: el reloj sigue corriendo y la decisión es del
+          admin. Si un capitán confirma, avanza solo y esta card desaparece. */}
+      {readyPhaseNow?.phase === "wo" && (
+        <section className="mb-8">
+          <div className="vertigo-wo" style={{ padding: "24px 26px" }}>
+            <div className="flex items-start gap-4 mb-5">
+              <div className="vertigo-nodate-medallion" style={{ width: 46, height: 46 }}>
+                <AlertTriangle style={{ width: 21, height: 21 }} strokeWidth={1.75} />
+              </div>
+              <div>
+                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "2.2px", color: "var(--vertigo-danger)", opacity: 0.9 }}>
+                  DECISIÓN REQUERIDA · ADMIN WIN
+                </div>
+                <div
+                  className="font-cinzel"
+                  style={{ fontSize: 17, fontWeight: 700, letterSpacing: "1.2px", textTransform: "uppercase", color: "var(--vertigo-danger)", marginTop: 3 }}
+                >
+                  Tolerancia vencida — resolvé el W.O.
+                </div>
+                <p style={{ fontSize: 13, lineHeight: 1.6, color: "var(--vertigo-muted)", margin: "8px 0 0", maxWidth: 660 }}>
+                  El reloj sigue corriendo (+{fmtOverdue(readyPhaseNow.msPastDeadline ?? 0)} de demora):
+                  si un capitán confirma READY, avanza solo. Si no aparece nadie, decidís vos
+                  quién gana o reprogramás la llave.
+                </p>
+              </div>
+            </div>
+            <div
+              className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-5"
+              style={{ borderTop: "1px solid rgba(251,113,133,0.18)" }}
+            >
+              <div className="flex flex-col gap-3">
+                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "2px", color: "var(--vertigo-faint)" }}>
+                  OPCIÓN A · ADMIN WIN — ASIGNAR GANADOR
+                </div>
+                <ForfeitForm
+                  matchId={match.id}
+                  action={markForfeitFormAction}
+                  teamAId={teamA?.id}
+                  teamBId={teamB?.id}
+                  teamAName={teamA?.team_account?.name}
+                  teamBName={teamB?.team_account?.name}
+                  requireWinner
+                  buttonLabel="Asignar ganador (W.O.)"
+                />
+              </div>
+              <div className="flex flex-col gap-3">
+                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "2px", color: "var(--vertigo-faint)" }}>
+                  OPCIÓN B · REPROGRAMAR LA LLAVE
+                </div>
+                <form action={scheduleMatchFormAction} className="flex flex-wrap items-end gap-3">
+                  <input type="hidden" name="match_id" value={match.id} />
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[9px] uppercase tracking-widest text-[var(--vertigo-faint)]">Nuevo inicio</label>
+                    <VertigoDateTime name="scheduled_at_start" required />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[9px] uppercase tracking-widest text-[var(--vertigo-faint)]">Jornada</label>
+                    <input type="text" name="jornada_label" defaultValue={match.jornada_label ?? ""} placeholder="Jornada 1"
+                      className="bg-[var(--vertigo-input-bg)] border border-[var(--vertigo-input-border)] rounded-md px-3 py-2 text-[13px] text-[var(--vertigo-text)] w-32" />
+                  </div>
+                  <button type="submit" className="vertigo-btn vertigo-btn-primary" style={{ padding: "12px 22px", fontSize: 11 }}>
+                    <Save style={{ width: 13, height: 13 }} /> Reprogramar llave
+                  </button>
+                </form>
+              </div>
+            </div>
           </div>
         </section>
       )}

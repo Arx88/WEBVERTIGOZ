@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { AlertCircle, ShieldCheck, Users } from "lucide-react";
 import AdminHero from "@/components/shared/admin-hero";
 import { fmt } from "@/lib/format";
-import StaffTable from "./staff-table";
+import StaffManager from "./staff-manager";
 import StaffEnableForm from "./staff-enable-form";
 import { listStaffAccounts } from "@/server/actions/ruleta";
 
@@ -55,37 +55,32 @@ export default async function AdminStaffPage() {
       />
 
       {!isSuperAdmin && (
-        <div className="vertigo-card mb-8" style={{ border: "1px solid rgba(251,191,36,0.3)", background: "rgba(251,191,36,0.05)" }}>
-          <div className="flex items-center gap-3 text-sm" style={{ color: "#fbbf24" }}>
-            <AlertCircle style={{ width: 16, height: 16, flex: "none" }} />
-            Modo lectura: solo el ADMIN MAX puede habilitar o quitar administradores.
-          </div>
+        <div className="staff-readonly">
+          <AlertCircle style={{ width: 15, height: 15, flex: "none" }} />
+          Modo lectura: solo el ADMIN MAX puede habilitar o quitar administradores.
         </div>
       )}
 
-      <div className="flex flex-col gap-10">
+      <div className="staff-sections">
         {/* Staff actual — protagonista */}
         <section>
-          <div className="mb-4 flex items-center gap-3">
+          <header className="staff-sec-head">
             <Users style={{ width: 15, height: 15, color: "var(--vertigo-purple-soft)" }} />
-            <h2 className="font-cinzel text-base" style={{ color: "var(--vertigo-text)" }}>Staff actual</h2>
-            <span className="ad-section-count">{staff.length}</span>
-            <span className="h-px flex-1" style={{ background: "var(--vertigo-line-soft)" }} />
-          </div>
-          <StaffTable staff={staff} isSuperAdmin={isSuperAdmin} myEmail={account.email} />
-          <p className="mt-3 text-[11px]" style={{ color: "var(--vertigo-faint)" }}>
-            El alta más reciente: {fmt.date(staff[staff.length - 1]?.created_at ?? null)}. Los ADMIN MAX no se pueden
-            quitar ni degradar desde acá — por diseño.
+            <div><h2>Staff actual</h2><p>Quién administra el torneo. El alta más reciente: {fmt.date(staff[staff.length - 1]?.created_at ?? null)}.</p></div>
+            <span className="staff-count">{staff.length}</span>
+          </header>
+          <StaffManager staff={staff} isSuperAdmin={isSuperAdmin} myEmail={account.email} />
+          <p className="staff-note">
+            Los ADMIN MAX no se pueden quitar ni degradar desde acá — por diseño.
           </p>
         </section>
 
         {/* Alta */}
         <section>
-          <div className="mb-4 flex items-center gap-3">
+          <header className="staff-sec-head">
             <ShieldCheck style={{ width: 15, height: 15, color: "var(--vertigo-purple-soft)" }} />
-            <h2 className="font-cinzel text-base" style={{ color: "var(--vertigo-text)" }}>Habilitar admin</h2>
-            <span className="h-px flex-1" style={{ background: "var(--vertigo-line-soft)" }} />
-          </div>
+            <div><h2>Habilitar admin</h2><p>Por email. Si ya tiene cuenta, conserva su historial.</p></div>
+          </header>
           <StaffEnableForm isSuperAdmin={isSuperAdmin} />
         </section>
 

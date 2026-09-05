@@ -17,9 +17,10 @@ import { getSupabaseServiceRole } from "@/lib/supabase/server";
 import { requireAdminAccount } from "./match-day";
 import { parseCompanionMatchRef } from "@/lib/aoe2/lobby-name";
 import { syncGameWithCompanion, type SyncGameRow, type SyncMatchRow } from "@/lib/aoe2/match-sync";
+import { logAdminAction } from "@/lib/admin-audit";
 
 export async function linkAoe2MatchAction(formData: FormData): Promise<{ ok: boolean; error?: string; detail?: string }> {
-  await requireAdminAccount();
+  const { account } = await requireAdminAccount();
 
   const matchGameId = String(formData.get("match_game_id") ?? "").trim();
   const ref = String(formData.get("companion_ref") ?? "").trim();
@@ -56,6 +57,15 @@ export async function linkAoe2MatchAction(formData: FormData): Promise<{ ok: boo
 
   revalidatePath(`/partido/${match.id}`);
   revalidatePath(`/admin/partido/${match.id}`);
+
+  await logAdminAction({
+    supabase: service,
+    accountId: account.id,
+    action: "link_aoe2_match",
+    entityType: "match_game",
+    entityId: matchGameId,
+    payload: { aoe2_match_id: Number(aoe2MatchId), reported: result.reported ?? false },
+  });
 
   if (result.reported) {
     return { ok: true, detail: `Match ${aoe2MatchId} vinculado: rec y análisis archivados, resultado cargado.` };

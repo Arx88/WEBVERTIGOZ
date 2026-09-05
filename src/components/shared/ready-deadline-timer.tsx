@@ -44,13 +44,14 @@ export default function ReadyDeadlineTimer({
   variant?: "block" | "chip";
 }) {
   const router = useRouter();
-  const { phase, msToOpen, msToDeadline } = useReadyWindow(scheduledAtStart, status);
+  const { phase, msToOpen, msToDeadline, msPastDeadline } = useReadyWindow(scheduledAtStart, status);
   const refreshedRef = useRef(false);
 
-  // Al agotarse la tolerancia, el server ya puede aplicar el W.O.:
-  // refrescamos para que la página lo refleje (enforcement lazy).
+  // Al agotarse la tolerancia la llave entra en la ventana de decisión de
+  // W.O. (fase "wo"): refrescamos para que la página refleje el cambio de fase
+  // (el estado del match NO cambió en el server, solo la fase del reloj).
   useEffect(() => {
-    if (phase === "expired" && !refreshedRef.current) {
+    if (phase === "wo" && !refreshedRef.current) {
       refreshedRef.current = true;
       const t = setTimeout(() => router.refresh(), 1200);
       return () => clearTimeout(t);
@@ -117,7 +118,7 @@ export default function ReadyDeadlineTimer({
       <div className="vertigo-stat" style={{ textAlign: "center", borderColor: "rgba(34,197,94,0.35)" }}>
         <div className="vertigo-stat-label" style={{ color: "var(--vertigo-success)" }}>Ventana de READY abierta</div>
         <div className="text-[11px] text-[var(--vertigo-muted)] mt-1">
-          W.O. automático en {fmtHMS(msToDeadline ?? 0)} si no confirmás
+          Si nadie confirma, W.O. a decisión del admin en {fmtHMS(msToDeadline ?? 0)}
         </div>
       </div>
     ) : (
@@ -140,7 +141,7 @@ export default function ReadyDeadlineTimer({
         }}
       >
         <div className="vertigo-stat-label" style={{ color: "var(--vertigo-danger)" }}>
-          Tolerancia en curso — W.O. automático
+          Tolerancia en curso
         </div>
         <div className="vertigo-stat-value" style={{ fontSize: 26, color: urgent ? "var(--vertigo-danger)" : undefined }}>
           <AlarmClock
@@ -150,30 +151,49 @@ export default function ReadyDeadlineTimer({
           {fmtHMS(msToDeadline ?? 0)}
         </div>
         <div className="text-[11px] text-[var(--vertigo-muted)] mt-1">
-          El equipo que no confirmó READY pierde la llave
+          Vencida la tolerancia: el primero en confirmar avanza o el admin decide el W.O.
         </div>
       </div>
     ) : (
       <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: "var(--vertigo-danger)" }}>
         <AlarmClock style={{ width: 12, height: 12 }} />
-        W.O. automático en {fmtHMS(msToDeadline ?? 0)}
+        Tolerancia · {fmtHMS(msToDeadline ?? 0)}
       </span>
     );
   }
 
-  // expired
-  return variant === "block" ? (
-    <div className="vertigo-stat" style={{ textAlign: "center", borderColor: "rgba(251,113,133,0.5)" }}>
-      <div className="vertigo-stat-label" style={{ color: "var(--vertigo-danger)" }}>Tiempo agotado</div>
-      <div className="text-[11px] text-[var(--vertigo-muted)] mt-1">
-        <TimerOff style={{ width: 12, height: 12, display: "inline", marginRight: 6 }} />
-        Aplicando resultado por W.O.…
+  // Ventana de decisión de W.O. (tolerancia vencida, llave aún scheduled):
+  // el reloj sigue corriendo — confirma para avanzar o espera al admin.
+  if (phase === "wo") {
+    const past = msPastDeadline ?? 0;
+    return variant === "block" ? (
+      <div
+        className="vertigo-stat"
+        style={{
+          textAlign: "center",
+          borderColor: "rgba(251,113,133,0.5)",
+          background: "rgba(251,113,133,0.07)",
+        }}
+      >
+        <div className="vertigo-stat-label" style={{ color: "var(--vertigo-danger)" }}>
+          Ventana de decisión de W.O.
+        </div>
+        <div className="vertigo-stat-value" style={{ fontSize: 26, color: "var(--vertigo-danger)" }}>
+          <AlarmClock style={{ width: 20, height: 20, display: "inline", marginRight: 8, verticalAlign: "middle" }} strokeWidth={1.5} />
+          +{fmtHMS(past)}
+        </div>
+        <div className="text-[11px] text-[var(--vertigo-muted)] mt-1">
+          Confirmá ESTOY LISTO para avanzar — o el admin decide el W.O.
+        </div>
       </div>
-    </div>
-  ) : (
-    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: "var(--vertigo-danger)" }}>
-      <TimerOff style={{ width: 12, height: 12 }} />
-      Tiempo agotado
-    </span>
-  );
+    ) : (
+      <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: "var(--vertigo-danger)" }}>
+        <TimerOff style={{ width: 12, height: 12 }} />
+        W.O. a decisión · +{fmtHMS(past)}
+      </span>
+    );
+  }
+
+  // inactive: el match ya no está scheduled (terminado, forfeit, etc.).
+  return null;
 }

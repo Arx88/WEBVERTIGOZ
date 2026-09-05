@@ -16,6 +16,7 @@
 import { revalidatePath } from "next/cache";
 import { getSupabaseServer, getSupabaseServiceRole } from "@/lib/supabase/server";
 import { requireAdminAccount } from "./match-day";
+import { logAdminAction } from "@/lib/admin-audit";
 
 // ============================================================
 // RULETAS (preset de la ruleta)
@@ -182,7 +183,7 @@ function validatePresetConfig(config: PresetConfig): string | null {
  */
 export async function saveRuletaPresetAction(fd: FormData): Promise<{ ok: boolean; error?: string }> {
   try {
-    await requireAdminAccount();
+    const { account } = await requireAdminAccount();
     const service = getSupabaseServiceRole() as any;
     const editionId = String(fd.get("edition_id") ?? "").trim();
     if (!editionId) return { ok: false, error: "Falta edition_id." };
@@ -203,6 +204,22 @@ export async function saveRuletaPresetAction(fd: FormData): Promise<{ ok: boolea
 
     const saved = await persistPresetConfig(service, editionId, loaded.preset, next);
     if (!saved.ok) return saved;
+
+    await logAdminAction({
+      supabase: service,
+      accountId: account.id,
+      action: "save_ruleta_preset",
+      entityType: "tournament_edition",
+      entityId: editionId,
+      entityLabel: loaded.edition?.name ?? null,
+      payload: { counts: {
+        gameModes: next.gameModes?.length ?? 0,
+        playerModes: next.playerModes?.length ?? 0,
+        mapModes: next.mapModes?.length ?? 0,
+        llaveModes: next.llaveModes?.length ?? 0,
+        antimetaModes: next.antimetaModes?.length ?? 0,
+      } },
+    });
 
     revalidatePath("/admin/ruletas");
     revalidatePath("/admin/torneo");
@@ -251,6 +268,14 @@ export async function saveRuletaWeightsAction(fd: FormData): Promise<{ ok: boole
     const saved = await persistPresetConfig(service, editionId, preset, next);
     if (!saved.ok) return saved;
 
+    await logAdminAction({
+      supabase: service,
+      accountId: account.id,
+      action: "save_ruleta_weights",
+      entityType: "tournament_edition",
+      entityId: editionId,
+    });
+
     revalidatePath("/admin/ruletas");
     revalidatePath("/admin/torneo");
     return { ok: true };
@@ -262,7 +287,7 @@ export async function saveRuletaWeightsAction(fd: FormData): Promise<{ ok: boole
 /** Alta/baja lógica de una opción del preset (activa/inactiva). */
 export async function toggleRuletaOptionAction(fd: FormData): Promise<{ ok: boolean; error?: string }> {
   try {
-    await requireAdminAccount();
+    const { account } = await requireAdminAccount();
     const service = getSupabaseServiceRole() as any;
     const editionId = String(fd.get("edition_id") ?? "").trim();
     const list = String(fd.get("list") ?? "").trim() as Kind;
@@ -291,6 +316,15 @@ export async function toggleRuletaOptionAction(fd: FormData): Promise<{ ok: bool
 
     const saved = await persistPresetConfig(service, editionId, preset, next);
     if (!saved.ok) return saved;
+
+    await logAdminAction({
+      supabase: service,
+      accountId: account.id,
+      action: "toggle_ruleta_option",
+      entityType: "tournament_edition",
+      entityId: editionId,
+      payload: { list, option_id: optionId, active },
+    });
 
     revalidatePath("/admin/ruletas");
     return { ok: true };
@@ -362,6 +396,17 @@ export async function setAdminRoleAction(fd: FormData): Promise<{ ok: boolean; e
       }
       const { error } = await service.from("account").update({ role, updated_at: new Date().toISOString() }).eq("id", existing.id);
       if (error) return { ok: false, error: `No se pudo actualizar: ${error.message}` };
+
+      await logAdminAction({
+        supabase: service,
+        accountId: me.id,
+        action: "set_admin_role",
+        entityType: "account",
+        entityId: existing.id,
+        entityLabel: email,
+        payload: { from: existing.role, to: role },
+      });
+
       revalidatePath("/admin/staff");
       return { ok: true };
     }
@@ -384,6 +429,15 @@ export async function setAdminRoleAction(fd: FormData): Promise<{ ok: boolean; e
       display_name: email.split("@")[0],
     }, { onConflict: "supabase_auth_id" });
     if (insErr) return { ok: false, error: `Usuario creado, pero falló la fila de cuenta: ${insErr.message}` };
+
+    await logAdminAction({
+      supabase: service,
+      accountId: me.id,
+      action: "set_admin_role",
+      entityType: "account",
+      entityLabel: email,
+      payload: { created: true, role: "admin" },
+    });
 
     revalidatePath("/admin/staff");
     return { ok: true };

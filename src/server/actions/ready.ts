@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getSupabaseServer, getSupabaseServiceRole } from "@/lib/supabase/server";
 import { READY_WINDOW_MIN, GRACE_MIN } from "@/lib/match-rules";
 import { notifyMatchCaptains } from "@/server/notify/notify-captains";
+import { logAdminAction } from "@/lib/admin-audit";
 
 export interface ReadyActionState {
   error?: string;
@@ -92,9 +93,11 @@ export async function confirmReadyAction(
       error: `Podés confirmar READY desde ${READY_WINDOW_MIN} minutos antes del horario de la llave.`,
     };
   }
-  if (nowMs > startMs + GRACE_MIN * 60_000) {
-    return { error: "El tiempo para confirmar READY ya terminó." };
-  }
+  // Después de la tolerancia la ventana NO cierra: entra la ventana de
+  // decisión de W.O. (fase "wo"): el reloj sigue corriendo y confirmar acá
+  // resuelve la llave — el primero en confirmar avanza; si el rival ya había
+  // confirmado, ambos están presentes y la llave se habilita normal.
+  const pastDeadline = nowMs > startMs + GRACE_MIN * 60_000;
 
   const now = new Date().toISOString();
   const isTeamA = match.team_a_id === reg.id;
@@ -117,13 +120,33 @@ export async function confirmReadyAction(
     .single()) as { data: any };
 
   if (updated?.ready_a_at && updated?.ready_b_at) {
-    // Ambos ready → HABILITADA (status = open)
+    // Ambos ready → HABILITADA (status = open). También aplica en la ventana
+    // de decisión de W.O.: si los dos aparecieron, juegan igual. El guard de
+    // status evita que una confirmación en carrera pise una resolución
+    // (forfeit) ya aplicada por el otro capitán.
     await service
       .from("match")
       .update({ status: "open", updated_at: now })
-      .eq("id", matchId);
+      .eq("id", matchId)
+      .eq("status", "scheduled");
     // Avisar a los dos capitanes que la llave quedó habilitada (in-app).
     await notifyMatchCaptains(matchId, "open");
+  } else if (pastDeadline) {
+    // W.O. resuelto por presencia: la tolerancia venció, el rival nunca
+    // confirmó y este equipo sí — avanza solo (mismo efecto que la decisión
+    // manual del admin, firmada por el capitán que se presentó). El guard de
+    // status hace que la PRIMERA resolución gane si ambos confirman a la vez.
+    await service
+      .from("match")
+      .update({
+        status: "forfeit",
+        winner_team_id: reg.id,
+        finished_at: now,
+        updated_at: now,
+      })
+      .eq("id", matchId)
+      .eq("status", "scheduled");
+    await notifyMatchCaptains(matchId, "wo", reg.id);
   }
 
   revalidatePath("/mis-partidos");
@@ -180,6 +203,15 @@ export async function extendReadyWindowAction(formData: FormData): Promise<{ ok:
     .eq("id", matchId);
   if (error) return { ok: false, error: `DB error: ${error.message}` };
 
+  await logAdminAction({
+    supabase: service,
+    accountId: account.id,
+    action: "extend_ready_window",
+    entityType: "match",
+    entityId: matchId,
+    payload: { minutes, new_scheduled_at_start: newStart.toISOString(), previous_scheduled_at_start: match.scheduled_at_start },
+  });
+
   revalidatePath(`/admin/partido/${matchId}`);
   revalidatePath(`/partido/${matchId}`);
   revalidatePath("/mis-partidos");
@@ -221,6 +253,14 @@ export async function startComodinWindowAction(matchId: string, fd: FormData): P
     .eq("id", matchId);
 
   if (error) throw new Error(`DB error: ${error.message}`);
+
+  await logAdminAction({
+    supabase,
+    accountId: account.id,
+    action: "start_comodin_window",
+    entityType: "match",
+    entityId: matchId,
+  });
 
   revalidatePath(`/admin/partido/${matchId}`);
   revalidatePath(`/partido/${matchId}`);
@@ -272,6 +312,15 @@ export async function startMatchAction(matchId: string, fd: FormData): Promise<v
     .eq("id", matchId);
 
   if (error) throw new Error(`DB error: ${error.message}`);
+
+  await logAdminAction({
+    supabase,
+    accountId: account.id,
+    action: "start_match",
+    entityType: "match",
+    entityId: matchId,
+    payload: { started_game_id: pendingGame?.id ?? null },
+  });
 
   revalidatePath(`/admin/partido/${matchId}`);
   revalidatePath(`/partido/${matchId}`);

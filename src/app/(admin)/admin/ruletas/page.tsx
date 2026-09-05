@@ -1,10 +1,9 @@
-import fs from "node:fs";
-import path from "node:path";
 import { getSupabaseServer, getSupabaseServiceRole } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { Dices, Ban, Info } from "lucide-react";
 import AdminHero from "@/components/shared/admin-hero";
 import { getEditionForAdmin } from "@/lib/edition";
+import { readAvailableArt } from "@/lib/ruleta/available-art";
 import RuletaEditor from "./ruleta-editor";
 
 export const dynamic = "force-dynamic";
@@ -36,29 +35,6 @@ const KIND_TO_CONFIG_KEY = {
   LLAVE: "llaveModes",
   MAPA: "mapModes",
 } as const;
-
-/** Lee el arte disponible en public/modes/ (rutas servibles, "/modes/..."). */
-function readAvailableArt(): string[] {
-  const root = path.join(process.cwd(), "public", "modes");
-  const out: string[] = [];
-  const walk = (dir: string, prefix: string) => {
-    let entries: fs.Dirent[];
-    try {
-      entries = fs.readdirSync(dir, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const e of entries) {
-      if (e.isDirectory()) {
-        walk(path.join(dir, e.name), `${prefix}${e.name}/`);
-      } else if (/\.(webp|png|jpe?g|avif|gif)$/i.test(e.name)) {
-        out.push(`/modes/${prefix}${e.name}`);
-      }
-    }
-  };
-  walk(root, "");
-  return out.sort();
-}
 
 export default async function AdminRuletasPage({
   searchParams,

@@ -496,8 +496,8 @@ export default async function MisPartidosPage() {
                       {isScheduled && (myReady || readyWin.phase !== "no-date") && (
                         <div style={{
                           padding: "14px 18px",
-                          background: myReady ? "rgba(34,197,94,0.08)" : readyWin.phase === "grace" || readyWin.phase === "expired" ? "rgba(251,113,133,0.07)" : "rgba(251,191,36,0.06)",
-                          border: `1px solid ${myReady ? "rgba(34,197,94,0.3)" : readyWin.phase === "grace" || readyWin.phase === "expired" ? "rgba(251,113,133,0.4)" : "rgba(251,191,36,0.25)"}`,
+                          background: myReady ? "rgba(34,197,94,0.08)" : readyWin.phase === "grace" || readyWin.phase === "wo" ? "rgba(251,113,133,0.07)" : "rgba(251,191,36,0.06)",
+                          border: `1px solid ${myReady ? "rgba(34,197,94,0.3)" : readyWin.phase === "grace" || readyWin.phase === "wo" ? "rgba(251,113,133,0.4)" : "rgba(251,191,36,0.25)"}`,
                           borderRadius: "10px",
                           marginBottom: "16px",
                           display: "flex",
@@ -515,9 +515,9 @@ export default async function MisPartidosPage() {
                                 {readyWin.msToOpen != null && ` (faltan ~${Math.max(1, Math.ceil(readyWin.msToOpen / 60_000))} min)`}
                               </span>
                             ) : readyWin.phase === "grace" ? (
-                              <span style={{ color: "var(--vertigo-danger)", fontWeight: 600 }}>⚠ Tolerancia en curso — si no confirmás antes del límite, perdés por W.O.</span>
-                            ) : readyWin.phase === "expired" ? (
-                              <span style={{ color: "var(--vertigo-danger)", fontWeight: 600 }}>Tiempo agotado — aplicando W.O.…</span>
+                              <span style={{ color: "var(--vertigo-danger)", fontWeight: 600 }}>⚠ Tolerancia en curso — si no confirmás antes del límite, entrá en riesgo de W.O.</span>
+                            ) : readyWin.phase === "wo" ? (
+                              <span style={{ color: "var(--vertigo-danger)", fontWeight: 600 }}>⚠ Ventana de decisión: confirmá ESTOY LISTO para avanzar — si no, el admin decide el W.O.</span>
                             ) : rivalReady ? (
                               <span style={{ color: "#fbbf24" }}>⚠ El rival está listo — Confirmá tu participación</span>
                             ) : (
@@ -536,7 +536,7 @@ export default async function MisPartidosPage() {
                               ESTOY LISTO
                             </button>
                           )}
-                          {!myReady && (readyWin.phase === "open" || readyWin.phase === "grace") && (
+                          {!myReady && (readyWin.phase === "open" || readyWin.phase === "grace" || readyWin.phase === "wo") && (
                             <ConfirmReadyForm matchId={m.id} phase={readyWin.phase} />
                           )}
                         </div>

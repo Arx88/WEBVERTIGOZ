@@ -12,6 +12,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Crown, Loader2, Lock, Mail, Shield, ShieldOff } from "lucide-react";
+import { fmt } from "@/lib/format";
 import { setAdminRoleAction } from "@/server/actions/ruleta";
 
 export interface StaffMember {
@@ -60,7 +61,7 @@ export default function StaffTable({
   }
 
   return (
-    <div className="flex flex-col gap-2.5">
+    <div className="staff-rows">
       {staff.map((s) => {
         const isMax = s.role === "super_admin";
         const isMe = s.email === myEmail;
@@ -69,21 +70,10 @@ export default function StaffTable({
         return (
           <div
             key={s.id}
-            className="flex flex-wrap items-center gap-3 rounded-xl px-4 py-3.5"
-            style={{
-              background: "rgba(13,9,19,0.6)",
-              border: `1px solid ${isMax ? "rgba(251,191,36,0.35)" : "var(--vertigo-line-soft)"}`,
-            }}
+            className={`staff-row ${isMax ? "is-max" : ""} ${confirming ? "is-confirming" : ""}`}
           >
             {/* Avatar */}
-            <div
-              className="flex flex-none items-center justify-center rounded-full"
-              style={{
-                width: 36, height: 36, fontSize: 14, fontWeight: 700,
-                background: isMax ? "rgba(251,191,36,0.12)" : "rgba(124,58,237,0.15)",
-                color: isMax ? "#fbbf24" : "var(--vertigo-purple-soft)",
-              }}
-            >
+            <div className={`staff-ava ${isMax ? "is-max" : ""}`}>
               {(s.display_name ?? s.email ?? "?").charAt(0).toUpperCase()}
             </div>
 
@@ -93,15 +83,13 @@ export default function StaffTable({
                 <span className="truncate text-sm font-semibold" style={{ color: "var(--vertigo-text)" }}>
                   {s.display_name || s.email.split("@")[0]}
                 </span>
-                {isMe && (
-                  <span className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-[1px]" style={{ background: "rgba(124,58,237,0.2)", color: "var(--vertigo-purple-soft)" }}>
-                    vos
-                  </span>
-                )}
+                {isMe && <span className="staff-vos">vos</span>}
               </div>
-              <div className="flex items-center gap-1.5 text-xs" style={{ color: "var(--vertigo-faint)" }}>
+              <div className="staff-sub flex items-center gap-1.5 text-xs" style={{ color: "var(--vertigo-faint)" }}>
                 <Mail style={{ width: 11, height: 11, flex: "none" }} />
                 <span className="truncate">{s.email}</span>
+                <span className="staff-dot" aria-hidden>·</span>
+                <span className="staff-date">desde {fmt.date(s.created_at)}</span>
               </div>
             </div>
 

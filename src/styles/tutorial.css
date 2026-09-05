@@ -1020,3 +1020,440 @@
 @media (max-width: 900px) {
   .tut-kbd-hint { display: none; }
 }
+
+
+/* ============================================================
+   POWER CARD MOMENT — re-declaración tras una carta de poder.
+   Libre en la escena: SIN caja, sin contenedor. Igual que la
+   carta épica: carta 3D flotando con aura + rayos, tipografía
+   Cinzel grande y tres unidades de texto. Colores por carta
+   via .pk-moment[data-kind].
+   ============================================================ */
+.pk-moment {
+  position: relative;
+  width: min(90cqw, 1000px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+/* rayos girando libres detrás de todo */
+.pk-rays {
+  position: absolute;
+  top: -12cqh;
+  left: 50%;
+  width: 120cqw;
+  height: 120cqw;
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 0;
+  background: repeating-conic-gradient(
+    from 0deg at 50% 50%,
+    rgba(212, 175, 55, 0.05) 0deg 1.5deg,
+    transparent 1.5deg 9deg,
+    rgba(124, 58, 237, 0.04) 9deg 10.5deg,
+    transparent 10.5deg 18deg
+  );
+  animation: tut-rays-rot 26s linear infinite;
+  -webkit-mask-image: radial-gradient(circle, black 6%, transparent 46%);
+  mask-image: radial-gradient(circle, black 6%, transparent 46%);
+}
+.pk-moment[data-kind="anular"] .pk-rays {
+  background: repeating-conic-gradient(
+    from 0deg at 50% 50%,
+    rgba(251, 113, 133, 0.055) 0deg 1.5deg,
+    transparent 1.5deg 9deg,
+    rgba(124, 58, 237, 0.04) 9deg 10.5deg,
+    transparent 10.5deg 18deg
+  );
+}
+/* aura que respira detrás de la carta (libre, sin clip) */
+.pk-halo {
+  position: absolute;
+  top: 9cqh;
+  left: 50%;
+  width: 44cqh;
+  height: 44cqh;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(circle, rgba(212, 175, 55, 0.20) 0%, rgba(212, 175, 55, 0.07) 40%, transparent 68%);
+  animation: tut-aura-breathe 3.4s ease-in-out infinite;
+}
+.pk-moment[data-kind="anular"] .pk-halo {
+  background: radial-gradient(circle, rgba(251, 113, 133, 0.22) 0%, rgba(251, 113, 133, 0.08) 40%, transparent 68%);
+}
+.pk-card {
+  position: relative;
+  z-index: 2;
+  perspective: 1100px;
+}
+.pk-card-3d {
+  transform-style: preserve-3d;
+  animation: tut-card-sway 5s ease-in-out infinite;
+}
+.pk-art {
+  display: block;
+  height: clamp(96px, 24cqh, 220px);
+  width: auto;
+  filter: drop-shadow(0 18px 40px rgba(0, 0, 0, 0.75)) drop-shadow(0 0 34px rgba(212, 175, 55, 0.32));
+  animation: tut-art-glow 3.2s ease-in-out infinite;
+}
+.pk-moment[data-kind="anular"] .pk-art {
+  filter: drop-shadow(0 18px 40px rgba(0, 0, 0, 0.75)) drop-shadow(0 0 34px rgba(251, 113, 133, 0.34));
+}/* nombre de la carta: grande, Cinzel, sin caja */
+.pk-title {
+  position: relative;
+  z-index: 2;
+  margin-top: 1.2cqh;
+  font-family: var(--font-cinzel), Georgia, serif;
+  font-weight: 700;
+  font-size: clamp(24px, 6.4cqh, 56px);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  line-height: 1;
+  color: var(--tut-gold, #d4af37);
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.65), 0 0 42px rgba(212, 175, 55, 0.4);
+}
+/* subtítulo: la ÚNICA línea de regla — pequeña, espaciada, gris */
+.pk-sub {
+  position: relative;
+  z-index: 2;
+  margin-top: 1.4cqh;
+  font-family: Inter, system-ui, sans-serif;
+  font-weight: 700;
+  font-size: clamp(9px, 1.9cqh, 14px);
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: rgba(207, 200, 221, 0.6);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
+  animation: pk-tag-in 0.6s ease 0.9s both;
+}
+.pk-moment[data-kind="anular"] .pk-title {
+  color: #fb7185;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.65), 0 0 42px rgba(251, 113, 133, 0.4);
+}
+/* el roster del equipo afectado: SELECCIÓN DE PERSONAJE.
+   Cada jugador es una unidad (glifo de diamante + nombre grande),
+   conectadas por un haz de luz HUD; la carta marcó a UNO y su
+   unidad cae del cielo con la marca. Los demás quedan lejos y
+   apagados, mostrando que la carta ELIGIÓ entre todos. */
+.pk-roster {
+  position: relative;
+  z-index: 2;
+  margin-top: 3.8cqh;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  column-gap: 7.5cqw;
+  row-gap: 3cqh;
+  max-width: 94cqw;
+  padding-top: 1cqh;
+}
+/* MODO DUELO: dos lados enfrentados (una carta por equipo — la mutua).
+   Sin cajas: los lados se separan por el VS central y el haz corto. */
+.pk-duel {
+  position: relative;
+  z-index: 2;
+  margin-top: 3.2cqh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2.2cqw;
+  width: 100%;
+}
+.pk-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+.pk-side-team {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-family: Inter, system-ui, sans-serif;
+  font-weight: 600;
+  font-size: clamp(9px, 1.9cqh, 13px);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: rgba(154, 146, 166, 0.85);
+}
+.pk-side-team img {
+  width: clamp(16px, 3.4cqh, 24px);
+  height: clamp(16px, 3.4cqh, 24px);
+  object-fit: contain;
+  filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.5));
+  opacity: 0.9;
+}
+.pk-vs {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.6cqh;
+  align-self: center;
+  padding-top: 1cqh;
+}
+.pk-vs b {
+  font-family: var(--font-cinzel), Georgia, serif;
+  font-weight: 700;
+  font-size: clamp(18px, 4.6cqh, 40px);
+  letter-spacing: 0.1em;
+  color: var(--tut-gold, #d4af37);
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.7), 0 0 34px rgba(212, 175, 55, 0.45);
+}
+.pk-vs i {
+  width: 1.5px;
+  height: 8cqh;
+  background: linear-gradient(180deg, transparent, rgba(212, 175, 55, 0.55), transparent);
+  animation: pk-vs-in 0.9s ease 1s both;
+}
+@keyframes pk-vs-in {
+  from { opacity: 0; transform: scaleY(0.2); }
+  to { opacity: 1; transform: none; }
+}
+.pk-moment[data-kind="anular"] .pk-vs b {
+  color: #fb7185;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.7), 0 0 34px rgba(251, 113, 133, 0.45);
+}
+.pk-moment[data-kind="anular"] .pk-vs i {
+  background: linear-gradient(180deg, transparent, rgba(251, 113, 133, 0.55), transparent);
+}
+.pk-side--compact .pk-roster {
+  margin-top: 2.6cqh;
+  column-gap: 3cqw;
+  row-gap: 2cqh;
+  padding-top: 1cqh;
+  max-width: 44cqw;
+  flex-wrap: nowrap;
+}
+.pk-side--compact .pk-unit {
+  min-width: 0;
+}
+.pk-side--compact .pk-name {
+  font-size: clamp(10px, 2.1cqh, 18px);
+  letter-spacing: 0.13em;
+}
+.pk-side--compact .pk-glyph {
+  width: clamp(22px, 5.2cqh, 46px);
+  height: clamp(22px, 5.2cqh, 46px);
+}
+.pk-side--compact .pk-glyph span {
+  font-size: clamp(11px, 2.4cqh, 21px);
+}
+.pk-side--compact .pk-side-team {
+  margin-top: 3.4cqh;
+}
+/* haz de luz que conecta las unidades (HUD de selección) */
+.pk-roster::before {
+  content: '';
+  position: absolute;
+  left: 10cqw;
+  right: 10cqw;
+  top: calc(1cqh + clamp(26px, 6.4cqh, 58px) / 2);
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.22) 18%, rgba(212, 175, 55, 0.5) 50%, rgba(212, 175, 55, 0.22) 82%, transparent);
+  box-shadow: 0 0 14px rgba(212, 175, 55, 0.3);
+  transform-origin: center;
+  animation: pk-beam-in 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.75s both;
+  pointer-events: none;
+}
+.pk-moment[data-kind="anular"] .pk-roster::before {
+  background: linear-gradient(90deg, transparent, rgba(251, 113, 133, 0.2) 18%, rgba(251, 113, 133, 0.45) 50%, rgba(251, 113, 133, 0.2) 82%, transparent);
+  box-shadow: 0 0 14px rgba(251, 113, 133, 0.28);
+}
+@keyframes pk-beam-in {
+  from { opacity: 0; transform: scaleX(0.15); }
+  to { opacity: 1; transform: none; }
+}
+/* unidad de jugador: glifo arriba, nombre abajo */
+.pk-unit {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2cqh;
+  min-width: 14cqw;
+  animation: pk-unit-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(0.12s + var(--pk-i, 0) * 0.16s);
+}
+@keyframes pk-unit-in {
+  from { opacity: 0; transform: translateY(26px) scale(0.82); }
+  to { opacity: 1; transform: none; }
+}
+/* glifo de diamante: la "cabeza" del jugador en la selección */
+.pk-glyph {
+  display: grid;
+  place-items: center;
+  width: clamp(26px, 6.4cqh, 58px);
+  height: clamp(26px, 6.4cqh, 58px);
+  background: linear-gradient(145deg, rgba(30, 22, 48, 0.92), rgba(12, 8, 22, 0.92));
+  border: 1.5px solid rgba(212, 175, 55, 0.5);
+  box-shadow: 0 0 0 3px rgba(7, 3, 16, 0.65), 0 12px 28px rgba(0, 0, 0, 0.6), inset 0 0 14px rgba(212, 175, 55, 0.12);
+  transform: rotate(45deg);
+  transition: border-color 0.35s ease;
+}
+.pk-glyph span {
+  transform: rotate(-45deg);
+  font-family: var(--font-cinzel), Georgia, serif;
+  font-weight: 700;
+  font-size: clamp(13px, 2.9cqh, 26px);
+  line-height: 1;
+  color: rgba(207, 200, 221, 0.72);
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+/* nombre: grande, espaciado, bien lejos del glifo */
+.pk-name {
+  position: relative;
+  font-family: Inter, system-ui, sans-serif;
+  font-weight: 700;
+  font-size: clamp(13px, 3.1cqh, 28px);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(154, 146, 166, 0.55);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
+  white-space: nowrap;
+  transition: color 0.4s ease;
+}
+/* EL MARCADO: los demás aparecen primero; la víctima CAE del cielo
+   con la marca de la carta ya puesta */
+.pk-unit--hit {
+  z-index: 3;
+  animation: pk-hit-slam 0.55s cubic-bezier(0.16, 1, 0.3, 1) 1.05s both;
+}
+@keyframes pk-hit-slam {
+  0% { opacity: 0; transform: translateY(-40cqh) scale(1.6); }
+  55% { opacity: 1; transform: translateY(1.4cqh) scale(1.14); }
+  75% { transform: translateY(-0.5cqh) scale(1.2); }
+  100% { opacity: 1; transform: translateY(-1cqh) scale(1.22); }
+}
+/* marca bajo el nombre: la sentencia de la carta */
+@keyframes pk-tag-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+/* ELEGIR RIVAL: glifo dorado latiendo + retícula HUD cerrándose */
+.pk-moment[data-kind="elegir_rival"] .pk-unit--hit .pk-glyph {
+  border-color: #e9d18a;
+  animation: pk-glow-gold 2.2s ease-in-out 1.9s infinite;
+}
+.pk-moment[data-kind="elegir_rival"] .pk-unit--hit .pk-glyph span {
+  color: #fff;
+}
+@keyframes pk-glow-gold {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(7, 3, 16, 0.65), 0 0 46px rgba(212, 175, 55, 0.55), 0 12px 28px rgba(0, 0, 0, 0.6), inset 0 0 18px rgba(212, 175, 55, 0.3); }
+  50% { box-shadow: 0 0 0 3px rgba(7, 3, 16, 0.65), 0 0 16px rgba(212, 175, 55, 0.22), 0 12px 28px rgba(0, 0, 0, 0.6), inset 0 0 9px rgba(212, 175, 55, 0.12); }
+}
+.pk-moment[data-kind="elegir_rival"] .pk-unit--hit .pk-name {
+  color: #e9d18a;
+  text-shadow: 0 0 26px rgba(212, 175, 55, 0.55), 0 2px 12px rgba(0, 0, 0, 0.7);
+}
+.pk-moment[data-kind="elegir_rival"] .pk-unit--hit .pk-glyph::after {
+  content: '';
+  position: absolute;
+  inset: -11px;
+  pointer-events: none;
+  --br: #e9d18a;
+  background:
+    linear-gradient(var(--br), var(--br)) left 0 top 0 / 12px 2.5px,
+    linear-gradient(var(--br), var(--br)) left 0 top 0 / 2.5px 12px,
+    linear-gradient(var(--br), var(--br)) right 0 top 0 / 12px 2.5px,
+    linear-gradient(var(--br), var(--br)) right 0 top 0 / 2.5px 12px,
+    linear-gradient(var(--br), var(--br)) left 0 bottom 0 / 12px 2.5px,
+    linear-gradient(var(--br), var(--br)) left 0 bottom 0 / 2.5px 12px,
+    linear-gradient(var(--br), var(--br)) right 0 bottom 0 / 12px 2.5px,
+    linear-gradient(var(--br), var(--br)) right 0 bottom 0 / 2.5px 12px;
+  background-repeat: no-repeat;
+  filter: drop-shadow(0 0 6px rgba(212, 175, 55, 0.6));
+  animation: pk-lock 0.5s cubic-bezier(0.16, 1, 0.3, 1) 1.5s both,
+    pk-lock-pulse 2.2s ease-in-out 2.1s infinite;
+}
+@keyframes pk-lock {
+  from { opacity: 0; transform: scale(2); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes pk-lock-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+/* ANULAR: glifo rojo + la víctima tachada con un zarpazo encendido */
+.pk-moment[data-kind="anular"] .pk-unit--hit .pk-glyph {
+  border-color: #fb7185;
+  animation: pk-glow-red 2.2s ease-in-out 1.9s infinite;
+}
+@keyframes pk-glow-red {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(7, 3, 16, 0.65), 0 0 46px rgba(251, 113, 133, 0.55), 0 12px 28px rgba(0, 0, 0, 0.6), inset 0 0 18px rgba(251, 113, 133, 0.3); }
+  50% { box-shadow: 0 0 0 3px rgba(7, 3, 16, 0.65), 0 0 16px rgba(251, 113, 133, 0.22), 0 12px 28px rgba(0, 0, 0, 0.6), inset 0 0 9px rgba(251, 113, 133, 0.12); }
+}
+.pk-moment[data-kind="anular"] .pk-unit--hit .pk-name {
+  color: #fb7185;
+  text-shadow: 0 0 26px rgba(251, 113, 133, 0.55), 0 2px 12px rgba(0, 0, 0, 0.7);
+}
+.pk-moment[data-kind="anular"] .pk-unit--hit .pk-name::after {
+  content: '';
+  position: absolute;
+  left: -9%;
+  right: -9%;
+  top: 52%;
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, #fb7185 15%, #fb7185 85%, transparent);
+  box-shadow: 0 0 18px rgba(251, 113, 133, 0.8);
+  transform-origin: left center;
+  animation: pk-strike 0.45s cubic-bezier(0.16, 1, 0.3, 1) 1.55s both;
+}
+@keyframes pk-strike {
+  from { transform: scaleX(0); opacity: 0; }
+  to { transform: scaleX(1); opacity: 1; }
+}
+/* única línea de contexto: quién re-declara */
+.pk-team {
+  position: relative;
+  z-index: 2;
+  margin-top: 2cqh;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-cinzel), Georgia, serif;
+  font-weight: 700;
+  font-size: clamp(10px, 2.3cqh, 16px);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(207, 200, 221, 0.85);
+}
+.pk-team img {
+  width: clamp(20px, 4.4cqh, 32px);
+  height: clamp(20px, 4.4cqh, 32px);
+  object-fit: contain;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5));
+}
+.pk-team em {
+  font-style: normal;
+  font-family: Inter, system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 0.82em;
+  letter-spacing: 0.24em;
+  color: rgba(154, 146, 166, 0.9);
+}
+/* Toma de pantalla en el overlay real: la carta sigue viva mientras el
+   equipo afectado re-declara — continuación directa de la carta épica. */
+.pk-takeover {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(ellipse at center, rgba(7, 3, 16, 0.72) 0%, rgba(7, 3, 16, 0.94) 100%);
+  animation: tut-epic-fade 0.45s ease both;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pk-rays, .pk-halo, .pk-card-3d, .pk-art { animation: none; }
+  .pk-roster::before, .pk-unit, .pk-unit--hit, .pk-sub, .pk-vs i,
+  .pk-moment[data-kind="anular"] .pk-unit--hit .pk-glyph,
+  .pk-moment[data-kind="elegir_rival"] .pk-unit--hit .pk-glyph,
+  .pk-moment[data-kind="anular"] .pk-unit--hit .pk-name::after,
+  .pk-moment[data-kind="elegir_rival"] .pk-unit--hit .pk-glyph::after { animation: none; }
+}

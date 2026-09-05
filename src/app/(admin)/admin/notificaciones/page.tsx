@@ -49,7 +49,39 @@ export default async function AdminNotificacionesPage() {
   const { data: pushAccounts } = await service
     .from("push_subscription")
     .select("account_id");
-  const pushAccountsCount = new Set((pushAccounts ?? []).map((p: any) => p.account_id)).size;
+  const pushIds = new Set((pushAccounts ?? []).map((p: any) => p.account_id));
+  const pushAccountsCount = pushIds.size;
+
+  // Desglose push por audiencia + muestras para el builder visual.
+  // Sin migraciones: se deriva de account/caster/team_account existentes.
+  const { data: casterRows } = await service.from("caster").select("account_id");
+  const casterIds = new Set((casterRows ?? []).map((c: any) => c.account_id));
+  const { data: sampleAccounts } = (await service
+    .from("account")
+    .select("id, role, display_name")
+    .limit(2000)) as { data: Array<{ id: string; role: string; display_name: string | null }> | null };
+  const byId = new Map((sampleAccounts ?? []).map((a) => [a.id, a]));
+  const pushOf = (ids: string[]) => ids.filter((id) => pushIds.has(id)).length;
+  const bettorIds = (sampleAccounts ?? []).filter((a) => a.role === "spectator").map((a) => a.id);
+  const playerIds = (sampleAccounts ?? []).filter((a) => a.role === "player").map((a) => a.id);
+  const ownerIds = [...new Set((owners ?? []).map((o: any) => o.owner_id).filter(Boolean))] as string[];
+  const casterIdList = [...casterIds] as string[];
+  const pushBreakdown = {
+    all: pushAccountsCount,
+    captains: pushOf(ownerIds),
+    bettors: pushOf(bettorIds),
+    players: pushOf(playerIds),
+    casters: pushOf(casterIdList),
+  };
+  const pickNames = (ids: string[], n = 5) =>
+    ids.map((id) => byId.get(id)?.display_name || "Cuenta").filter(Boolean).slice(0, n);
+  const samples: Record<string, string[]> = {
+    all: ((sampleAccounts ?? []).slice(0, 5).map((a) => a.display_name || "Cuenta")),
+    captains: pickNames(ownerIds),
+    bettors: pickNames(bettorIds),
+    players: pickNames(playerIds),
+    casters: pickNames(casterIdList),
+  };
 
   const { data: teams } = (await service
     .from("team_account")
@@ -99,7 +131,15 @@ export default async function AdminNotificacionesPage() {
       />
 
       <div id="redactar" style={{ scrollMarginTop: 24 }}>
-        <BroadcastComposer teams={(teams ?? []) as { id: string; name: string }[]} reach={reach} />
+        <BroadcastComposer
+          teams={(teams ?? []) as { id: string; name: string }[]}
+          reach={reach}
+          push={pushBreakdown}
+          pushPct={pushPct}
+          samples={samples}
+          scheduled={(scheduledRows ?? []) as any[]}
+          recent={(logRows ?? []).slice(0, 10) as any[]}
+        />
       </div>
 
       <BroadcastHistory rows={(logRows ?? []) as any[]} scheduled={(scheduledRows ?? []) as any[]} />

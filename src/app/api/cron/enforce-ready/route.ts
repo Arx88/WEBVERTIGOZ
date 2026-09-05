@@ -6,13 +6,11 @@ export const dynamic = "force-dynamic";
 /**
  * GET /api/cron/enforce-ready
  *
- * Aplica W.O. automático a los matches scheduled cuya tolerancia
- * (15 min después del horario) ya venció. Pensado para Vercel Cron
- * (ver vercel.json, diario a las 03:00 UTC — el plan Hobby no permite
- * frecuencias mayores; el check lazy al abrir las páginas cubre el resto):
+ * Barrido de matches scheduled con tolerancia vencida. Desde el modelo
+ * "Admin Win" NO auto-resuelve nada (la resolución es del primer READY o del
+ * admin); queda como punto de extensión y para chequeo lazy de páginas.
  *   curl -H "Authorization: Bearer $CRON_SECRET" https://<host>/api/cron/enforce-ready
  * Sin CRON_SECRET configurado, solo se permite en desarrollo.
- * Además las páginas del partido aplican el mismo check de forma lazy.
  */
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET;

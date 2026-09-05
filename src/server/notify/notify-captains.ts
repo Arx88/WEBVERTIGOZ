@@ -15,14 +15,14 @@ import { getSupabaseServiceRole } from "@/lib/supabase/server";
  * → team_account.owner_id, el mismo patrón que usa el broadcast admin.
  */
 
-export type CaptainEvent = "open" | "lineup" | "comodin_window";
+export type CaptainEvent = "open" | "lineup" | "comodin_window" | "wo";
 
 const READY_WINDOW_MIN = 15;
 const GRACE_MIN = 15;
 const EVENT_TYPE_READY = "match_ready";
 
 const EVENT_META: Record<
-  CaptainEvent,
+  Exclude<CaptainEvent, "wo">,
   { type: string; title: (opp: string) => string; body: (opp: string) => string }
 > = {
   open: {
@@ -48,7 +48,7 @@ const EVENT_META: Record<
 async function resolveCaptains(
   service: any,
   match: { team_a_id: string | null; team_b_id: string | null }
-): Promise<Array<{ owner: string; oppName: string }>> {
+) {
   const { team_a_id, team_b_id } = match;
   const regIds = [team_a_id, team_b_id].filter(Boolean);
   if (regIds.length < 2) return [];
@@ -70,18 +70,23 @@ async function resolveCaptains(
   const teamById: Record<string, { name: string; owner: string }> = {};
   for (const t of teams ?? []) if (t.owner_id) teamById[t.id] = { name: t.name ?? "—", owner: t.owner_id };
 
-  const out: Array<{ owner: string; oppName: string }> = [];
+  const out: Array<{ regId: string; owner: string; oppName: string }> = [];
   for (const [regId, teamId] of Object.entries(regToTeam)) {
     const me = teamById[teamId];
     if (!me) continue;
     const oppRegId = (regId === team_a_id ? team_b_id : team_a_id) ?? "";
     const opp = teamById[regToTeam[oppRegId]];
-    out.push({ owner: me.owner, oppName: opp?.name ?? "el rival" });
+    out.push({ regId, owner: me.owner, oppName: opp?.name ?? "el rival" });
   }
   return out;
 }
 
-export async function notifyMatchCaptains(matchId: string, event: CaptainEvent) {
+export async function notifyMatchCaptains(
+  matchId: string,
+  event: CaptainEvent,
+  /** Solo event="wo": team_registration que ganó por presencia. */
+  woWinnerRegId?: string | null
+) {
   const service = getSupabaseServiceRole() as any;
   const { data: match } = (await service
     .from("match")
@@ -93,17 +98,34 @@ export async function notifyMatchCaptains(matchId: string, event: CaptainEvent) 
   const captains = await resolveCaptains(service, match);
   if (captains.length === 0) return { sent: 0 };
 
-  const meta = EVENT_META[event];
   const now = new Date().toISOString();
-  const rows = captains.map((c) => ({
-    account_id: c.owner,
-    type: meta.type,
-    title: meta.title(c.oppName),
-    body: meta.body(c.oppName),
-    link: `/partido/${matchId}`,
-    match_id: matchId,
-    created_at: now,
-  }));
+  const rows = captains.map((c) => {
+    // W.O. resuelto por presencia: cada capitán recibe SU lado del resultado.
+    if (event === "wo") {
+      const won = c.regId === woWinnerRegId;
+      return {
+        account_id: c.owner,
+        type: "match_wo",
+        title: won ? `Ganaste por W.O. — vs ${c.oppName}` : `W.O. — perdiste vs ${c.oppName}`,
+        body: won
+          ? "El rival no confirmó READY dentro del tiempo. La llave quedó a tu favor y avanzás en el bracket."
+          : "No confirmaste READY dentro del tiempo: el rival avanzó por W.O.",
+        link: `/partido/${matchId}`,
+        match_id: matchId,
+        created_at: now,
+      };
+    }
+    const meta = EVENT_META[event];
+    return {
+      account_id: c.owner,
+      type: meta.type,
+      title: meta.title(c.oppName),
+      body: meta.body(c.oppName),
+      link: `/partido/${matchId}`,
+      match_id: matchId,
+      created_at: now,
+    };
+  });
 
   const { error } = await service.from("notification").insert(rows);
   if (error) return { sent: 0, error: error.message };

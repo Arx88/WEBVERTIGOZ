@@ -36,12 +36,17 @@ export default function StaffEnableForm({ isSuperAdmin }: { isSuperAdmin: boolea
     });
   };
 
-  return (
-    <form ref={formRef} onSubmit={submit} className="vertigo-card">
-      <div className="mb-3 flex items-center gap-2">
-        <ShieldPlus style={{ width: 14, height: 14, color: "var(--vertigo-purple-soft)" }} />
-        <span className="text-[10px] font-bold uppercase tracking-[2px] text-[#b5adc4]">Habilitar admin</span>
+  if (!isSuperAdmin) {
+    return (
+      <div className="vertigo-card staff-quiet">
+        <ShieldPlus style={{ width: 15, height: 15, color: "var(--vertigo-faint)", flex: "none" }} />
+        <p>Solo el ADMIN MAX puede habilitar administradores. Estás en modo lectura.</p>
       </div>
+    );
+  }
+
+  return (
+    <form ref={formRef} onSubmit={submit} className="vertigo-card staff-form">
       <div className="flex flex-wrap items-center gap-3">
         <div
           className="flex min-w-[240px] flex-1 items-center gap-2 rounded-lg px-3 py-2.5"

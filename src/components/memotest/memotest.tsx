@@ -33,6 +33,12 @@ interface MemotestProps {
   onCivDrawn: (civ: MemotestCard, slotIndex: number) => void;
   trigger: boolean;
   disabled?: boolean;
+  /** Se dispara cuando terminan TODOS los sorteos (civsToDraw alcanzado) con las civs reveladas. */
+  onComplete?: (revealedIds: string[]) => void;
+  /** Fija las columnas (p. ej. pantalla 16:9 del stream). Sin valor: responsive. */
+  columns?: number;
+  /** Muestra la franja "CIVILIZACIONES ASIGNADAS" (en la stream las civs viven en la banda central). */
+  showStrip?: boolean;
 }
 
 type AnimState = "idle" | "spinning" | "flipping" | "revealed";
@@ -44,6 +50,9 @@ export default function Memotest({
   alreadyDrawn,
   onCivDrawn,
   trigger,
+  columns,
+  showStrip = true,
+  onComplete,
 }: MemotestProps) {
   const [animState, setAnimState] = useState<AnimState>("idle");
   const [activeIndex, setActiveIndex] = useState(0);
@@ -54,6 +63,7 @@ export default function Memotest({
   const spinRafRef = useRef<number | null>(null);
   const spinStartRef = useRef<number>(0);
   const spinTargetRef = useRef<number>(0);
+  const revealedRef = useRef<MemotestCard[]>([]);
 
   const availableCards = cards.filter(
     (c) => !alreadyDrawn.includes(c.civId) && !revealedCivs.some((r) => r.civId === c.civId)
@@ -72,12 +82,6 @@ export default function Memotest({
     }
     return -1;
   }, [cards, alreadyDrawn, revealedCivs]);
-
-  useEffect(() => {
-    if (trigger && animState === "idle" && currentDrawIndex < civsToDraw) {
-      startSpin();
-    }
-  }, [trigger, animState, currentDrawIndex, civsToDraw]);
 
   const startSpin = useCallback(() => {
     if (availableCards.length === 0) return;
@@ -111,7 +115,9 @@ export default function Memotest({
 
         setTimeout(() => {
           const revealedCard = availableCards[targetIdx];
-          setRevealedCivs((prev) => [...prev, revealedCard]);
+          const nextRevealed = [...revealedRef.current, revealedCard];
+          revealedRef.current = nextRevealed;
+          setRevealedCivs(nextRevealed);
           onCivDrawn(revealedCard, currentDrawIndex);
           setFlippedIndex(null);
           setAnimState("revealed");
@@ -125,13 +131,24 @@ export default function Memotest({
               }
               return idx;
             });
+            // Fin de la tanda de este equipo: el caller encadena el siguiente.
+            if (currentDrawIndex + 1 >= civsToDraw) onComplete?.(nextRevealed.map((c) => c.civId));
           }, 1000);
         }, 800);
       }
     };
 
     spinRafRef.current = requestAnimationFrame(animate);
-  }, [availableCards, civsToDraw, currentDrawIndex, onCivDrawn]);
+  }, [availableCards, civsToDraw, currentDrawIndex, onCivDrawn, onComplete]);
+
+  useEffect(() => {
+    if (trigger && animState === "idle" && currentDrawIndex < civsToDraw) {
+      // Diferido a un timer: el linter exige no llamar setState sincrónico
+      // dentro del cuerpo del efecto; el arranque queda idéntico.
+      const id = window.setTimeout(startSpin, 0);
+      return () => window.clearTimeout(id);
+    }
+  }, [trigger, animState, currentDrawIndex, civsToDraw, startSpin]);
 
   useEffect(() => {
     return () => {
@@ -155,36 +172,44 @@ export default function Memotest({
   const flipGridIndex = animState === "flipping" && flippedIndex != null ? cardIndexOf(flippedIndex) : -1;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+    <div className="mt-root">
+      {/* Overline central: reglas de oro + título + estado del sorteo */}
+      <div className="mt-head">
+        <i className="mt-rule" aria-hidden />
+        <div className="mt-head-mid">
           <div className="label-premium text-gold/80">
             SORTEO DE CIVILIZACIONES · EQUIPO {teamSide}
           </div>
-          <div className="text-text-secondary text-sm mt-1">
-            {sortedCount} de {totalCivsToSort} sorteadas
+          <div className="mt-head-sub">
+            <span className="text-text-secondary text-sm">
+              {sortedCount} de {totalCivsToSort} sorteadas
+            </span>
+            {animState === "spinning" && (
+              <span className="text-accent text-caption uppercase tracking-wider animate-pulse">
+                ◆ Sorteando...
+              </span>
+            )}
+            {animState === "flipping" && (
+              <span className="text-gold text-caption uppercase tracking-wider animate-pulse">
+                ◆ Revelando...
+              </span>
+            )}
           </div>
         </div>
-        {animState === "spinning" && (
-          <div className="text-accent text-caption uppercase tracking-wider animate-pulse">
-            ◆ Sorteando...
-          </div>
-        )}
-        {animState === "flipping" && (
-          <div className="text-gold text-caption uppercase tracking-wider animate-pulse">
-            ◆ Revelando...
-          </div>
-        )}
+        <i className="mt-rule mt-rule-r" aria-hidden />
       </div>
 
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+      <div
+        className="mt-grid grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3"
+        style={columns ? ({ "--mt-cols": columns } as React.CSSProperties) : undefined}
+      >
         {cards.map((card, idx) => {
           const isRevealed = revealedCivs.some((r) => r.civId === card.civId);
           const isFlipping = flipGridIndex === idx;
           const isActive = activeGridIndex === idx;
 
           return (
-            <MemotestCard
+            <MemotestCardView
               key={card.id}
               card={card}
               isRevealed={isRevealed}
@@ -195,19 +220,20 @@ export default function Memotest({
         })}
       </div>
 
-      {revealedCivs.length > 0 && (
-        <div className="border border-border-subtle bg-bg-elevated p-4">
-          <div className="label-premium text-gold/80 mb-3">
+      {showStrip && revealedCivs.length > 0 && (
+        <div className="mt-strip">
+          <div className="label-premium text-gold/80 mt-strip-title">
             CIVILIZACIONES ASIGNADAS
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="mt-strip-row">
             {revealedCivs.map((civ, idx) => (
-              <div
-                key={civ.civId}
-                className="px-3 py-1 border border-gold/40 bg-gold/5 text-gold text-sm font-medium"
-              >
-                <span className="tabular-nums mr-2">{idx + 1}.</span>
-                {civ.civName}
+              <div key={civ.civId} className="mt-seal">
+                <span className="mt-seal-num tabular-nums">{idx + 1}</span>
+                {civ.civImageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={civ.civImageUrl} alt="" className="mt-seal-img" draggable={false} />
+                ) : null}
+                <span className="mt-seal-name">{civ.civName}</span>
               </div>
             ))}
           </div>
@@ -217,7 +243,7 @@ export default function Memotest({
   );
 }
 
-function MemotestCard({
+function MemotestCardView({
   card,
   isRevealed,
   isFlipping,
@@ -230,72 +256,35 @@ function MemotestCard({
 }) {
   return (
     <div
-      className="aspect-square relative"
-      style={{ perspective: "1000px" }}
+      className={cn(
+        "mt-card",
+        isRevealed && "is-revealed",
+        isFlipping && "is-flipping",
+        isActive && "is-active"
+      )}
     >
-      <div
-        className="relative w-full h-full transition-transform duration-700"
-        style={{
-          transformStyle: "preserve-3d",
-          transform: (isRevealed || isFlipping) ? "rotateY(180deg)" : "rotateY(0deg)",
-        }}
-      >
-        {/* DORSO — logo AoE2; al frenar el selector, flip y aparece el escudo */}
-        <div
-          className={cn(
-            "absolute inset-0 border-2 rounded-md overflow-hidden bg-[#6A0DAD]",
-            isActive
-              ? "border-gold scale-105"
-              : "border-border-subtle"
-          )}
-          style={{
-            backfaceVisibility: "hidden",
-            WebkitBackfaceVisibility: "hidden",
-          }}
-        >
+      <div className="mt-inner">
+        {/* DORSO — logo AoE2 enmarcado; al frenar el selector, flip y aparece la civ */}
+        <div className="mt-face mt-back">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/brand/aoe2-logo.webp"
             alt="Age of Empires II"
             draggable={false}
-            className="absolute inset-0 w-full h-full object-cover"
+            className="mt-back-logo"
           />
-          {isActive && (
-            <div
-              className="absolute inset-0 border-4 border-gold rounded-md animate-pulse"
-              style={{ boxShadow: "0 0 20px rgba(212, 175, 55, 0.5)" }}
-            />
-          )}
         </div>
 
         {/* FRENTE */}
-        <div
-          className={cn(
-            "absolute inset-0 flex flex-col items-center justify-center",
-            "border-2 rounded-md overflow-hidden",
-            "bg-bg-elevated border-gold"
-          )}
-          style={{
-            backfaceVisibility: "hidden",
-            WebkitBackfaceVisibility: "hidden",
-            transform: "rotateY(180deg)",
-          }}
-        >
+        <div className="mt-face mt-front">
           {card.civImageUrl ? (
-            <img
-              src={card.civImageUrl}
-              alt={card.civName}
-              className="w-full h-full object-cover"
-            />
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={card.civImageUrl} alt={card.civName} className="mt-front-art" draggable={false} />
           ) : (
-            <div className="font-serif text-3xl text-gold font-bold">
-              {card.civName.charAt(0)}
-            </div>
+            <div className="mt-front-initial font-serif">{card.civName.charAt(0)}</div>
           )}
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-bg-elevated to-transparent p-2">
-            <div className="text-caption text-text-primary text-center uppercase tracking-wider font-medium">
-              {card.civName}
-            </div>
-          </div>
+          <div className="mt-front-name">{card.civName}</div>
+          {isFlipping && <i className="mt-front-sheen" aria-hidden />}
         </div>
       </div>
     </div>

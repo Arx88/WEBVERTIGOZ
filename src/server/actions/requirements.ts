@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getSupabaseServer, getSupabaseServiceRole } from "@/lib/supabase/server";
+import { logAdminAction } from "@/lib/admin-audit";
 
 const TOGGLEABLE = [
   "anti_smurf_check",
@@ -62,7 +63,7 @@ export async function setPaymentConfirmedAction(registrationId: string, confirme
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
   const { data: account } = (await supabase
-    .from("account").select("role").eq("supabase_auth_id", user.id).maybeSingle()) as { data: any };
+    .from("account").select("id, role").eq("supabase_auth_id", user.id).maybeSingle()) as { data: any };
   if (!account || !["admin", "super_admin"].includes(account.role ?? "")) return;
 
   const service = getSupabaseServiceRole();
@@ -96,6 +97,16 @@ export async function setPaymentConfirmedAction(registrationId: string, confirme
   }
 
   await service.from("team_registration").update(patch).eq("id", registrationId);
+
+  await logAdminAction({
+    supabase: service as any,
+    accountId: account.id,
+    action: "set_payment_confirmed",
+    entityType: "team_registration",
+    entityId: registrationId,
+    payload: { confirmed, reapproved: patch.status === "approved" || undefined },
+  });
+
   revalidatePath("/admin/equipos");
   revalidatePath("/mi-equipo");
 }
@@ -112,7 +123,7 @@ export async function toggleRequirementAction(formData: FormData) {
   if (!user) return;
   const { data: account } = (await supabase
     .from("account")
-    .select("role")
+    .select("id, role")
     .eq("supabase_auth_id", user.id)
     .maybeSingle()) as { data: any };
   if (!account || !["admin", "super_admin"].includes(account.role ?? "")) return;
@@ -129,6 +140,16 @@ export async function toggleRequirementAction(formData: FormData) {
     .from("team_registration")
     .update({ [field]: !reg[field], updated_at: new Date().toISOString() })
     .eq("id", registrationId);
+
+  await logAdminAction({
+    supabase: service as any,
+    accountId: account.id,
+    action: "toggle_requirement",
+    entityType: "team_registration",
+    entityId: registrationId,
+    payload: { field, from: reg[field], to: !reg[field] },
+  });
+
   revalidatePath("/admin/equipos");
   revalidatePath("/mi-equipo");
 }

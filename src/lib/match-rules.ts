@@ -4,7 +4,9 @@
  * server actions, enforcement, páginas server y componentes client.
  *
  * - READY_WINDOW_MIN: cuántos minutos ANTES del horario se abre el "ESTOY LISTO".
- * - GRACE_MIN: tolerancia después del horario; vencida, W.O. automático.
+ * - GRACE_MIN: tolerancia después del horario; vencida, entra la ventana de
+ *   decisión de W.O. (sin auto-ganador: el primero en confirmar avanza o el
+ *   admin decide).
  */
 export const READY_WINDOW_MIN = 15;
 export const GRACE_MIN = 15;
@@ -14,18 +16,24 @@ export const GRACE_MIN = 15;
  * - "no-date": sin horario confirmado.
  * - "early": falta para que se abra la ventana (now < T - READY_WINDOW_MIN).
  * - "open": ventana abierta antes del horario (se puede confirmar READY).
- * - "grace": tolerancia posterior al horario (W.O. automático al agotarse).
- * - "expired": tolerancia agotada (el enforcement lo convierte en forfeit).
+ * - "grace": tolerancia posterior al horario (W.O. al agotarse).
+ * - "wo": tolerancia AGOTADA y la llave sigue scheduled → ventana de
+ *   decisión de W.O. El reloj SIGUE CORRIENDO: el primero que confirme
+ *   READY avanza; el admin decide y detiene el reloj. (Antes esto era
+ *   "expired" con W.O. automático; ahora NO se auto-asigna ganador.)
  * - "confirmed": llave habilitada (status open, ambos READY) — la ventana
  *   cerró pero el horario de inicio sigue siendo relevante (countdown).
  * - "inactive": el match ya no está en estado scheduled (nada que mostrar).
  */
-export type ReadyPhase = "no-date" | "early" | "open" | "grace" | "expired" | "confirmed" | "inactive";
+export type ReadyPhase = "no-date" | "early" | "open" | "grace" | "wo" | "confirmed" | "inactive";
 
 export interface ReadyWindowState {
   phase: ReadyPhase;
   msToOpen: number | null;
   msToDeadline: number | null;
+  /** En fase "wo": cuánto pasó desde que venció la tolerancia (el reloj
+   *  sigue corriendo hacia adelante). null en el resto de las fases. */
+  msPastDeadline: number | null;
 }
 
 export function computeReadyPhase(
@@ -38,28 +46,30 @@ export function computeReadyPhase(
   // siendo relevante (countdown al inicio programado / al sorteo).
   if (status === "open") {
     if (!scheduledAtStart) {
-      return { phase: "no-date", msToOpen: null, msToDeadline: null };
+      return { phase: "no-date", msToOpen: null, msToDeadline: null, msPastDeadline: null };
     }
     const start = new Date(scheduledAtStart).getTime();
-    return { phase: "confirmed", msToOpen: start - nowMs, msToDeadline: null };
+    return { phase: "confirmed", msToOpen: start - nowMs, msToDeadline: null, msPastDeadline: null };
   }
   if (status !== "scheduled") {
-    return { phase: "inactive", msToOpen: null, msToDeadline: null };
+    return { phase: "inactive", msToOpen: null, msToDeadline: null, msPastDeadline: null };
   }
   if (!scheduledAtStart) {
-    return { phase: "no-date", msToOpen: null, msToDeadline: null };
+    return { phase: "no-date", msToOpen: null, msToDeadline: null, msPastDeadline: null };
   }
   const start = new Date(scheduledAtStart).getTime();
   const openAt = start - READY_WINDOW_MIN * 60_000;
   const deadline = start + GRACE_MIN * 60_000;
   if (nowMs < openAt) {
-    return { phase: "early", msToOpen: openAt - nowMs, msToDeadline: deadline - nowMs };
+    return { phase: "early", msToOpen: openAt - nowMs, msToDeadline: deadline - nowMs, msPastDeadline: null };
   }
   if (nowMs < start) {
-    return { phase: "open", msToOpen: null, msToDeadline: deadline - nowMs };
+    return { phase: "open", msToOpen: null, msToDeadline: deadline - nowMs, msPastDeadline: null };
   }
   if (nowMs < deadline) {
-    return { phase: "grace", msToOpen: null, msToDeadline: deadline - nowMs };
+    return { phase: "grace", msToOpen: null, msToDeadline: deadline - nowMs, msPastDeadline: null };
   }
-  return { phase: "expired", msToOpen: null, msToDeadline: null };
+  // Tolerancia agotada y llave aún scheduled: NO se auto-asigna ganador.
+  // Ventana de decisión de W.O.; el reloj sigue corriendo hacia adelante.
+  return { phase: "wo", msToOpen: null, msToDeadline: null, msPastDeadline: nowMs - deadline };
 }

@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { approveTeamAction, rejectTeamAction } from "@/server/actions/auth";
 import { toggleRequirementAction, setPaymentConfirmedAction } from "@/server/actions/requirements";
-import { Check, X, Users, Crown, AlertTriangle, Clock, RotateCcw, CreditCard, Hourglass, ShieldCheck, Ban, Undo2 } from "lucide-react";
+import { Check, X, Users, Crown, AlertTriangle, Clock, RotateCcw, CreditCard, Hourglass, ShieldCheck, Ban, Undo2, ExternalLink } from "lucide-react";
 import AdminHero from "@/components/shared/admin-hero";
 import { fmt } from "@/lib/format";
 
@@ -228,7 +229,9 @@ function TeamCard({
 
         <div className="ad-id">
           <div className="ad-id-top">
-            <h3 className="ad-name" title={team?.name ?? undefined}>{team?.name ?? "—"}</h3>
+            <h3 className="ad-name" title={team?.name ?? undefined}>
+              <Link href={`/equipos/${reg.id}`} className="ad-name-link" title={`Ver perfil de ${team?.name ?? "equipo"}`}>{team?.name ?? "—"}</Link>
+            </h3>
             {team?.tagline && <span className="ad-tagline" title={team.tagline}>&ldquo;{team.tagline}&rdquo;</span>}
           </div>
           <div className="ad-meta">
@@ -297,11 +300,23 @@ function TeamCard({
                       Capitán
                     </span>
                   )}
-                  <span className="ad-player-nm" title={p.display_name}>{p.display_name}</span>
+                  <span className="ad-player-nm" title={p.display_name}>
+                    <Link href={`/jugadores/${p.id}`} className="ad-player-link" title={`Ver perfil de ${p.display_name}`}>{p.display_name}</Link>
+                  </span>
                   {p.is_verified && <Check style={{ width: 12, height: 12, color: "var(--vertigo-success)", flex: "none" }} strokeWidth={2.5} />}
                 </span>
                 <span className="ad-player-sub">
                   {p.country ?? "—"} · #{p.aoe2_profile_id}
+                  <a
+                    href={`https://aoe2companion.com/app/profile/${p.aoe2_profile_id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ad-player-companion"
+                    title={`Abrir perfil AoE2 Companion #${p.aoe2_profile_id} (tab nueva)`}
+                  >
+                    <ExternalLink style={{ width: 11, height: 11 }} />
+                    Companion
+                  </a>
                 </span>
               </span>
               <span className="ad-player-elo">

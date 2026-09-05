@@ -60,7 +60,7 @@ export default async function OverlayMatchPage({
   const { data: executedUsages } = (await supabase
     .from("comodin_usage")
     .select(`
-      id, comodin_type, comodin_inventory_id, executed_at,
+      id, comodin_type, comodin_inventory_id, executed_at, target_player_id,
       target:target_player_id (display_name)
     `)
     .eq("match_id", match_id)
@@ -159,6 +159,9 @@ export default async function OverlayMatchPage({
       /** Registro del equipo que lo usó (para el estandarte de la carta). */
       teamRegId: invToTeam[c.comodin_inventory_id] ?? null,
       targetName: c.target?.display_name ?? null,
+      /** ID del jugador objetivo: el board de lineup lo cruza con el roster
+          de cada equipo para marcar al afectado durante la re-declaración. */
+      targetPlayerId: c.target_player_id ?? null,
     })),
     teamA: match.team_a
       ? {

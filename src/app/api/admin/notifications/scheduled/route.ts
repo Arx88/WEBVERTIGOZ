@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import { getSupabaseServiceRole } from "@/lib/supabase/server";
+import { logAdminAction } from "@/lib/admin-audit";
 
 /**
  * DELETE /api/admin/notifications/scheduled?id=…
@@ -27,7 +28,7 @@ export async function DELETE(req: NextRequest) {
       .update({ status: "cancelled" })
       .eq("id", id)
       .eq("status", "pending")
-      .select("id");
+      .select("id, title");
     if (error) throw new Error(error.message);
     if (!data?.length) {
       return NextResponse.json(
@@ -35,6 +36,14 @@ export async function DELETE(req: NextRequest) {
         { status: 404 }
       );
     }
+    await logAdminAction({
+      supabase: service,
+      accountId: account.id,
+      action: "cancel_scheduled_broadcast",
+      entityType: "scheduled_broadcast",
+      entityId: id,
+      entityLabel: data[0]?.title ?? null,
+    });
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[scheduled-cancel] error:", err);

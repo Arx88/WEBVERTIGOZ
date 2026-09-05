@@ -17,7 +17,7 @@ export default async function PartidoPage({
 }) {
   const { id } = await params;
 
-  // W.O. automático lazy: si la tolerancia ya venció, se aplica antes de
+  // Chequeo lazy de la ventana de W.O. (sin auto-resolución):
   // cargar los datos así la página refleja el resultado real.
   try {
     await enforceMatchIfDue(id);

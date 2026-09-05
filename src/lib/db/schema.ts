@@ -481,6 +481,24 @@ export const drawAuditLog = pgTable("draw_audit_log", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * Log de acciones del staff: cada write hecho desde el panel
+ * (inscripciones, brackets, presets, casters, ediciones, jornadas,
+ * notificaciones) con el admin que lo ejecutó. Complementa a
+ * draw_audit_log (criptográfico, solo sorteos). Sin hash chain:
+ * acá importa el quién/qué/cuándo, no la prueba de integridad.
+ */
+export const adminActionLog = pgTable("admin_action_log", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  action: varchar("action", { length: 60 }).notNull(),
+  entityType: varchar("entity_type", { length: 40 }).notNull(),
+  entityId: varchar("entity_id", { length: 64 }),
+  entityLabel: text("entity_label"),
+  actorAccountId: uuid("actor_account_id").notNull().references(() => account.id),
+  payload: jsonb("payload"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // ============================================================
 // COMODINES
 // ============================================================

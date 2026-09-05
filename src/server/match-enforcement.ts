@@ -3,18 +3,23 @@ import { getSupabaseServiceRole } from "@/lib/supabase/server";
 import { GRACE_MIN } from "@/lib/match-rules";
 
 /**
- * W.O. automático por ausencia en la ventana de READY.
+ * Ventana de decisión de W.O. ("ADMIN WIN").
  *
- * Reglas:
+ * Reglas (modelo 2026-09 — ya NO hay W.O. automático):
  * - El "ESTOY LISTO" se puede presionar desde READY_WINDOW_MIN antes del
  *   horario programado hasta GRACE_MIN después (tolerancia).
- * - Pasados GRACE_MIN del horario, el equipo que no confirmó pierde la llave
- *   (status="forfeit", winner = el rival). Si NINGUNO confirmó, W.O. doble:
- *   forfeit sin ganador y el admin decide después.
+ * - Pasados GRACE_MIN, la llave NO cierra sola: entra en la ventana de
+ *   decisión de W.O. (match sigue "scheduled", fase "wo" de computeReadyPhase).
+ *   El reloj sigue corriendo y hay dos salidas:
+ *     1) Un capitán confirma READY → avanza solo (confirmReadyAction aplica
+ *        forfeit con ganador y avisa a ambos capitanes).
+ *     2) El admin decide: asigna ganador (markForfeitAction) o reprograma
+ *        (scheduleMatchFormAction). El banner en /admin/partido/[id] lo
+ *        ofrece apenas entra en esta fase.
+ * - Si ambos confirman durante la ventana, la llave se habilita normal.
  *
- * Se ejecuta de dos formas:
- * - Lazy: al abrir/refresh la página del partido (enforceMatchIfDue).
- * - Cron: /api/cron/enforce-ready cada 5 min (enforceAllDue).
+ * Este módulo queda como chequeo lazy/cron que NO auto-resuelve; la
+ * resolución viva en confirmReadyAction y las acciones del admin.
  */
 
 export { READY_WINDOW_MIN, GRACE_MIN } from "@/lib/match-rules";
@@ -90,24 +95,10 @@ async function applyIfDue(
   const deadline = new Date(match.scheduled_at_start).getTime() + GRACE_MIN * 60_000;
   if (Date.now() <= deadline) return null;
 
-  const readyA = !!match.ready_a_at;
-  const readyB = !!match.ready_b_at;
-  const winnerTeamId = readyA && !readyB ? match.team_a_id : readyB && !readyA ? match.team_b_id : null;
-  const doubleAbsence = !readyA && !readyB;
-
-  const now = new Date().toISOString();
-  const { error } = await admin
-    .from("match")
-    .update({
-      status: "forfeit",
-      winner_team_id: winnerTeamId,
-      finished_at: now,
-      updated_at: now,
-    })
-    .eq("id", match.id)
-    .eq("status", "scheduled");
-  if (error) throw new Error(`DB error: ${error.message}`);
-
-  revalidateMatchPages(match.id);
-  return { matchId: match.id, winnerTeamId, doubleAbsence };
+  // Ya NO se auto-asigna ganador. La llave entra en la ventana de decisión de
+  // W.O. (fase "wo"): el reloj sigue corriendo, el primero en confirmar READY
+  // avanza, y el admin puede decidir en cualquier momento (detiene el reloj).
+  // La resolución la hacen confirmReadyAction (primero en confirmar) o
+  // markForfeitAction (decisión del admin). Nada que aplicar acá.
+  return null;
 }

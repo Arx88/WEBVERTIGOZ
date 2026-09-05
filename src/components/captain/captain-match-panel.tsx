@@ -434,8 +434,8 @@ export function CaptainMatchPanel({
             <div className="text-sm text-[var(--vertigo-muted)]">
               {readyPhase === "early"
                 ? "Confirmá tu asistencia cuando se abra la ventana."
-                : readyPhase === "expired"
-                ? "El tiempo para confirmar READY terminó."
+                : readyPhase === "wo"
+                ? "Ventana de decisión: confirmá para avanzar o el admin resuelve el W.O."
                 : "Confirmá tu asistencia para habilitar la llave."}
             </div>
             {!myReady && readyPhase === "early" && (
@@ -450,7 +450,7 @@ export function CaptainMatchPanel({
                 ESTOY LISTO
               </button>
             )}
-            {!myReady && (readyPhase === "open" || readyPhase === "grace") && (
+            {!myReady && (readyPhase === "open" || readyPhase === "grace" || readyPhase === "wo") && (
               <ConfirmReadyForm matchId={matchId} phase={readyPhase} />
             )}
           </div>
@@ -458,7 +458,7 @@ export function CaptainMatchPanel({
             <Timer style={{ width: 12, height: 12, flexShrink: 0 }} />
             <ReadyDeadlineTimer scheduledAtStart={scheduledAtStart} status={status} variant="chip" />
             <span className="text-[var(--vertigo-faint)]">
-              · Si no confirmás dentro de la ventana, tu equipo pierde por W.O.
+              · Si no confirmás dentro de la ventana, el admin puede darte por W.O.
             </span>
           </div>
         </>
